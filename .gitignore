@@ -1,0 +1,26 @@
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Docker Sandbox & Local Data
+sandbox/data/
+*.log
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.trx
+TestResults/
+
+# Node & Nx
+node_modules/
+dist/
+.nx/
+.angular/
+tmp/
+coverage/
