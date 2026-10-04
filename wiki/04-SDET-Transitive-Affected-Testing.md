@@ -59,3 +59,32 @@ To guarantee correctness and maximal caching:
    ```
    - **Untouched projects:** MSBuild prints `Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.`
    - **Modified projects:** Only touched C# sources are recompiled into their respective assemblies.
+
+---
+
+## 4. Modular Reusable Workflow Architecture (DAG)
+
+The CI pipeline is decomposed from a monolith script into discrete, reusable jobs and composite actions:
+
+```mermaid
+graph LR
+    Telemetry["1. Host Telemetry & Health"]
+    Build["2. Restore Cache & Build"]
+    Test["3. Affected Test Runner"]
+    CacheSave["4. Save Deep Cache"]
+    Summary["5. Performance Summary"]
+
+    Telemetry --> Build
+    Build --> Test
+    Build & Test --> CacheSave
+    Telemetry & Build & Test & CacheSave --> Summary
+```
+
+### Components Matrix:
+1. **Top-Level Orchestrator:** `.github/workflows/sdet-ci.yml` (Handles `push`, `pull_request`, and `workflow_dispatch` triggers).
+2. **Reusable Workflow:** `.github/workflows/reusable-sdet-pipeline.yml` (Defines inputs, typed outputs, and the 5-stage job DAG).
+3. **Composite Actions:**
+   - `.github/actions/setup-sdet-env/action.yml`: Standardized checkout and permissions.
+   - `.github/actions/minio-cache/action.yml`: S3 restore and save routines.
+   - `.github/actions/run-affected-tests/action.yml`: Affected graph test invocation.
+

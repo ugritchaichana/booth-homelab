@@ -7,101 +7,14 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  sdet-verification:
-    name: Verify on Proxmox Self-Hosted Runner
-    runs-on: [self-hosted, linux, proxmox]
-
-    steps:
-      - name: 1. Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 2. Host Telemetry & Hardware Sanity
-        run: |
-          echo "=========================================================="
-          echo "      PROXMOX VE SELF-HOSTED RUNNER TELEMETRY            "
-          echo "=========================================================="
-          echo "Hostname:    $(hostname)"
-          echo "Kernel:      $(uname -r)"
-          echo "CPU Cores:   $(nproc)"
-          echo "Memory:"
-          free -h
-          echo "Docker Info:"
-          docker --version
-          echo ".NET Version:"
-          dotnet --version
-          echo "MinIO Health:"
-          curl -s -I http://10.99.20.20:9000/minio/health/live | grep -E "HTTP/|Server" || true
-          echo "=========================================================="
-
-      - name: 3. Restore Deep Optimization Cache (MinIO S3)
-        id: cache-restore
-        run: |
-          chmod +x ./scripts/ci/cache-restore.sh ./scripts/ci/cache-save.sh ./scripts/sdet/dotnet-affected-test.sh
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          echo "Target Branch for Cache: $BRANCH_NAME"
-          ./scripts/ci/cache-restore.sh "$BRANCH_NAME"
-
-      - name: 4. Benchmark Solution Build (/p:Deterministic=true)
-        id: benchmark-build
-        run: |
-          echo "==> Building .NET 8 Backend Solution..."
-          BUILD_START=$(date +%s%N)
-          dotnet build sdet/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
-          BUILD_END=$(date +%s%N)
-          BUILD_MS=$(( (BUILD_END - BUILD_START) / 1000000 ))
-          echo "BUILD_DURATION_MS=$BUILD_MS" >> $GITHUB_ENV
-          echo "=========================================================="
-          echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
-          echo "=========================================================="
-
-      - name: 5. Execute Transitive Affected Test Graph Runner
-        id: affected-tests
-        run: |
-          TEST_START=$(date +%s%N)
-          if [ -n "${{ github.base_ref }}" ]; then
-            BASE_REF="origin/${{ github.base_ref }}"
-          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-            BASE_REF="HEAD~1"
-          else
-            BASE_REF="HEAD"
-          fi
-          echo "Running affected test graph against $BASE_REF -> HEAD"
-          ./scripts/sdet/dotnet-affected-test.sh "$BASE_REF" HEAD
-          TEST_END=$(date +%s%N)
-          TEST_MS=$(( (TEST_END - TEST_START) / 1000000 ))
-          echo "TEST_DURATION_MS=$TEST_MS" >> $GITHUB_ENV
-          echo "=========================================================="
-          echo " [BENCHMARK] Affected Test Runner Time: ${TEST_MS} ms"
-          echo "=========================================================="
-
-      - name: 6. Save Deep Optimization Cache (MinIO S3)
-        id: cache-save
-        if: always()
-        run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          COMMIT_SHA="${{ github.sha }}"
-          ./scripts/ci/cache-save.sh "$BRANCH_NAME" "$COMMIT_SHA"
-
-      - name: 7. Performance & Optimization Tuning Report
-        if: always()
-        run: |
-          echo "=========================================================="
-          echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
-          echo "=========================================================="
-          echo "Event:            ${{ github.event_name }}"
-          echo "Branch / Ref:     ${{ github.head_ref || github.ref_name }}"
-          echo "Cache Hit Status: ${CACHE_HIT:-unknown}"
-          echo "Build Duration:   ${BUILD_DURATION_MS:-N/A} ms"
-          echo "Test Duration:    ${TEST_DURATION_MS:-N/A} ms"
-          echo "=========================================================="
-
-      - name: 8. Archive Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdet-test-results
-          path: TestResults/
-          retention-days: 7
+  pipeline:
+    name: SDET Pipeline Execution
+    uses: ./.github/workflows/reusable-sdet-pipeline.yml
+    with:
+      target_branch: ${{ github.head_ref || github.ref_name }}
+      base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || 'HEAD~1') }}

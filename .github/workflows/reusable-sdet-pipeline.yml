@@ -1,0 +1,202 @@
+name: Reusable SDET Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      target_branch:
+        description: 'Target branch name for cache scoping'
+        required: false
+        type: string
+        default: 'master'
+      base_ref:
+        description: 'Base git reference for diff calculation'
+        required: false
+        type: string
+        default: 'origin/master'
+    outputs:
+      cache_hit:
+        description: 'Cache hit status'
+        value: ${{ jobs.build.outputs.cache_hit }}
+      build_duration_ms:
+        description: 'Build duration in ms'
+        value: ${{ jobs.build.outputs.build_duration_ms }}
+      test_duration_ms:
+        description: 'Test duration in ms'
+        value: ${{ jobs.test.outputs.test_duration_ms }}
+
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch name for cache scoping'
+        required: false
+        type: string
+        default: 'master'
+      base_ref:
+        description: 'Base git reference for diff calculation'
+        required: false
+        type: string
+        default: 'origin/master'
+
+jobs:
+  # ============================================================================
+  # Stage 1: Runner Telemetry & Hardware Sanity
+  # ============================================================================
+  telemetry:
+    name: 1. Host Telemetry & Health
+    runs-on: [self-hosted, linux, proxmox]
+    steps:
+      - name: Inspect Runner Telemetry
+        shell: bash
+        run: |
+          echo "=========================================================="
+          echo "      PROXMOX VE SELF-HOSTED RUNNER TELEMETRY            "
+          echo "=========================================================="
+          echo "Hostname:    $(hostname)"
+          echo "Kernel:      $(uname -r)"
+          echo "CPU Cores:   $(nproc)"
+          echo "Memory:"
+          free -h
+          echo "Docker Info:"
+          docker --version || true
+          echo ".NET SDK Version:"
+          dotnet --version || true
+          echo "MinIO Health Check:"
+          curl -s -I http://10.99.20.20:9000/minio/health/live | grep -E "HTTP/|Server" || true
+          echo "=========================================================="
+
+  # ============================================================================
+  # Stage 2: Cache Restore & Incremental Solution Build
+  # ============================================================================
+  build:
+    name: 2. Restore Cache & Build Solution
+    needs: [telemetry]
+    runs-on: [self-hosted, linux, proxmox]
+    outputs:
+      cache_hit: ${{ steps.restore-cache.outputs.cache_hit }}
+      build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
+    steps:
+      - name: Setup Workspace
+        uses: ./.github/actions/setup-sdet-env
+        with:
+          fetch-depth: 0
+
+      - name: Restore Remote MinIO Cache
+        id: restore-cache
+        uses: ./.github/actions/minio-cache
+        with:
+          mode: restore
+          branch: ${{ inputs.target_branch }}
+
+      - name: Compile Solution (/p:Deterministic=true)
+        id: compile
+        shell: bash
+        run: |
+          echo "==> Building .NET 8 Backend Solution..."
+          BUILD_START=$(date +%s%N)
+          dotnet build sdet/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
+          BUILD_END=$(date +%s%N)
+          BUILD_MS=$(( (BUILD_END - BUILD_START) / 1000000 ))
+          echo "build_duration_ms=${BUILD_MS}" >> "$GITHUB_OUTPUT"
+          echo "=========================================================="
+          echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
+          echo "=========================================================="
+
+  # ============================================================================
+  # Stage 3: Transitive Affected Test Graph Runner
+  # ============================================================================
+  test:
+    name: 3. Affected Test Graph Runner
+    needs: [build]
+    runs-on: [self-hosted, linux, proxmox]
+    outputs:
+      test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
+    steps:
+      - name: Setup Workspace (Preserve Binaries)
+        uses: ./.github/actions/setup-sdet-env
+        with:
+          fetch-depth: 0
+          clean: false
+
+      - name: Execute Transitive Affected Tests
+        id: run-tests
+        uses: ./.github/actions/run-affected-tests
+        with:
+          base_ref: ${{ inputs.base_ref }}
+          head_ref: HEAD
+
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdet-test-results
+          path: TestResults/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Stage 4: Cache Update & Upload to MinIO S3
+  # ============================================================================
+  cache-save:
+    name: 4. Save Deep Cache (MinIO S3)
+    needs: [build, test]
+    if: always() && needs.build.result == 'success'
+    runs-on: [self-hosted, linux, proxmox]
+    steps:
+      - name: Setup Workspace (Preserve Binaries)
+        uses: ./.github/actions/setup-sdet-env
+        with:
+          clean: false
+
+      - name: Save Remote MinIO Cache
+        uses: ./.github/actions/minio-cache
+        with:
+          mode: save
+          branch: ${{ inputs.target_branch }}
+          commit_sha: ${{ github.sha }}
+
+  # ============================================================================
+  # Stage 5: Performance Tuning Telemetry Summary
+  # ============================================================================
+  summary:
+    name: 5. Performance Telemetry Summary
+    needs: [telemetry, build, test, cache-save]
+    if: always()
+    runs-on: [self-hosted, linux, proxmox]
+    steps:
+      - name: Generate Pipeline Summary Report
+        shell: bash
+        run: |
+          CACHE_HIT="${{ needs.build.outputs.cache_hit }}"
+          BUILD_MS="${{ needs.build.outputs.build_duration_ms }}"
+          TEST_MS="${{ needs.test.outputs.test_duration_ms }}"
+
+          echo "=========================================================="
+          echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
+          echo "=========================================================="
+          echo "Branch / Ref:     ${{ inputs.target_branch }}"
+          echo "Base Ref:         ${{ inputs.base_ref }}"
+          echo "Cache Hit Status: ${CACHE_HIT:-false}"
+          echo "Build Duration:   ${BUILD_MS:-N/A} ms"
+          echo "Test Duration:    ${TEST_MS:-N/A} ms"
+          echo "=========================================================="
+
+          # Write GitHub Step Summary
+          {
+            echo "## 🚀 Homelab SDET Performance & Optimization Report"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| :--- | :--- |"
+            echo "| **Target Branch** | \`${{ inputs.target_branch }}\` |"
+            echo "| **Base Comparison Ref** | \`${{ inputs.base_ref }}\` |"
+            echo "| **Cache Hit Status** | \`${CACHE_HIT:-false}\` |"
+            echo "| **Build Duration** | **${BUILD_MS:-0} ms** |"
+            echo "| **Affected Test Duration** | **${TEST_MS:-0} ms** |"
+            echo "| **Proxmox Runner** | \`pve-runner-01\` (CT 102 Debian LXC) |"
+            echo "| **S3 Cache Server** | MinIO \`10.99.20.20:9000\` (CT 104) |"
+            echo ""
+            echo "### Stage Execution Graph"
+            echo "- ✅ **1. Host Telemetry & Health** (Proxmox host & network sanity)"
+            echo "- ✅ **2. Restore Cache & Build Solution** (Zstd restore & MSBuild sync)"
+            echo "- ✅ **3. Affected Test Graph Runner** (Transitive affected suites only)"
+            echo "- ✅ **4. Save Deep Cache** (Branch-scoped cache updated on MinIO)"
+          } >> "$GITHUB_STEP_SUMMARY"

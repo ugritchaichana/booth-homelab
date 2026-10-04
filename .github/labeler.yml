@@ -1,0 +1,31 @@
+area:billing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'sdet/backend/src/Billing.Api/**'
+          - 'sdet/backend/tests/Billing.Api.UnitTests/**'
+
+area:order:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'sdet/backend/src/Order.Api/**'
+          - 'sdet/backend/tests/Order.Api.UnitTests/**'
+
+area:sdet:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'sdet/**'
+          - 'scripts/sdet/**'
+
+ci/cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'scripts/ci/**'
+
+homelab:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'scripts/proxmox/**'
+          - 'scripts/hyperv/**'
+          - 'scripts/host-bootstrap/**'
+          - 'wiki/**'

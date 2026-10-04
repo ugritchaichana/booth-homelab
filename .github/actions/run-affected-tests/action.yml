@@ -1,0 +1,32 @@
+name: 'Transitive Affected Test Graph Runner'
+description: 'Computes changed files and executes only affected test suites'
+inputs:
+  base_ref:
+    description: 'Base git reference to diff against'
+    required: true
+  head_ref:
+    description: 'Head git reference'
+    required: false
+    default: 'HEAD'
+
+outputs:
+  test_duration_ms:
+    description: 'Execution duration in milliseconds'
+    value: ${{ steps.exec-tests.outputs.test_duration_ms }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Affected Tests
+      id: exec-tests
+      shell: bash
+      run: |
+        TEST_START=$(date +%s%N)
+        echo "==> Executing affected test graph against ${{ inputs.base_ref }} -> ${{ inputs.head_ref }}"
+        ./scripts/sdet/dotnet-affected-test.sh "${{ inputs.base_ref }}" "${{ inputs.head_ref }}"
+        TEST_END=$(date +%s%N)
+        TEST_MS=$(( (TEST_END - TEST_START) / 1000000 ))
+        echo "test_duration_ms=${TEST_MS}" >> "$GITHUB_OUTPUT"
+        echo "=========================================================="
+        echo " [BENCHMARK] Affected Test Runner Time: ${TEST_MS} ms"
+        echo "=========================================================="
