@@ -83,7 +83,8 @@ if [ -n "$CHANGED_SOURCES" ]; then
     done <<< "$CHANGED_SOURCES"
 fi
 
-TOTAL_RESTORE_MS=$(( (date +%s%N - START_TIME) / 1000000 ))
+NOW_END=$(date +%s%N)
+TOTAL_RESTORE_MS=$(( (NOW_END - START_TIME) / 1000000 ))
 echo "=========================================================="
 echo " [OK] Total Cache Restore Time: ${TOTAL_RESTORE_MS} ms"
 echo "=========================================================="
