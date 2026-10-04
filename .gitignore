@@ -8,6 +8,9 @@ Thumbs.db
 # Docker Sandbox & Local Data
 sandbox/data/
 *.log
+ISOs/
+*.iso
+*.tar.gz
 
 # .NET
 bin/
