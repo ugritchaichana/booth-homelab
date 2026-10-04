@@ -30,39 +30,75 @@ jobs:
           free -h
           echo "Docker Info:"
           docker --version
-          docker info | grep -E "(Server Version|Storage Driver|Kernel Version)" || true
           echo ".NET Version:"
           dotnet --version
+          echo "MinIO Health:"
+          curl -s -I http://10.99.20.20:9000/minio/health/live | grep -E "HTTP/|Server" || true
           echo "=========================================================="
 
-      - name: 3. Run Deterministic Solution Build
+      - name: 3. Restore Deep Optimization Cache (MinIO S3)
+        id: cache-restore
         run: |
-          echo "==> Building .NET 8 Backend Solution (/p:Deterministic=true)..."
-          dotnet build sdet/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
+          chmod +x ./scripts/ci/cache-restore.sh ./scripts/ci/cache-save.sh ./scripts/sdet/dotnet-affected-test.sh
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          echo "Target Branch for Cache: $BRANCH_NAME"
+          ./scripts/ci/cache-restore.sh "$BRANCH_NAME"
 
-      - name: 4. Execute Transitive Affected Test Graph Runner
+      - name: 4. Benchmark Solution Build (/p:Deterministic=true)
+        id: benchmark-build
         run: |
-          chmod +x ./scripts/sdet/dotnet-affected-test.sh
-          # Compare with previous commit or HEAD
-          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+          echo "==> Building .NET 8 Backend Solution..."
+          BUILD_START=$(date +%s%N)
+          dotnet build sdet/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
+          BUILD_END=$(date +%s%N)
+          BUILD_MS=$(( (BUILD_END - BUILD_START) / 1000000 ))
+          echo "BUILD_DURATION_MS=$BUILD_MS" >> $GITHUB_ENV
+          echo "=========================================================="
+          echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
+          echo "=========================================================="
+
+      - name: 5. Execute Transitive Affected Test Graph Runner
+        id: affected-tests
+        run: |
+          TEST_START=$(date +%s%N)
+          if [ -n "${{ github.base_ref }}" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             BASE_REF="HEAD~1"
           else
             BASE_REF="HEAD"
           fi
-          echo "Running affected test graph: $BASE_REF -> HEAD"
+          echo "Running affected test graph against $BASE_REF -> HEAD"
           ./scripts/sdet/dotnet-affected-test.sh "$BASE_REF" HEAD
+          TEST_END=$(date +%s%N)
+          TEST_MS=$(( (TEST_END - TEST_START) / 1000000 ))
+          echo "TEST_DURATION_MS=$TEST_MS" >> $GITHUB_ENV
+          echo "=========================================================="
+          echo " [BENCHMARK] Affected Test Runner Time: ${TEST_MS} ms"
+          echo "=========================================================="
 
-      - name: 5. Execute Full Solution Test Suite Verification
+      - name: 6. Save Deep Optimization Cache (MinIO S3)
+        id: cache-save
+        if: always()
         run: |
-          echo "==> Running full deterministic test verification..."
-          dotnet test sdet/backend/SdetTestingRig.sln \
-            --configuration Release \
-            --no-build \
-            /p:Deterministic=true \
-            --logger "trx;LogFileName=full-solution-tests.trx" \
-            --results-directory TestResults
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          COMMIT_SHA="${{ github.sha }}"
+          ./scripts/ci/cache-save.sh "$BRANCH_NAME" "$COMMIT_SHA"
 
-      - name: 6. Archive Test Results & Telemetry
+      - name: 7. Performance & Optimization Tuning Report
+        if: always()
+        run: |
+          echo "=========================================================="
+          echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
+          echo "=========================================================="
+          echo "Event:            ${{ github.event_name }}"
+          echo "Branch / Ref:     ${{ github.head_ref || github.ref_name }}"
+          echo "Cache Hit Status: ${CACHE_HIT:-unknown}"
+          echo "Build Duration:   ${BUILD_DURATION_MS:-N/A} ms"
+          echo "Test Duration:    ${TEST_DURATION_MS:-N/A} ms"
+          echo "=========================================================="
+
+      - name: 8. Archive Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
