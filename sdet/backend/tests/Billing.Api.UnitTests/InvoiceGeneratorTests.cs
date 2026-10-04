@@ -12,4 +12,11 @@ public class InvoiceGeneratorTests
         var invoice = generator.GenerateInvoiceNumber(42);
         Assert.Equal("INV-000042", invoice);
     }
+
+    [Fact]
+    public void CalculateTax_CalculatesCorrectly()
+    {
+        var generator = new InvoiceGenerator();
+        Assert.Equal(7.0m, generator.CalculateTax(100.0m, 0.07m));
+    }
 }
