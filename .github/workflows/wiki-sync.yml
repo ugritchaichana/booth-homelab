@@ -1,0 +1,28 @@
+name: Synchronize Wiki Knowledge Base
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'wiki/**'
+      - 'scripts/ci/sync_wiki.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    name: Sync Wiki to GitHub Wiki
+    runs-on: [self-hosted, linux, proxmox]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Synchronize Documentation Pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 scripts/ci/sync_wiki.py || true

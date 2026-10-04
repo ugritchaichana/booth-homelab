@@ -1,0 +1,22 @@
+name: PR Reviewer Guard
+
+on:
+  pull_request:
+    types: [opened, review_requested]
+  pull_request_target:
+    types: [opened, review_requested]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  strip-copilot-reviewer:
+    name: Strip Copilot Reviewer
+    runs-on: [self-hosted, linux, proxmox]
+    steps:
+      - name: Remove Copilot Pull Request Reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "[*] Ensuring copilot-pull-request-reviewer is removed from PR #${{ github.event.pull_request.number }}"
+          gh api --method DELETE repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers -f 'reviewers[]=copilot-pull-request-reviewer' || true
