@@ -37,3 +37,19 @@ Transferring 71.68 MiB across `vmbr1` took only **110 milliseconds** at **836.59
 
 ### 3. Impact of Affected Test Resolution
 In PR #1, `Order.Api.UnitTests` was skipped completely. In PR #2, `Billing.Api.UnitTests` was skipped completely. In a monorepo with 50+ microservices, this strategy keeps test duration bounded strictly to the blast radius of the commit rather than growing with total repository size.
+
+---
+
+## 4. Parallel Dual-Runner Architecture Benchmark (CT 102 + CT 103)
+
+| Component | Target Runner | Environment Specs | Cold Run Duration | Warm Cache Target |
+| :--- | :--- | :--- | :--- | :--- |
+| **Backend (.NET 8 Build & Cache)** | `pve-runner-01` (CT 102) | 3 vCPUs, 4GB RAM, Docker-in-LXC | **16 seconds** | ~3.6 - 4.1s |
+| **Backend (.NET Unit + Integration Tests)** | `pve-runner-01` (CT 102) | Debian 12, .NET 8.0.425 | **16 seconds** (6/6 tests pass) | ~1.7 - 2.1s (Affected) |
+| **Frontend (Angular Jest Suite)** | `pve-runner-angular` (CT 103) | 2 vCPUs, 1.5GB RAM, Node 20 LTS | **103s** (npm seed + upload) | **~4.2 seconds** (MinIO hit) |
+| **Cache Storage (MinIO S3)** | `minio-s3` (CT 104) | Debian 12, MinIO S3 Server | **28 MiB (npm)** / **73 MiB (.NET)** | **>800 MiB/s Virtual Bus** |
+
+### Concurrent Execution Timeline (Run [#37233575350](https://github.com/ugritchaichana/booth-homelab/actions/runs/37233575350))
+- **CT 102 & CT 103 Parallel Firing:** Stage 2 (.NET) and Stage 5 (Angular Jest) trigger simultaneously.
+- **Frontend Headless Efficiency:** Pure jsdom + Jest executes 4 test suites (19 test cases) in **4.229 s** without spawning Chromium browsers, maintaining an ultra-lean memory footprint on CT 103.
+- **Cache Seeding:** `node_modules.tar.zst` (28 MiB) is now populated in `minio/build-cache/npm/`, unlocking instant sub-second downloads for subsequent frontend runs.
