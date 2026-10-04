@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   strip-copilot-reviewer:
-    name: Strip Copilot Reviewer
+    name: Guard
     runs-on: [self-hosted, linux, proxmox]
     steps:
       - name: Remove Copilot Pull Request Reviewer

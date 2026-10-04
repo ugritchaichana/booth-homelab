@@ -45,7 +45,7 @@ jobs:
   # Stage 1: Host & Hardware Sanity Check
   # ============================================================================
   telemetry:
-    name: 1. Host Telemetry & Health
+    name: Telemetry
     runs-on: [self-hosted, linux, proxmox, dotnet]
     steps:
       - name: Inspect Runner Telemetry
@@ -71,7 +71,7 @@ jobs:
   # Stage 2: .NET Solution Build & Remote Cache Restore (CT 102)
   # ============================================================================
   dotnet-build:
-    name: 2. .NET Build & Cache Restore
+    name: Build (.NET)
     needs: [telemetry]
     runs-on: [self-hosted, linux, proxmox, dotnet]
     outputs:
@@ -112,7 +112,7 @@ jobs:
   # Stage 3: .NET Unit & Integration Tests (CT 102)
   # ============================================================================
   dotnet-test:
-    name: 3. .NET Unit & Integration Tests
+    name: Test (.NET)
     needs: [dotnet-build]
     runs-on: [self-hosted, linux, proxmox, dotnet]
     outputs:
@@ -148,7 +148,7 @@ jobs:
   # Stage 4: .NET Cache Update & Upload to MinIO S3 (CT 102)
   # ============================================================================
   dotnet-cache-save:
-    name: 4. Save .NET Cache (MinIO S3)
+    name: Cache (.NET)
     needs: [dotnet-build, dotnet-test]
     if: always() && needs.dotnet-build.result == 'success'
     runs-on: [self-hosted, linux, proxmox, dotnet]
@@ -173,7 +173,7 @@ jobs:
   # Stage 5: Angular Jest Unit Tests (CT 103 Dedicated Runner)
   # ============================================================================
   angular-jest:
-    name: 5. Angular Jest Unit Tests (CT 103)
+    name: Test (Angular)
     runs-on: [self-hosted, linux, proxmox, angular]
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
@@ -204,7 +204,7 @@ jobs:
   # Stage 6: Combined Performance & Quality Summary
   # ============================================================================
   summary:
-    name: 6. Combined Telemetry & Performance Report
+    name: Report
     needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]
     if: always()
     runs-on: [self-hosted, linux, proxmox, dotnet]

@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   pipeline:
-    name: SDET Pipeline Execution
+    name: CI
     uses: ./.github/workflows/reusable-sdet-pipeline.yml
     with:
       target_branch: ${{ github.head_ref || github.ref_name }}

@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   sync-wiki:
-    name: Sync Wiki to GitHub Wiki
+    name: Sync Wiki
     runs-on: [self-hosted, linux, proxmox]
     steps:
       - name: Checkout Repository

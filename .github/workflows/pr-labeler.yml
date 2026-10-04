@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   labeler:
-    name: Auto-Label Pull Request
+    name: Labeler
     runs-on: [self-hosted, linux, proxmox]
     steps:
       - name: Apply Area and SDET Labels

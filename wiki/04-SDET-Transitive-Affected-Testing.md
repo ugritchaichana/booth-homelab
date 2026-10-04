@@ -68,23 +68,24 @@ The CI pipeline is decomposed from a monolith script into discrete, reusable job
 
 ```mermaid
 graph LR
-    Telemetry["1. Host Telemetry & Health"]
-    Build["2. Restore Cache & Build"]
-    Test["3. Affected Test Runner"]
-    CacheSave["4. Save Deep Cache"]
-    Summary["5. Performance Summary"]
+    Telemetry["Telemetry"]
+    Build["Build (.NET)"]
+    TestDotnet["Test (.NET)"]
+    CacheDotnet["Cache (.NET)"]
+    TestAngular["Test (Angular)"]
+    Report["Report"]
 
     Telemetry --> Build
-    Build --> Test
-    Build & Test --> CacheSave
-    Telemetry & Build & Test & CacheSave --> Summary
+    Build --> TestDotnet
+    Build & TestDotnet --> CacheDotnet
+    Telemetry & Build & TestDotnet & CacheDotnet & TestAngular --> Report
 ```
 
 ### Components Matrix:
 1. **Top-Level Orchestrator:** `.github/workflows/sdet-ci.yml` (Handles `push`, `pull_request`, and `workflow_dispatch` triggers).
-2. **Reusable Workflow:** `.github/workflows/reusable-sdet-pipeline.yml` (Defines inputs, typed outputs, and the 5-stage job DAG).
+2. **Reusable Workflow:** `.github/workflows/reusable-sdet-pipeline.yml` (Defines inputs, typed outputs, and the parallel dual-runner DAG).
 3. **Composite Actions:**
-   - `.github/actions/setup-sdet-env/action.yml`: Standardized checkout and permissions.
    - `.github/actions/minio-cache/action.yml`: S3 restore and save routines.
-   - `.github/actions/run-affected-tests/action.yml`: Affected graph test invocation.
+   - `.github/actions/run-affected-tests/action.yml`: Affected graph test invocation for .NET.
+   - `.github/actions/run-angular-jest/action.yml`: Angular Jest test runner and MinIO cache sync.
 
