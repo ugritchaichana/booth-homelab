@@ -73,8 +73,8 @@ iface vmbr1 inet static
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **CT 100** | `net-gateway` | Alpine 3.23 Standard | `10.99.20.1` | 1 | 128 MB | 4 GB | Zero-Trust DMZ Gateway (nftables) |
 | **CT 101** | `shared-cache` | Alpine 3.23 Standard | `10.99.20.10` | 2 | 512 MB | 8 GB | BaGet NuGet & Verdaccio npm Cache |
-| **CT 102** | `gha-runner-01` | Debian 12 Standard | `10.99.20.101` | 3 | 4,096 MB | 20 GB | Self-Hosted GitHub Actions Runner |
-| **CT 103** | `gha-runner-02` | Debian 12 Standard | `10.99.20.102` | 3 | 4,096 MB | 20 GB | Standby / Ephemeral GHA Runner |
+| **CT 102** | `gha-runner-01` | Debian 12 Standard | `10.99.20.101` | 2 | 2,048 MB | 12 GB | .NET 8 Unit & Integration Test Runner (`[dotnet]`) |
+| **CT 103** | `gha-runner-angular` | Debian 12 Standard | `10.99.20.103` | 2 | 1,536 MB | 12 GB | Angular Jest Unit Test Runner (`[angular]`) |
 | **CT 104** | `minio-s3` | Alpine 3.23 Standard | `10.99.20.20` | 2 | 512 MB | 16 GB | Distributed S3 Cache (Build & Artifacts) |
 
 ---

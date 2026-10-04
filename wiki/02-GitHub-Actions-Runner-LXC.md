@@ -61,22 +61,35 @@ journalctl -u actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service 
     "self-hosted",
     "Linux",
     "X64",
-    "proxmox"
+    "proxmox",
+    "dotnet"
   ]
 }
 ```
 
 ---
 
-## 4. GitHub Actions Workflow Targeting
+## 4. Angular Jest Runner (CT 103 Debian LXC)
 
-In `.github/workflows/sdet-pipeline.yml`, jobs target this runner using the `proxmox` label:
+For frontend SDET unit testing, **CT 103 (`gha-runner-angular`)** is deployed as an isolated, dedicated runner:
+
+- **Hostname:** `gha-runner-angular` (`10.99.20.103/24` -> GW `10.99.20.1`)
+- **OS:** Debian 12 Bookworm LXC (`cores: 2`, `memory: 1536`, `swap: 512`)
+- **Runtimes:** Node.js v20 LTS, npm 10.x, MinIO Client (`mc`), zstd
+- **Labels:** `[self-hosted, Linux, X64, proxmox, angular]`
+
+---
+
+## 5. GitHub Actions Workflow Targeting Matrix
+
+Jobs target their respective isolated environments using specialized runner labels:
 
 ```yaml
-jobs:
-  sdet-verification:
-    name: Verify on Proxmox Self-Hosted Runner
-    runs-on: [self-hosted, linux, proxmox]
+# .NET 8 Backend Build & Tests -> Executed on CT 102
+runs-on: [self-hosted, linux, proxmox, dotnet]
+
+# Angular Jest Unit Tests -> Executed in parallel on CT 103
+runs-on: [self-hosted, linux, proxmox, angular]
 ```
 
-This guarantees that workflows execute locally inside Proxmox without consuming GitHub cloud runner minutes or leaving the local subnet.
+This dual-runner setup allows backend integration tests and frontend Jest unit tests to execute **concurrently** on dedicated Proxmox containers.

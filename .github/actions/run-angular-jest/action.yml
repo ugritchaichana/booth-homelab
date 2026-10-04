@@ -1,0 +1,21 @@
+name: 'Angular Jest Unit Test Runner'
+description: 'Restores npm cache and executes Angular Jest tests on Proxmox CT 103'
+
+outputs:
+  angular_duration_ms:
+    description: 'Execution duration in milliseconds'
+    value: ${{ steps.exec-angular.outputs.angular_duration_ms }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Angular Jest
+      id: exec-angular
+      shell: bash
+      run: |
+        chmod +x ./scripts/sdet/run-angular-jest.sh
+        START=$(date +%s%N)
+        ./scripts/sdet/run-angular-jest.sh
+        END=$(date +%s%N)
+        DURATION=$(( (END - START) / 1000000 ))
+        echo "angular_duration_ms=${DURATION}" >> "$GITHUB_OUTPUT"

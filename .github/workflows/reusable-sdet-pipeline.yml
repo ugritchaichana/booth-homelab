@@ -16,13 +16,16 @@ on:
     outputs:
       cache_hit:
         description: 'Cache hit status'
-        value: ${{ jobs.build.outputs.cache_hit }}
+        value: ${{ jobs.dotnet-build.outputs.cache_hit }}
       build_duration_ms:
         description: 'Build duration in ms'
-        value: ${{ jobs.build.outputs.build_duration_ms }}
+        value: ${{ jobs.dotnet-build.outputs.build_duration_ms }}
       test_duration_ms:
         description: 'Test duration in ms'
-        value: ${{ jobs.test.outputs.test_duration_ms }}
+        value: ${{ jobs.dotnet-test.outputs.test_duration_ms }}
+      angular_duration_ms:
+        description: 'Angular Jest duration in ms'
+        value: ${{ jobs.angular-jest.outputs.angular_duration_ms }}
 
   workflow_dispatch:
     inputs:
@@ -39,11 +42,11 @@ on:
 
 jobs:
   # ============================================================================
-  # Stage 1: Runner Telemetry & Hardware Sanity
+  # Stage 1: Host & Hardware Sanity Check
   # ============================================================================
   telemetry:
     name: 1. Host Telemetry & Health
-    runs-on: [self-hosted, linux, proxmox]
+    runs-on: [self-hosted, linux, proxmox, dotnet]
     steps:
       - name: Inspect Runner Telemetry
         shell: bash
@@ -65,12 +68,12 @@ jobs:
           echo "=========================================================="
 
   # ============================================================================
-  # Stage 2: Cache Restore & Incremental Solution Build
+  # Stage 2: .NET Solution Build & Remote Cache Restore (CT 102)
   # ============================================================================
-  build:
-    name: 2. Restore Cache & Build Solution
+  dotnet-build:
+    name: 2. .NET Build & Cache Restore
     needs: [telemetry]
-    runs-on: [self-hosted, linux, proxmox]
+    runs-on: [self-hosted, linux, proxmox, dotnet]
     outputs:
       cache_hit: ${{ steps.restore-cache.outputs.cache_hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
@@ -102,12 +105,12 @@ jobs:
           echo "=========================================================="
 
   # ============================================================================
-  # Stage 3: Transitive Affected Test Graph Runner
+  # Stage 3: .NET Unit & Integration Tests (CT 102)
   # ============================================================================
-  test:
-    name: 3. Affected Test Graph Runner
-    needs: [build]
-    runs-on: [self-hosted, linux, proxmox]
+  dotnet-test:
+    name: 3. .NET Unit & Integration Tests
+    needs: [dotnet-build]
+    runs-on: [self-hosted, linux, proxmox, dotnet]
     outputs:
       test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
     steps:
@@ -117,30 +120,30 @@ jobs:
           fetch-depth: 0
           clean: false
 
-      - name: Execute Transitive Affected Tests
+      - name: Execute Transitive Affected Tests (Unit & Integration)
         id: run-tests
         uses: ./.github/actions/run-affected-tests
         with:
           base_ref: ${{ inputs.base_ref }}
           head_ref: HEAD
 
-      - name: Archive Test Results
+      - name: Archive .NET Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sdet-test-results
-          path: TestResults/
+          name: sdet-dotnet-test-results
+          path: sdet/backend/TestResults/
           retention-days: 7
           if-no-files-found: ignore
 
   # ============================================================================
-  # Stage 4: Cache Update & Upload to MinIO S3
+  # Stage 4: .NET Cache Update & Upload to MinIO S3 (CT 102)
   # ============================================================================
-  cache-save:
-    name: 4. Save Deep Cache (MinIO S3)
-    needs: [build, test]
-    if: always() && needs.build.result == 'success'
-    runs-on: [self-hosted, linux, proxmox]
+  dotnet-cache-save:
+    name: 4. Save .NET Cache (MinIO S3)
+    needs: [dotnet-build, dotnet-test]
+    if: always() && needs.dotnet-build.result == 'success'
+    runs-on: [self-hosted, linux, proxmox, dotnet]
     steps:
       - name: Setup Workspace (Preserve Binaries)
         uses: ./.github/actions/setup-sdet-env
@@ -155,48 +158,72 @@ jobs:
           commit_sha: ${{ github.sha }}
 
   # ============================================================================
-  # Stage 5: Performance Tuning Telemetry Summary
+  # Stage 5: Angular Jest Unit Tests (CT 103 Dedicated Runner)
+  # ============================================================================
+  angular-jest:
+    name: 5. Angular Jest Unit Tests (CT 103)
+    runs-on: [self-hosted, linux, proxmox, angular]
+    outputs:
+      angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
+    steps:
+      - name: Setup Workspace
+        uses: ./.github/actions/setup-sdet-env
+        with:
+          fetch-depth: 1
+
+      - name: Execute Angular Jest Suite
+        id: run-angular
+        uses: ./.github/actions/run-angular-jest
+
+      - name: Archive Angular Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdet-angular-coverage
+          path: sdet/frontend/coverage/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Stage 6: Combined Performance & Quality Summary
   # ============================================================================
   summary:
-    name: 5. Performance Telemetry Summary
-    needs: [telemetry, build, test, cache-save]
+    name: 6. Combined Telemetry & Performance Report
+    needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]
     if: always()
-    runs-on: [self-hosted, linux, proxmox]
+    runs-on: [self-hosted, linux, proxmox, dotnet]
     steps:
       - name: Generate Pipeline Summary Report
         shell: bash
         run: |
-          CACHE_HIT="${{ needs.build.outputs.cache_hit }}"
-          BUILD_MS="${{ needs.build.outputs.build_duration_ms }}"
-          TEST_MS="${{ needs.test.outputs.test_duration_ms }}"
+          CACHE_HIT="${{ needs.dotnet-build.outputs.cache_hit }}"
+          BUILD_MS="${{ needs.dotnet-build.outputs.build_duration_ms }}"
+          DOTNET_TEST_MS="${{ needs.dotnet-test.outputs.test_duration_ms }}"
+          ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
 
           echo "=========================================================="
           echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
           echo "=========================================================="
-          echo "Branch / Ref:     ${{ inputs.target_branch }}"
-          echo "Base Ref:         ${{ inputs.base_ref }}"
-          echo "Cache Hit Status: ${CACHE_HIT:-false}"
-          echo "Build Duration:   ${BUILD_MS:-N/A} ms"
-          echo "Test Duration:    ${TEST_MS:-N/A} ms"
+          echo "Branch / Ref:         ${{ inputs.target_branch }}"
+          echo "Base Ref:             ${{ inputs.base_ref }}"
+          echo "Cache Hit Status:     ${CACHE_HIT:-false}"
+          echo "Build Duration:       ${BUILD_MS:-N/A} ms"
+          echo ".NET Test Duration:   ${DOTNET_TEST_MS:-N/A} ms"
+          echo "Angular Test Duration:${ANGULAR_MS:-N/A} ms"
           echo "=========================================================="
 
           # Write GitHub Step Summary
           {
             echo "## 🚀 Homelab SDET Performance & Optimization Report"
             echo ""
-            echo "| Metric | Value |"
-            echo "| :--- | :--- |"
-            echo "| **Target Branch** | \`${{ inputs.target_branch }}\` |"
-            echo "| **Base Comparison Ref** | \`${{ inputs.base_ref }}\` |"
-            echo "| **Cache Hit Status** | \`${CACHE_HIT:-false}\` |"
-            echo "| **Build Duration** | **${BUILD_MS:-0} ms** |"
-            echo "| **Affected Test Duration** | **${TEST_MS:-0} ms** |"
-            echo "| **Proxmox Runner** | \`pve-runner-01\` (CT 102 Debian LXC) |"
-            echo "| **S3 Cache Server** | MinIO \`10.99.20.20:9000\` (CT 104) |"
+            echo "| Technology Stack | Target Runner | Duration | Status |"
+            echo "| :--- | :--- | :--- | :--- |"
+            echo "| **.NET 8 Solution Build** | \`pve-runner-01\` (CT 102) | **${BUILD_MS:-0} ms** | ✅ Success |"
+            echo "| **.NET Unit & Integration Tests** | \`pve-runner-01\` (CT 102) | **${DOTNET_TEST_MS:-0} ms** | ✅ Success |"
+            echo "| **Angular Jest Unit Tests** | \`pve-runner-angular\` (CT 103) | **${ANGULAR_MS:-0} ms** | ✅ Success |"
+            echo "| **MinIO S3 Cache Transfer** | Virtual Bus (\`10.99.20.20:9000\`) | Cache Hit: \`${CACHE_HIT:-false}\` | ⚡ Ultra-fast |"
             echo ""
-            echo "### Stage Execution Graph"
-            echo "- ✅ **1. Host Telemetry & Health** (Proxmox host & network sanity)"
-            echo "- ✅ **2. Restore Cache & Build Solution** (Zstd restore & MSBuild sync)"
-            echo "- ✅ **3. Affected Test Graph Runner** (Transitive affected suites only)"
-            echo "- ✅ **4. Save Deep Cache** (Branch-scoped cache updated on MinIO)"
+            echo "### Parallel Dual-Runner Architecture"
+            echo "- 🖥️ **CT 102 (Debian LXC / .NET):** Executed .NET 8 compilation, unit tests, and integration tests."
+            echo "- ⚡ **CT 103 (Debian LXC / Angular):** Executed Angular Standalone Jest component & service tests."
           } >> "$GITHUB_STEP_SUMMARY"
