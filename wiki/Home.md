@@ -29,21 +29,25 @@ graph TD
     subgraph Proxmox ["Proxmox Internal Network (vmbr1: 10.99.20.0/24)"]
         CT100["CT 100: Net Gateway (nftables / Zero-Trust)"]
         CT101["CT 101: Shared Cache (BaGet & Verdaccio)"]
-        CT102["CT 102: GHA Runner (Debian 12 + Docker)"]
+        CT102["CT 102: GHA Runner .NET (Debian 12 + Docker)"]
+        CT103["CT 103: GHA Runner Angular (Debian 12 + Jest jsdom)"]
         CT104["CT 104: MinIO S3 (Alpine Linux 3.23)"]
     end
 
     HV -->|vmbr0 WAN| PVE
     PVE -->|vmbr1 DMZ| CT102
+    PVE -->|vmbr1 DMZ| CT103
     PVE -->|vmbr1 DMZ| CT104
-    CT102 <-->|Virtual Bus @ 836+ MiB/s| CT104
+    CT102 <-->|Virtual Bus @ 800+ MiB/s| CT104
+    CT103 <-->|Virtual Bus @ 800+ MiB/s| CT104
 ```
 
 ### Key Performance Metrics
-- **Virtual Bus Cache Throughput:** **836.59 MiB/s** across `vmbr1` internal bridge.
-- **Remote Cache Download Time:** **110 ms** for 71.68 MiB Zstd payload.
+- **Virtual Bus Cache Throughput:** **>800 MiB/s** across `vmbr1` internal bridge.
+- **Remote Cache Download Time:** **<1s** for both .NET and npm Zstd payloads.
+- **Angular Jest Execution:** **4.09s** (19 specs across 4 suites) with 84% job duration reduction.
 - **Affected Test Reduction:** 100% skip rate on unaffected test suites.
-- **Pipeline Turnaround:** **23–24 seconds** total end-to-end PR validation.
+- **Dual-Runner Parallel Execution:** Both .NET and Angular suites execute concurrently.
 
 ---
 

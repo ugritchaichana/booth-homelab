@@ -212,6 +212,46 @@ tofu destroy -auto-approve
   ```
 - ส่งผลลัพธ์ `.trx` และ Coverage ขึ้นเก็บที่ `s3://sdet-test-artifacts/backend/{run_id}/`
 
+### 5.3 การบริหารจัดการ Persistent Runner Fleet (CT 102, CT 103, CT 104)
+
+สำหรับโหมดการใช้งานแบบ Dedicated Runners บน Proxmox VE:
+
+```bash
+# 1. ตรวจสอบสถานะ Containers ทั้งหมดบน Proxmox Host
+pct list
+
+# 2. ควบคุม Runner Daemon (systemd)
+# CT 102 (.NET Runner):
+pct exec 102 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
+pct exec 102 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
+
+# CT 103 (Angular Jest Runner):
+pct exec 103 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service
+pct exec 103 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service
+
+# 3. ตรวจสอบและบริหารจัดการ MinIO Cache (CT 104)
+# ดูรายการแคชทั้งหมด:
+pct exec 102 -- mc ls minio/build-cache/branches/master/
+pct exec 102 -- mc ls minio/build-cache/npm/
+
+# ล้างแคชเมื่อต้องการ Cold Build ทดสอบ:
+pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
+pct exec 102 -- mc rm --recursive --force minio/build-cache/branches/master/
+```
+
+### 5.4 การรันและตรวจสอบผล Pipeline ผ่าน GitHub CLI
+```bash
+# รัน Pipeline แบบ Manual (Workflow Dispatch):
+gh workflow run sdet-ci.yml --repo ugritchaichana/booth-homelab
+
+# ตรวจสอบสถานะการรันล่าสุด:
+gh run list --repo ugritchaichana/booth-homelab -L 3
+gh run view <run_id> --repo ugritchaichana/booth-homelab
+
+# ดู Log เฉพาะ Job:
+gh run view <run_id> --job=<job_id> --log --repo ugritchaichana/booth-homelab
+```
+
 ---
 
 ## 6. Phase 5: Zero-Trace Decommissioning & Storage Archival
