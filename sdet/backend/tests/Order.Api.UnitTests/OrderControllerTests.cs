@@ -13,4 +13,12 @@ public class OrderControllerTests
         Assert.Equal(107m, total.Amount);
         Assert.Equal("USD", total.Currency);
     }
+
+    [Fact]
+    public void CheckoutWithVoucher_AppliesDiscountBeforeTax()
+    {
+        var controller = new OrderController();
+        var total = controller.CheckoutWithVoucher(100m, 10m);
+        Assert.Equal(96.3m, total.Amount);
+    }
 }
