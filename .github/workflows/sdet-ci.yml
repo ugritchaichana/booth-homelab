@@ -1,0 +1,71 @@
+name: SDET Homelab CI Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  sdet-verification:
+    name: Verify on Proxmox Self-Hosted Runner
+    runs-on: [self-hosted, linux, proxmox]
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 2. Host Telemetry & Hardware Sanity
+        run: |
+          echo "=========================================================="
+          echo "      PROXMOX VE SELF-HOSTED RUNNER TELEMETRY            "
+          echo "=========================================================="
+          echo "Hostname:    $(hostname)"
+          echo "Kernel:      $(uname -r)"
+          echo "CPU Cores:   $(nproc)"
+          echo "Memory:"
+          free -h
+          echo "Docker Info:"
+          docker --version
+          docker info | grep -E "(Server Version|Storage Driver|Kernel Version)" || true
+          echo ".NET Version:"
+          dotnet --version
+          echo "=========================================================="
+
+      - name: 3. Run Deterministic Solution Build
+        run: |
+          echo "==> Building .NET 8 Backend Solution (/p:Deterministic=true)..."
+          dotnet build sdet/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
+
+      - name: 4. Execute Transitive Affected Test Graph Runner
+        run: |
+          chmod +x ./scripts/sdet/dotnet-affected-test.sh
+          # Compare with previous commit or HEAD
+          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            BASE_REF="HEAD~1"
+          else
+            BASE_REF="HEAD"
+          fi
+          echo "Running affected test graph: $BASE_REF -> HEAD"
+          ./scripts/sdet/dotnet-affected-test.sh "$BASE_REF" HEAD
+
+      - name: 5. Execute Full Solution Test Suite Verification
+        run: |
+          echo "==> Running full deterministic test verification..."
+          dotnet test sdet/backend/SdetTestingRig.sln \
+            --configuration Release \
+            --no-build \
+            /p:Deterministic=true \
+            --logger "trx;LogFileName=full-solution-tests.trx" \
+            --results-directory TestResults
+
+      - name: 6. Archive Test Results & Telemetry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdet-test-results
+          path: TestResults/
+          retention-days: 7
