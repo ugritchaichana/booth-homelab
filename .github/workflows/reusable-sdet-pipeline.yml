@@ -78,10 +78,14 @@ jobs:
       cache_hit: ${{ steps.restore-cache.outputs.cache_hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
     steps:
-      - name: Setup Workspace
-        uses: ./.github/actions/setup-sdet-env
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Ensure Executable Permissions
+        shell: bash
+        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
 
       - name: Restore Remote MinIO Cache
         id: restore-cache
@@ -114,11 +118,15 @@ jobs:
     outputs:
       test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
     steps:
-      - name: Setup Workspace (Preserve Binaries)
-        uses: ./.github/actions/setup-sdet-env
+      - name: Checkout Repository (Preserve Binaries)
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           clean: false
+
+      - name: Ensure Executable Permissions
+        shell: bash
+        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
 
       - name: Execute Transitive Affected Tests (Unit & Integration)
         id: run-tests
@@ -145,10 +153,14 @@ jobs:
     if: always() && needs.dotnet-build.result == 'success'
     runs-on: [self-hosted, linux, proxmox, dotnet]
     steps:
-      - name: Setup Workspace (Preserve Binaries)
-        uses: ./.github/actions/setup-sdet-env
+      - name: Checkout Repository (Preserve Binaries)
+        uses: actions/checkout@v4
         with:
           clean: false
+
+      - name: Ensure Executable Permissions
+        shell: bash
+        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
 
       - name: Save Remote MinIO Cache
         uses: ./.github/actions/minio-cache
@@ -166,10 +178,14 @@ jobs:
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
     steps:
-      - name: Setup Workspace
-        uses: ./.github/actions/setup-sdet-env
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Ensure Executable Permissions
+        shell: bash
+        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
 
       - name: Execute Angular Jest Suite
         id: run-angular
@@ -218,12 +234,17 @@ jobs:
             echo ""
             echo "| Technology Stack | Target Runner | Duration | Status |"
             echo "| :--- | :--- | :--- | :--- |"
-            echo "| **.NET 8 Solution Build** | \`pve-runner-01\` (CT 102) | **${BUILD_MS:-0} ms** | ✅ Success |"
-            echo "| **.NET Unit & Integration Tests** | \`pve-runner-01\` (CT 102) | **${DOTNET_TEST_MS:-0} ms** | ✅ Success |"
-            echo "| **Angular Jest Unit Tests** | \`pve-runner-angular\` (CT 103) | **${ANGULAR_MS:-0} ms** | ✅ Success |"
+            echo "| **.NET 8 Solution Build** | \`pve-runner-01\` (CT 102) | **${BUILD_MS:-0} ms** | ${{ needs.dotnet-build.result == 'success' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **.NET Unit & Integration Tests** | \`pve-runner-01\` (CT 102) | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet-test.result == 'success' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **Angular Jest Unit Tests** | \`pve-runner-angular\` (CT 103) | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
             echo "| **MinIO S3 Cache Transfer** | Virtual Bus (\`10.99.20.20:9000\`) | Cache Hit: \`${CACHE_HIT:-false}\` | ⚡ Ultra-fast |"
             echo ""
             echo "### Parallel Dual-Runner Architecture"
             echo "- 🖥️ **CT 102 (Debian LXC / .NET):** Executed .NET 8 compilation, unit tests, and integration tests."
             echo "- ⚡ **CT 103 (Debian LXC / Angular):** Executed Angular Standalone Jest component & service tests."
           } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ needs.dotnet-build.result }}" != "success" ] || [ "${{ needs.dotnet-test.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then
+            echo "::error::One or more pipeline stages failed!"
+            exit 1
+          fi

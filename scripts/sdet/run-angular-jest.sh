@@ -16,12 +16,14 @@ cd "$ROOT_DIR"
 
 START_TIME=$(date +%s%N)
 
+MC_BIN="$(command -v mc || echo '/usr/bin/mc')"
+
 # 1. Restore node_modules from MinIO cache if available
 if [ ! -d "node_modules" ]; then
     echo "==> node_modules missing. Checking MinIO S3 remote cache..."
-    if /usr/bin/mc stat "$NPM_CACHE_TARGET" >/dev/null 2>&1; then
+    if $MC_BIN stat "$NPM_CACHE_TARGET" >/dev/null 2>&1; then
         echo "[CACHE HIT] Found node_modules cache on MinIO. Downloading..."
-        /usr/bin/mc cp "$NPM_CACHE_TARGET" /tmp/node_modules.tar.zst
+        $MC_BIN cp "$NPM_CACHE_TARGET" /tmp/node_modules.tar.zst
         tar -I "zstd -d -T0" -xf /tmp/node_modules.tar.zst -C "$ROOT_DIR"
         rm -f /tmp/node_modules.tar.zst
         echo "[OK] Restored node_modules from MinIO virtual bus."
@@ -30,14 +32,14 @@ if [ ! -d "node_modules" ]; then
         npm install --prefer-offline --no-audit --no-fund
         echo "==> Archiving node_modules to MinIO..."
         tar -I "zstd -T0 -3" -cf /tmp/node_modules.tar.zst node_modules
-        /usr/bin/mc cp /tmp/node_modules.tar.zst "$NPM_CACHE_TARGET" || true
+        $MC_BIN cp /tmp/node_modules.tar.zst "$NPM_CACHE_TARGET" || true
         rm -f /tmp/node_modules.tar.zst
     fi
 fi
 
 # 2. Execute Jest Tests
 echo "==> Running Jest Unit Tests for Angular..."
-npx jest --ci --colors --coverage --testResultsProcessor="jest-junit" || npx jest --ci --colors --coverage
+npx jest --ci --colors --coverage
 
 END_TIME=$(date +%s%N)
 DURATION_MS=$(( (END_TIME - START_TIME) / 1000000 ))
