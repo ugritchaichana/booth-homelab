@@ -12,6 +12,10 @@ import time
 import subprocess
 import paramiko
 
+# Ensure UTF-8 output on Windows console
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 PVE_HOST = "100.121.209.85"
 PVE_USER = "root"
 PVE_PASS = "12345678"
@@ -34,22 +38,40 @@ def get_runner_registration_token():
     print(f"[+] Registration token obtained: {token[:6]}******")
     return token
 
+def get_latest_runner_version():
+    res = subprocess.run(
+        ["gh", "api", "repos/actions/runner/releases/latest", "--jq", ".tag_name"],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    ver = res.stdout.strip().lstrip("v")
+    print(f"[+] Latest GitHub Actions Runner release: v{ver}")
+    return ver
+
 def exec_ssh(ssh, cmd, timeout=300):
     print(f"\n[PVE EXEC] {cmd}")
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
-    out = stdout.read().decode().strip()
-    err = stderr.read().decode().strip()
+    out = stdout.read().decode('utf-8', errors='replace').strip()
+    err = stderr.read().decode('utf-8', errors='replace').strip()
     code = stdout.channel.recv_exit_status()
     if out:
-        print(f"[STDOUT]\n{out}")
+        try:
+            print(f"[STDOUT]\n{out}")
+        except UnicodeEncodeError:
+            print(f"[STDOUT]\n{out.encode('ascii', errors='replace').decode()}")
     if err and code != 0:
-        print(f"[STDERR]\n{err}")
+        try:
+            print(f"[STDERR]\n{err}")
+        except UnicodeEncodeError:
+            print(f"[STDERR]\n{err.encode('ascii', errors='replace').decode()}")
     if code != 0:
         raise RuntimeError(f"Command failed (code {code}): {cmd}")
     return out
 
 def main():
     token = get_runner_registration_token()
+    runner_ver = get_latest_runner_version()
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -58,61 +80,52 @@ def main():
 
     # 1. Check if CT 102 exists
     check_ct = exec_ssh(ssh, f"pct status {CT_ID} 2>/dev/null || true")
-    if "status:" in check_ct:
-        print(f"[*] CT {CT_ID} already exists. Stopping and destroying for clean recreation...")
-        exec_ssh(ssh, f"pct stop {CT_ID} 2>/dev/null || true")
-        time.sleep(2)
-        exec_ssh(ssh, f"pct destroy {CT_ID} -force 1 -purge 1")
+    if "status: running" not in check_ct:
+        if "status:" in check_ct:
+            exec_ssh(ssh, f"pct start {CT_ID}")
+        else:
+            print(f"\n[*] Creating LXC Container {CT_ID} ({CT_NAME})...")
+            create_cmd = (
+                f"pct create {CT_ID} {TEMPLATE} "
+                f"--hostname {CT_NAME} "
+                f"--cores 2 "
+                f"--memory 2048 "
+                f"--swap 512 "
+                f"--rootfs local-lvm:12 "
+                f"--ostype debian "
+                f"--unprivileged 0 "
+                f"--features nesting=1,keyctl=1 "
+                f"--net0 name=eth0,bridge=vmbr1,ip=10.99.20.101/24,gw=10.99.20.1 "
+                f"--nameserver '1.1.1.1 8.8.8.8' "
+                f"--start 1"
+            )
+            exec_ssh(ssh, create_cmd)
+            time.sleep(5)
+            exec_ssh(ssh, f"pct exec {CT_ID} -- ping -c 3 1.1.1.1")
 
-    # 2. Create CT 102
-    print(f"\n[*] Creating LXC Container {CT_ID} ({CT_NAME})...")
-    create_cmd = (
-        f"pct create {CT_ID} {TEMPLATE} "
-        f"--hostname {CT_NAME} "
-        f"--cores 2 "
-        f"--memory 2048 "
-        f"--swap 512 "
-        f"--rootfs local-lvm:12 "
-        f"--ostype debian "
-        f"--unprivileged 0 "
-        f"--features nesting=1,keyctl=1 "
-        f"--net0 name=eth0,bridge=vmbr1,ip=10.99.20.101/24,gw=10.99.20.1 "
-        f"--nameserver '1.1.1.1 8.8.8.8' "
-        f"--start 1"
-    )
-    exec_ssh(ssh, create_cmd)
-    print(f"[+] CT {CT_ID} created and started.")
-
-    # 3. Wait for CT network ready
-    print("[*] Waiting for container network initialization...")
-    time.sleep(5)
-    exec_ssh(ssh, f"pct exec {CT_ID} -- ping -c 3 1.1.1.1")
-    print("[+] Container internet connectivity verified.")
-
-    # 4. Install Prerequisites, Docker, and .NET 8 SDK
-    print("[*] Installing Prerequisites (curl, git, jq, docker, dotnet)...")
-    setup_script = """#!/bin/bash
+    # 2. Update / Install Runner v{runner_ver} inside CT
+    print(f"\n[*] Ensuring Runner v{runner_ver} and dependencies inside CT {CT_ID}...")
+    setup_script = f"""#!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get update -y
-apt-get install -y --no-install-recommends \
-    ca-certificates curl gnupg lsb-release git jq sudo build-essential \
-    docker.io wget libicu-dev
+# Check if docker and dotnet are present
+if ! command -v docker &>/dev/null || ! command -v dotnet &>/dev/null; then
+    apt-get update -y
+    apt-get install -y --no-install-recommends \\
+        ca-certificates curl gnupg lsb-release git jq sudo build-essential \\
+        docker.io wget libicu-dev
 
-# Install .NET 8 SDK via official Microsoft installer
-echo "Installing .NET 8.0 SDK..."
-wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
-chmod +x /tmp/dotnet-install.sh
-/tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet
-ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
-ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
+    wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
+    chmod +x /tmp/dotnet-install.sh
+    /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet
+    ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
+    ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
 
-systemctl enable --now docker
-docker --version
-dotnet --version
+    systemctl enable --now docker
+fi
 
-# Setup runner user
+# Ensure runner user
 if ! id "runner" &>/dev/null; then
     useradd -m -s /bin/bash runner
     usermod -aG docker,sudo runner
@@ -124,22 +137,25 @@ RUNNER_DIR="/home/runner/actions-runner"
 mkdir -p "$RUNNER_DIR"
 cd "$RUNNER_DIR"
 
-# Download latest GitHub Actions Runner
-RUNNER_VERSION="2.322.0"
 RUNNER_ARCH="x64"
-RUNNER_TAR="actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz"
+RUNNER_TAR="actions-runner-linux-${{RUNNER_ARCH}}-{runner_ver}.tar.gz"
 
-if [ ! -f "config.sh" ]; then
-    echo "Downloading GitHub Actions runner v${RUNNER_VERSION}..."
-    curl -o "$RUNNER_TAR" -L "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${RUNNER_TAR}"
+# Check if target runner version already extracted
+if [ ! -f "version_{runner_ver}.ok" ]; then
+    echo "Downloading and extracting Runner v{runner_ver}..."
+    # Stop any existing service
+    ./svc.sh stop 2>/dev/null || true
+    ./svc.sh uninstall 2>/dev/null || true
+    rm -rf *
+    curl -o "$RUNNER_TAR" -L "https://github.com/actions/runner/releases/download/v{runner_ver}/${{RUNNER_TAR}}"
     tar xzf "./$RUNNER_TAR"
     rm -f "./$RUNNER_TAR"
     ./bin/installdependencies.sh
+    touch "version_{runner_ver}.ok"
 fi
 
 chown -R runner:runner /home/runner
 """
-    # Write setup script inside CT
     sftp = ssh.open_sftp()
     with sftp.open("/tmp/setup-runner.sh", "w") as f:
         f.write(setup_script)
@@ -148,10 +164,10 @@ chown -R runner:runner /home/runner
     exec_ssh(ssh, "chmod +x /tmp/setup-runner.sh")
     exec_ssh(ssh, f"pct push {CT_ID} /tmp/setup-runner.sh /root/setup-runner.sh")
     exec_ssh(ssh, f"pct exec {CT_ID} -- /bin/bash /root/setup-runner.sh", timeout=600)
-    print("[+] Base dependencies, Docker, and .NET 8 SDK installed successfully.")
+    print(f"[+] Runner v{runner_ver} binary verified in CT {CT_ID}.")
 
-    # 5. Configure and Register Runner
-    print(f"[*] Registering Runner with GitHub ({GITHUB_REPO})...")
+    # 3. Configure and Register Runner
+    print(f"\n[*] Registering Runner with GitHub ({GITHUB_REPO})...")
     config_cmd = (
         f"pct exec {CT_ID} -- su - runner -c '"
         f"cd /home/runner/actions-runner && "
@@ -165,14 +181,14 @@ chown -R runner:runner /home/runner
     exec_ssh(ssh, config_cmd)
     print("[+] Runner registered with GitHub Actions!")
 
-    # 6. Install and Start Runner Systemd Service
-    print("[*] Installing Runner as a Systemd service...")
+    # 4. Install and Start Runner Systemd Service
+    print("\n[*] Installing Runner as a Systemd service...")
     exec_ssh(ssh, f"pct exec {CT_ID} -- /bin/bash -c 'cd /home/runner/actions-runner && ./svc.sh install runner && ./svc.sh start'")
     print("[+] Runner systemd service started successfully!")
 
-    # 7. Check Runner Status
+    # 5. Check Runner Service Status
     status = exec_ssh(ssh, f"pct exec {CT_ID} -- /bin/bash -c 'cd /home/runner/actions-runner && ./svc.sh status'")
-    print(f"[+] Service status:\n{status}")
+    print(f"\n[+] Service status:\n{status}")
 
     ssh.close()
     print("\n" + "=" * 60)
