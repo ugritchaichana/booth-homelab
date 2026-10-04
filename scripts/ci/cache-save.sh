@@ -31,8 +31,8 @@ done < <(find "$ROOT_DIR/sdet/backend" -type d \( -name "bin" -o -name "obj" \))
 
 echo "==> Packing ${#CACHE_PATHS[@]} targets into zstd compressed stream..."
 
-# Tar + zstd -T0 -3 with timestamp preservation
-tar --preserve-order -I "zstd -T0 -3" -cf "$TARGET_ARCHIVE" "${CACHE_PATHS[@]}"
+# Tar + zstd -T0 -3 with mtime preservation
+tar -I "zstd -T0 -3" -cf "$TARGET_ARCHIVE" "${CACHE_PATHS[@]}"
 
 COMPRESS_END=$(date +%s%N)
 COMPRESS_MS=$(( (COMPRESS_END - START_TIME) / 1000000 ))
