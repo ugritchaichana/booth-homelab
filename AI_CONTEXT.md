@@ -197,3 +197,19 @@ If instructed to continue into subsequent phases:
 2. **CT 101 Local Package Mirror:** Provision BaGet (.NET NuGet mirror) and Verdaccio (npm registry mirror) on `vmbr1` to create a 100% air-gapped homelab cache.
 3. **Baremetal Migration:** Apply `scripts/host-bootstrap/` (`pve-bootstrap-bundle.tar.gz`) to dedicated baremetal host (x86_64 multi-core server / mini-PC / edge node).
 4. **IaC OpenTofu Lifecycle:** Implement ephemeral runner spawning via OpenTofu Proxmox provider using Golden Template 9001.
+
+---
+
+## 10. The 8 Master Craftsman Pillars (Immutable AGY Engineering Harness)
+
+Every autonomous AI agent interacting with this codebase MUST strictly adhere to the **8 Master Craftsman Pillars**:
+
+1. **Clean Code Style:** Single responsibility, intention-revealing naming, zero dead code, and clean architecture separation.
+2. **Idiomatic Best Practices:** Idiomatic .NET 8 C#, Angular Standalone TypeScript, Python, and shell scripts.
+3. **Compact, High-Signal Comments:** Explain "Why" and architectural invariants; never restate obvious code.
+4. **100% Universal English:** All repository code, comments, commits, PRs, and documentation MUST be 100% English.
+5. **Deterministic Verification (TDD):** Every claim of completion requires automated reproducible verification (exit code 0).
+6. **Zero-Trust Security & Secrets Hygiene:** Fail-closed network rules, least-privilege policies, zero plaintext secrets in git.
+7. **Observability & Zero-Blindspot Telemetry:** Structured logging and healthchecks enabling 60-second root cause diagnosis.
+8. **Hardware Awareness & Idempotent Disaster Recovery:** Enforce RAM/CPU headroom and disposable one-command IaC rebuilds.
+

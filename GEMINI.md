@@ -154,3 +154,52 @@ Personal projects run directly on local developer hardware. The AI partner must 
   - Unverified claims MUST be explicitly marked `[HYPOTHESIS]`.
 - **Language Blend:** Concise, high-density Thai for conceptual summaries and instructions in user chat, blended with standard English technical terms (e.g., "Refactor state management using Event Sourcing to prevent race conditions during high concurrency"). Repository files, commits, documentation, and wiki MUST remain 100% English.
 - **Radical Candor:** If Booth proposes an architecture or pattern that contains a subtle memory leak, security risk, or operational anti-pattern, point it out directly and bluntly with technical proof.
+
+---
+
+## 7. The 8 Master Craftsman Pillars (Immutable AGY Engineering Harness)
+
+Every design, implementation, terminal command, configuration, and documentation artifact executed by AGY MUST strictly adhere to the **8 Master Craftsman Pillars**:
+
+```
+[Clean Code]  [Best Practice]  [Compact Comments]  [Full English]
+      │               │               │                  │
+ ═══════════════════════════════════════════════════════════════════
+      │               │               │                  │
+[Deterministic]  [Zero-Trust]   [Observability]   [Idempotent IaC]
+ [Verification]   [Security]      [Telemetry]       [Disaster-Ready]
+```
+
+### Pillar 1: Clean Code Style
+- **Single Responsibility & Intent-Revealing Names:** Structure every class, function, and module with a single cohesive concern. Variable and function names must unambiguously communicate intent without needing inline explanation.
+- **Zero Dead Code & Minimal Scaffolding:** No abandoned variables, unused imports, or premature abstractions. Strive for simplicity and compactness.
+
+### Pillar 2: Idiomatic Best Practices & Determinism
+- **Ecosystem Idioms:** Follow official idiomatic patterns for each language and runtime (.NET C#, Angular standalone TypeScript, modern Python, POSIX shell, PowerShell).
+- **Predictable Behavior:** Ensure pure functions, idempotent routines, and stateful operations are deterministic across repeated invocations.
+
+### Pillar 3: Compact, High-Signal Comments
+- **Explain "Why", Never "What":** Code explains *what* and *how*; comments explain non-obvious rationale, architectural invariants, performance tradeoffs, and empirical traps.
+- **No Filler Commentary:** Strip redundant conversational comments, auto-generated boilerplate, and restatements of obvious syntax.
+
+### Pillar 4: 100% Universal English
+- **Strict Repository Language Rule:** All repository code, comments, commit messages, PR descriptions, issue templates, configuration files, and documentation (`README.md`, `RUNBOOK.md`, `AI_CONTEXT.md`, Wiki) MUST be written in 100% English (0 Thai characters in repository artifacts).
+- **Communication Blend:** High-density Thai is reserved exclusively for interactive chat dialogue with Booth to maximize conversational velocity and clarity.
+
+### Pillar 5: Deterministic Automated Verification (Evidence Before Assertion)
+- **TDD & Concrete Evidence:** If behavior is not verified with an automated, reproducible command resulting in exit code 0, it does not work. Never assume code works based on syntax or static typing alone.
+- **Automated Regression Defense:** Every bug fix and feature slice must include an automated regression test covering edge cases and failure modes.
+
+### Pillar 6: Zero-Trust Security & Secrets Hygiene
+- **Fail-Closed Network Architecture:** Firewalls, subnet bridges, and port forwarding default to `DROP` / `DENY`. Allow only explicitly whitelisted ingress/egress ports.
+- **Least-Privilege Authorization:** Enforce read-only policies for untrusted or pull request workflows; restrict write and administrative privileges to verified identities.
+- **Absolute Secrets Hygiene:** Never commit tokens, passwords, private keys, or credentials to git history. Use local vault files, environment variables, or encrypted secret managers exclusively.
+
+### Pillar 7: Observability & Zero-Blindspot Telemetry
+- **60-Second Root Cause Triage:** Applications, background daemons, and CI runners must emit structured telemetry, healthcheck probes, and informative exit codes so failures can be isolated to a container, PID, or port within 60 seconds.
+- **Performance Benchmarking:** Instrument critical paths (e.g., virtual bus transfer rates, build duration, memory footprints) to catch silent latency or throughput regressions immediately.
+
+### Pillar 8: Hardware Headroom Awareness & Idempotent Disaster Recovery
+- **Finite Resource Discipline:** Treat developer hardware as a finite resource. Enforce RAM ceilings (e.g., Angular jsdom 1.5 GB limit) and thread caps (`Total Cores - 2`) to eliminate host freezes and swap thrashing.
+- **One-Command Reproducibility:** Treat all infrastructure as cattle, not pets. Containers, caches, and networking must be 100% disposable and rebuildable from scratch via automated IaC scripts (`bootstrap.sh`, OpenTofu) with zero manual snowflake dependencies.
+
