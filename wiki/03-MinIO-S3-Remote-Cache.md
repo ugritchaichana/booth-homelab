@@ -1,8 +1,8 @@
-# 03. Enterprise MinIO S3 Remote Cache (CT 104 Alpine LXC)
+# 03. MinIO S3 Remote Cache (CT 104 Alpine LXC)
 
 ## 1. Overview & Upstream Deployment
 
-Container **CT 104 (`minio-s3`)** serves as our distributed S3-compatible remote cache. It runs on **Alpine Linux 3.23 Standard**, giving it an ultra-lightweight memory footprint of **under 50 MB RAM**.
+Container **CT 104 (`minio-s3`)** serves as our distributed S3-compatible remote cache. It runs on **Alpine Linux 3.23 Standard**.
 
 ### Upstream Packaging Decision (Empirical Fact)
 - Upstream URLs (`dl.min.io`) return `HTTP 410 Gone` for direct binary downloads following license updates.
@@ -42,17 +42,12 @@ The 7-day retention policy ensures that homelab virtual disk storage is never ex
 
 Because CT 102 (`gha-runner-01`) and CT 104 (`minio-s3`) reside on the same internal Linux bridge (`vmbr1`), data transfer bypasses physical network cards and flows through Linux kernel memory buffers:
 
-- **Benchmark Payload:** 71.68 MiB (Single Zstd archive containing complete build dependencies)
-- **Transfer Time:** **110 milliseconds**
-- **Effective Transfer Throughput:** **836.59 MiB/s**
-- **Decompression Time (Zstd -T0):** **987 milliseconds**
+One logged restore, from [run 37225932588 (Verify on Proxmox Self-Hosted Runner job)](https://github.com/ugritchaichana/booth-homelab/actions/runs/37225932588/job/111505458158):
 
-```
-Transfer Speed Comparison:
-GitHub Actions Cloud Cache:  ~30 - 50 MB/s (Internet dependent)
-AWS S3 over WAN:            ~40 - 80 MB/s
-Homelab MinIO Virtual Bus:  836.59 MB/s (10x - 20x faster)
-```
+- **Benchmark Payload:** 71.68 MiB (Single Zstd archive containing complete build dependencies)
+- **Transfer Time:** `Downloaded in 106 ms` ([job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37225932588/job/111505458158))
+- **Effective Transfer Throughput:** 888.90 MiB/s ([job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37225932588/job/111505458158))
+- **Decompression Time (Zstd -T0):** `Decompressed in 948 ms` ([job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37225932588/job/111505458158))
 
 ---
 
@@ -77,7 +72,7 @@ minio/build-cache/
 
 ---
 
-## 5. Enterprise Credential Hardening & Password Standards
+## 5. Credential Hardening & Password Standards
 
 > [!WARNING]
 > **No Credentials Ship With This Repository:**  

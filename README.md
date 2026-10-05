@@ -1,28 +1,28 @@
-# 🚀 Booth Homelab: Enterprise SDET & IaC Testing Rig
+# 🚀 Booth Homelab: SDET & IaC Testing Rig
 
-[![Release v1.0.0](https://img.shields.io/github/v/release/ugritchaichana/booth-homelab?color=blue&logo=github)](https://github.com/ugritchaichana/booth-homelab/releases/tag/v1.0.0)
+[![Latest release](https://img.shields.io/github/v/release/ugritchaichana/booth-homelab?color=blue&logo=github)](https://github.com/ugritchaichana/booth-homelab/releases)
 [![SDET Homelab CI Pipeline](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml)
 [![Synchronize Wiki Knowledge Base](https://github.com/ugritchaichana/booth-homelab/actions/workflows/wiki-sync.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/wiki-sync.yml)
 [![Proxmox VE](https://img.shields.io/badge/Hypervisor-Proxmox%20VE%208.4-E57000?logo=proxmox&logoColor=white)](https://www.proxmox.com/)
 [![Tailscale](https://img.shields.io/badge/Mesh%20VPN-Tailscale-24292E?logo=tailscale&logoColor=white)](https://tailscale.com/)
 [![MinIO S3](https://img.shields.io/badge/Remote%20Cache-MinIO%20S3-C72C48?logo=minio&logoColor=white)](https://min.io/)
-[![.NET 8](https://img.shields.io/badge/.NET-8.0%20LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![.NET 8](https://img.shields.io/badge/.NET-8.0%20LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/) [target framework](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/apps/backend/src/Core.Domain/Core.Domain.csproj#L4)
 [![Angular Jest](https://img.shields.io/badge/Angular-Jest%20jsdom-DD0031?logo=angular&logoColor=white)](https://angular.dev/)
 
 ## 📖 About The Project
 
-**Booth Homelab** is a Big Tech SaaS Continuous Testing Rig engineered to run continuous integration, parallel test suites, and infrastructure-as-code automation locally without cloud bill inflation or network bottlenecks.
+**Booth Homelab** is a Continuous Testing Rig engineered to run continuous integration, parallel test suites, and infrastructure-as-code automation locally without cloud bill inflation or network bottlenecks.
 
-- **Dual-Runner Testing Fleet:** Dedicated Proxmox VE unprivileged LXC containers running isolated .NET 8 (`pve-runner-01`) and Angular Jest (`pve-runner-angular`) test environments.
-- **In-Memory Virtual Bus:** MinIO S3 remote cache across an internal Linux bridge (`vmbr1`) clocking **>800 MiB/s** transfer throughput.
-- **Transitive Dependency Graph Testing:** AST-based code-change traversal that builds and tests only affected modules, cutting CI cycle times by up to **80%**.
-- **Autonomous & AI-Ready:** Fully documented with human-facing guides ([README.md](README.md), [RUNBOOK.md](RUNBOOK.md)) and machine-readable operational truth ([AI_CONTEXT.md](AI_CONTEXT.md)) for 100% autonomous agent development.
+- **Dual-Runner Testing Fleet:** Dedicated Proxmox VE LXC containers (provisioned privileged: [`provision-runner.py#L151`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-runner.py#L151), [`provision-angular-runner.py#L186`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-angular-runner.py#L186); moving to unprivileged CTs is open) running isolated .NET 8 (`pve-runner-01`) and Angular Jest (`pve-runner-angular`) test environments.
+- **Virtual Bus Cache:** MinIO S3 remote cache across an internal Linux bridge (`vmbr1`). A cache restore downloaded 27.89 MiB at 824.29 MiB/s in [run 37235401356](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533373752).
+- **Transitive Dependency Graph Testing:** AST-based code-change traversal that builds and tests only affected modules.
+- **AI-Ready:** Documented with human-facing guides ([README.md](README.md), [RUNBOOK.md](RUNBOOK.md)) and machine-readable operational truth ([AI_CONTEXT.md](AI_CONTEXT.md)) for agent-assisted development.
 
 ---
 
 ## 🏛️ System Architecture & Topology
 
-The homelab leverages an unprivileged Linux Container (LXC) architecture on Proxmox VE connected via an isolated internal bridge (`vmbr1`) operating as an **ultra-high-speed virtual bus** (>800 MiB/s transfer speeds).
+The homelab leverages a Linux Container (LXC) architecture on Proxmox VE (runner CTs are provisioned privileged, see above; the OpenTofu module targets unprivileged: [`main.tf#L10`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/iac/tofu/modules/lxc_runner/main.tf#L10)) connected via an isolated internal bridge (`vmbr1`) operating as the virtual bus between the runners and the cache.
 
 ```mermaid
 graph TD
@@ -36,8 +36,8 @@ graph TD
 
     GitHubActions["☁️ GitHub Actions Orchestrator\n(.github/workflows/sdet-ci.yml)"] -->|"Parallel Dispatch"| CT102
     GitHubActions -->|"Parallel Dispatch"| CT103
-    CT102 <-->|"Fetch/Store .NET Cache (>800 MiB/s)"| CT104
-    CT103 <-->|"Fetch/Store npm node_modules (>800 MiB/s)"| CT104
+    CT102 <-->|"Fetch/Store .NET Cache"| CT104
+    CT103 <-->|"Fetch/Store npm node_modules"| CT104
 ```
 
 ---
@@ -50,16 +50,16 @@ graph TD
   - Executes C# unit tests and integration tests (`OrderProcessingIntegrationTests.cs`) deterministically using `/p:Deterministic=true`.
   - Integrates an AST Transitive Dependency Graph analyzer to execute only affected test suites based on `git diff`.
 - **Angular Jest Runner (`pve-runner-angular` / CT 103):**
-  - Dedicated Debian 12 LXC running Node.js 22 LTS and npm 10.x.
-  - Pure headless testing using `jest-preset-angular` and `jsdom` (no Chromium or GUI browser overhead), maintaining an ultra-lean 1.5 GB RAM footprint.
-  - Executes 4 spec suites (19 test cases) across components and services in **~2.3 seconds**.
+  - Dedicated Debian 12 LXC. The repo provisions Node.js 22 ([`main.yml#L8`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/iac/ansible/roles/runner_angular/tasks/main.yml#L8), `setup_22.x`); the live CT 103 still reports major 20 until it is re-provisioned ([run 37347994171](https://github.com/ugritchaichana/booth-homelab/actions/runs/37347994171/job/111891371382) prints the `node20` cache-key prefix).
+  - Pure headless testing using `jest-preset-angular` and `jsdom` (no Chromium or GUI browser overhead).
+  - Executes 4 spec suites (29 test cases) across components and services; Jest reported `Time: 5.775 s` in [run 37347994171](https://github.com/ugritchaichana/booth-homelab/actions/runs/37347994171/job/111891371382).
 
 ### 2. Virtual Bus Remote Cache (MinIO S3 + Zstandard)
 - Dependencies and compilation artifacts are compressed with Zstandard (`zstd -T0`) and stored on **CT 104 MinIO S3** over `10.99.20.20:9000`.
-- **Sub-Second Restores:** In warm pipeline runs, `node_modules` (28 MiB) is restored in under 1 second, reducing total job duration from **1m58s** to **18s** (**84% duration reduction**).
-- **Immunity from External Outages:** Complete protection against public npm/NuGet rate limits, network jitter, or upstream CDN downtime.
+- **Warm Restores:** On a cache hit, `node_modules` (27.89 MiB) is downloaded from MinIO with a logged duration of `00m00s` in [run 37235401356](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533373752).
+- **Fewer External Dependencies:** A cache-hit restore reads from CT 104 instead of the public npm/NuGet registries.
 
-### 3. Network Isolation, Zero-Trust Firewall & Host Protection
+### 3. Network Isolation, Firewall & Host Protection
 - **Layer 2 Bridge Port Isolation & Netfilter:**
   - Bridge port isolation (`isolated on`) prevents East-West frame switching between test runners (`CT 102` and `CT 103`).
   - Kernel netfilter (`HOMELAB-FORWARD`) strictly blocks East-West runner traffic, rejects runner access to the MinIO web console (`:9001`), and permits runner access only to the MinIO S3 API (`:9000`).
@@ -91,17 +91,15 @@ When deploying beyond an isolated development sandbox, generate passwords and se
 
 ---
 
-## 📊 Performance Benchmarks (Live Ground Truth)
+## 📊 Performance Benchmarks
 
-| Pipeline Stage | Target Runner | Cold Run (First Boot) | Warm Run (MinIO Cache Hit) | Performance Gain |
-| :--- | :--- | :--- | :--- | :--- |
-| **Telemetry & Health** | `pve-runner-01` (CT 102) | 9s | 9s | Baseline |
-| **.NET Build & Restore** | `pve-runner-01` (CT 102) | 4,630 ms | **16s** (includes toolchain boot) | Incremental |
-| **.NET Affected Tests** | `pve-runner-01` (CT 102) | 3,100 ms | **2,175 ms** (6/6 tests pass) | **~30% faster** |
-| **Angular Jest Tests** | `pve-runner-angular` (CT 103) | 103,003 ms (npm install) | **4,090 ms** (MinIO hit) | **96% faster** |
-| **Total CI Pipeline** | Dual-Runner Parallel | **2m 24s** | **~35s** (All jobs green) | **~75% reduction** |
+Each value is printed by the linked job log (`[BENCHMARK]` and Jest lines); a figure without a link is not claimed.
 
-*Verified in live runs: [`Run #37233575350`](https://github.com/ugritchaichana/booth-homelab/actions/runs/37233575350) and [`Run #37235401356`](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356).*
+| Pipeline Stage | Target Runner | First run (npm cache miss) | Second run (npm cache hit) |
+| :--- | :--- | :--- | :--- |
+| **.NET Build Time** | `pve-runner-01` (CT 102) | 4252 ms ([run 37233575350](https://github.com/ugritchaichana/booth-homelab/actions/runs/37233575350/job/111528207387)) | 4707 ms ([run 37235401356](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533415551)) |
+| **.NET Affected Test Runner Time** | `pve-runner-01` (CT 102) | 13 ms ([run 37233575350](https://github.com/ugritchaichana/booth-homelab/actions/runs/37233575350/job/111528312574)) | 16 ms ([run 37235401356](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533483063)) |
+| **Angular Jest Tests Completed in** | `pve-runner-angular` (CT 103) | 103003 ms, npm install ([run 37233575350](https://github.com/ugritchaichana/booth-homelab/actions/runs/37233575350/job/111528154780)) | 3856 ms ([run 37235401356](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533373752)) |
 
 ---
 
@@ -198,12 +196,12 @@ pct exec 102 -- mc ls minio/build-cache/npm/
 
 ### 5. AI-Native Implementation & Agent Onboarding
 
-This repository is optimized for autonomous AI coding assistants (Antigravity, Claude Code, Cursor, Copilot Workspace, Gemini CLI). More than 80% to 100% of implementation can be safely executed by an AI agent:
+This repository is optimized for autonomous AI coding assistants (Antigravity, Claude Code, Cursor, Copilot Workspace, Gemini CLI). The guides below give an agent the commands, topology and constraints it needs:
 
 - **Universal Agent Guide:** [`AGENTS.md`](AGENTS.md) — Authoritative machine-readable operational guide covering commands, empirical traps, and topology.
 - **Agent Handover Prompt:** [`HANDOFF.md`](HANDOFF.md) — Turnkey prompt to paste directly into any new AI session to resume immediately.
 - **Deep Technical Context:** [`AI_CONTEXT.md`](AI_CONTEXT.md) — Architectural invariants, security policies, and debugging heuristics.
-- **Engineering Standards:** [`GEMINI.md`](GEMINI.md) — The 8 Core Engineering Pillars governing clean code, deterministic verification, and zero-trust security.
+- **Engineering Standards:** [`GEMINI.md`](GEMINI.md) — The 8 Core Engineering Pillars governing clean code, deterministic verification, and security.
 - **Hardware-Free Local Sandbox:** Launch the complete local S3 cache sandbox with:
   ```powershell
   docker compose -f sandbox/docker-compose.sandbox.yml up -d
@@ -216,9 +214,9 @@ This repository is optimized for autonomous AI coding assistants (Antigravity, C
 
 - **Universal AI Agent Guide:** [AGENTS.md](AGENTS.md) (Standard entrypoint for all AI coding agents)
 - **AI Handover Prompt:** [HANDOFF.md](HANDOFF.md) (Turnkey session handover prompt)
-- **AI Machine Context:** [AI_CONTEXT.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/AI_CONTEXT.md) (Architectural invariants)
+- **AI Machine Context:** [AI_CONTEXT.md](AI_CONTEXT.md) (Architectural invariants)
 - **Online Knowledge Base:** [GitHub Wiki](https://github.com/ugritchaichana/booth-homelab/wiki) (Auto-synced from `wiki/`)
-- **Operations Runbook:** [RUNBOOK.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/RUNBOOK.md) (Bootstrapping and maintenance procedures)
+- **Operations Runbook:** [RUNBOOK.md](RUNBOOK.md) (Bootstrapping and maintenance procedures)
 - **Project Tracking Board:** [GitHub Project #4 (Booth Homelab - SDET & IaC Testing Rig)](https://github.com/users/ugritchaichana/projects/4)
 
 ---

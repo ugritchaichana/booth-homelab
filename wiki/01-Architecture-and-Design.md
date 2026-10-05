@@ -6,7 +6,7 @@ Booth Homelab is engineered to deliver high-density, reproducible CI/CD executio
 
 ### Hardware Specifications
 - **Host Device:** Modern Multi-Core Workstation / Baremetal Node (AMD-V / VT-x Virtualization Passthrough)
-- **Host Operating System:** Windows 11 Pro / Enterprise
+- **Host Operating System:** Windows 11 (Hyper-V host)
 - **Hypervisor:** Microsoft Hyper-V (Nested Virtualization enabled via `Set-VMProcessor -ExposeVirtualizationExtensions $true`)
 - **Virtual Appliance:** Proxmox VE 8.4.0 (Linux Kernel `6.8.12-9-pve`)
 - **Resource Allocation to Proxmox VM:**
@@ -71,7 +71,7 @@ iface vmbr1 inet static
 
 | CT ID | Hostname | Template / OS | IP Address | vCPU | RAM | Storage | Role |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **CT 100** | `net-gateway` | Alpine 3.23 Standard | `10.99.20.1` | 1 | 128 MB | 4 GB | Zero-Trust DMZ Gateway (nftables) |
+| **CT 100** | `net-gateway` | Alpine 3.23 Standard | `10.99.20.1` | 1 | 128 MB | 4 GB | DMZ Gateway (nftables) |
 | **CT 101** | `shared-cache` | Alpine 3.23 Standard | `10.99.20.10` | 2 | 512 MB | 8 GB | BaGet NuGet & Verdaccio npm Cache |
 | **CT 102** | `gha-runner-01` | Debian 12 Standard | `10.99.20.101` | 2 | 2,048 MB | 12 GB | .NET 8 Unit & Integration Test Runner (`[dotnet]`) |
 | **CT 103** | `gha-runner-angular` | Debian 12 Standard | `10.99.20.103` | 2 | 1,536 MB | 12 GB | Angular Jest Unit Test Runner (`[angular]`) |
@@ -80,6 +80,6 @@ iface vmbr1 inet static
 ---
 
 ## 4. Architectural Invariants & Security
-1. **Runner Isolation:** Runners operate inside unprivileged LXC containers with strictly scoped capabilities (`features: nesting=1,keyctl=1`).
+1. **Runner Isolation:** Runners operate inside LXC containers with the features `nesting=1,keyctl=1`. The provisioners create them privileged ([`provision-runner.py#L151`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-runner.py#L151), [`provision-angular-runner.py#L186`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-angular-runner.py#L186)); the OpenTofu module targets unprivileged ([`main.tf#L10`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/iac/tofu/modules/lxc_runner/main.tf#L10)). Moving the live runners to unprivileged CTs is open.
 2. **Branch-Scoped Cache Isolation & IAM:** MinIO storage uses branch prefixes (`branches/<branch-name>/`), scoped read-only PR credentials, and SHA256 integrity digest verification to prevent cache poisoning across pull requests.
 3. **Zero Host Pollution:** Build artifacts and package dependencies never leak into the host Proxmox root filesystem.

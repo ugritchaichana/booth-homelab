@@ -6,15 +6,15 @@ This document is the authoritative, machine-readable operational guide for AI co
 
 ## 1. Project Mission & Architecture
 
-**Booth-homelab** is a Continuous Testing (SDET) and Infrastructure-as-Code (IaC) rig engineered to execute parallel automated test suites locally with sub-second remote caching and zero-trust network isolation.
+**Booth-homelab** is a Continuous Testing (SDET) and Infrastructure-as-Code (IaC) rig engineered to execute parallel automated test suites locally with remote caching and network isolation.
 
 ### Core Stack
 - **Hypervisor:** Proxmox VE 8.4.0 (Kernel `Linux 6.8.12-9-pve`, Debian 12 Bookworm)
 - **CI Runners (LXC):**
   - **CT 102 (`gha-runner-01` / `10.99.20.101`):** .NET 8 LTS, Docker-in-LXC (`nesting=1,keyctl=1`), AST dependency graph diff runner.
-  - **CT 103 (`gha-runner-angular` / `10.99.20.103`):** Node.js 20 LTS, Angular Jest with pure headless `jsdom` (strict 1.5 GB RAM ceiling).
+  - **CT 103 (`gha-runner-angular` / `10.99.20.103`):** Node.js 20 LTS ([run 37347994171](https://github.com/ugritchaichana/booth-homelab/actions/runs/37347994171/job/111891371382) prints the `node20` cache-key prefix), Angular Jest with pure headless `jsdom` (strict 1.5 GB RAM ceiling).
 - **Remote Cache (LXC):**
-  - **CT 104 (`minio-s3` / `10.99.20.20`):** Alpine Linux 3.23 MinIO S3 API (`:9000`), Web Console (`:9001`), Zstandard compression, in-memory bridge throughput >800 MiB/s.
+  - **CT 104 (`minio-s3` / `10.99.20.20`):** Alpine Linux 3.23 MinIO S3 API (`:9000`), Web Console (`:9001`), Zstandard compression; a cache restore logged 824.29 MiB/s over the bridge ([run 37235401356](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533373752)).
 - **Network Isolation:**
   - Layer 2 bridge port isolation on `vmbr1` (`isolated on` for `veth102i0` and `veth103i0`).
   - Layer 3/4 `HOMELAB-FORWARD` netfilter chain: East-West runner traffic dropped, runner access to `:9001` dropped, runner internet egress restricted to ports 53, 80, 443, 123.
@@ -40,7 +40,7 @@ npm test --prefix apps/frontend -- --silent
 # 3. Verify .NET AST Transitive Dependency Graph Diff Runner (5 scenarios):
 pwsh -File ./tests/verify-affected-graph.ps1
 
-# 4. Verify Enterprise Zero-Trust Firewall (13/13 assertions):
+# 4. Verify the network firewall assertions:
 python scripts/proxmox/verify-enterprise-firewall.py
 
 # 5. Verify Language Compliance (Must return 0 Thai characters across repo):
@@ -71,9 +71,9 @@ pwsh -File sandbox/teardown.ps1
 1. **Clean Code Style:** Single responsibility, intention-revealing names, zero dead code.
 2. **Idiomatic Best Practices:** Idiomatic .NET 8 C#, Angular Standalone TypeScript, modern Python, and POSIX shell.
 3. **Compact, High-Signal Comments:** Explain "Why" and non-obvious invariants; never restate obvious code.
-4. **100% Universal English:** All repository code, comments, commits, PRs, docs, and wiki MUST be in English.
+4. **Universal English:** All repository code, comments, commits, PRs, docs, and wiki MUST be in English.
 5. **Deterministic Verification:** Every implementation or bugfix must be proven with automated CLI execution.
-6. **Zero-Trust Security & Secrets Hygiene:** Fail-closed networks, least privilege, zero plaintext secrets in git.
+6. **Network Isolation & Secrets Hygiene:** Fail-closed networks, least privilege, no plaintext secrets in git.
 7. **Observability & Telemetry:** Emit structured output and exit codes enabling 60-second root cause diagnosis.
 8. **Hardware Headroom Awareness:** Respect memory limits (Angular jsdom 1.5 GB limit) and ensure one-command disaster recovery.
 

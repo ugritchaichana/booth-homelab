@@ -33,7 +33,7 @@ Before executing ANY `git commit`, `git push`, or infrastructure change, verify 
 
 ### Network Topography
 - `vmbr0`: `10.99.10.1/24` (Management & Services Subnet)
-- `vmbr1`: `10.99.20.1/24` (**Virtual Bus Subnet** — Ultra-fast in-memory bridge >800 MiB/s)
+- `vmbr1`: `10.99.20.1/24` (**Virtual Bus Subnet** — internal bridge between the runners and the cache)
 
 ---
 
@@ -42,7 +42,7 @@ Before executing ANY `git commit`, `git push`, or infrastructure change, verify 
 | VMID | Hostname | IP Address | Specs | Role & Toolchain | Service / Daemon |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **CT 102** | `gha-runner-01` | `10.99.20.101` | 3 vCPU, 4GB RAM, 20GB Disk | **.NET 8 Runner**<br>Labels: `[self-hosted, linux, proxmox, dotnet]`<br>Toolchain: .NET 8.0.425, Docker-in-LXC (`nesting=1,keyctl=1`), `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service` |
-| **CT 103** | `gha-runner-angular` | `10.99.20.103` | 2 vCPU, 1.5GB RAM, 12GB Disk | **Angular Jest Runner**<br>Labels: `[self-hosted, linux, proxmox, angular]`<br>Toolchain: Node.js 20.20.2 LTS, npm 10.8.2, jsdom, `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service` |
+| **CT 103** | `gha-runner-angular` | `10.99.20.103` | 2 vCPU, 1.5GB RAM, 12GB Disk | **Angular Jest Runner**<br>Labels: `[self-hosted, linux, proxmox, angular]`<br>Toolchain: Node.js 20 ([run 37347994171](https://github.com/ugritchaichana/booth-homelab/actions/runs/37347994171/job/111891371382) prints the `node20` cache-key prefix), jsdom, `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service` |
 | **CT 104** | `minio-s3` | `10.99.20.20` | 2 vCPU, 2GB RAM, 15GB Disk | **Distributed S3 Remote Cache**<br>API: `http://10.99.20.20:9000`<br>Console: `http://10.99.20.20:9001`<br>Auth: root credentials injected via `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` (no defaults in the repo); runners use a bucket-scoped reader account; buckets are private<br>Buckets: `build-cache`, `test-artifacts` | `minio.service` |
 
 ---
@@ -126,7 +126,7 @@ Bucket: minio/build-cache/
 
 - **Compression Command:** `tar -I "zstd -T0 -3" -cf /tmp/cache.tar.zst <dir>`
 - **Decompression Command:** `tar -I "zstd -d -T0" -xf /tmp/cache.tar.zst -C <dest>`
-- **Throughput Benchmark:** ~836 MiB/s across `vmbr1` (Restore completes in <1s).
+- **Throughput Benchmark:** a `node_modules` restore logged 824.29 MiB/s across `vmbr1` ([run 37235401356, Angular job](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533373752)); a .NET cache restore logged 962.48 MiB/s ([run 37235401356, .NET build job](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533415551)).
 
 ---
 
@@ -192,8 +192,8 @@ def exec_pve(cmd: str) -> str:
 ## 9. Next Evolution Roadmap (Phase 3 & 4)
 
 If instructed to continue into subsequent phases:
-1. **CT 100 Zero-Trust Gateway:** Provision Alpine 3.20 container with `nftables` on `10.99.20.1` to isolate East-West traffic between runners.
-2. **CT 101 Local Package Mirror:** Provision BaGet (.NET NuGet mirror) and Verdaccio (npm registry mirror) on `vmbr1` to create a 100% air-gapped homelab cache.
+1. **CT 100 Network Gateway:** Provision Alpine 3.20 container with `nftables` on `10.99.20.1` to isolate East-West traffic between runners.
+2. **CT 101 Local Package Mirror:** Provision BaGet (.NET NuGet mirror) and Verdaccio (npm registry mirror) on `vmbr1` to create an air-gapped homelab cache.
 3. **Baremetal Migration:** Apply `scripts/host-bootstrap/` (`pve-bootstrap-bundle.tar.gz`) to dedicated baremetal host (x86_64 multi-core server / mini-PC / edge node).
 4. **IaC OpenTofu Lifecycle:** Implement ephemeral runner spawning via OpenTofu Proxmox provider using Golden Template 9001.
 
@@ -206,9 +206,9 @@ Every autonomous AI agent interacting with this codebase MUST strictly adhere to
 1. **Clean Code Style:** Single responsibility, intention-revealing naming, zero dead code, and clean architecture separation.
 2. **Idiomatic Best Practices:** Idiomatic .NET 8 C#, Angular Standalone TypeScript, Python, and shell scripts.
 3. **Compact, High-Signal Comments:** Explain "Why" and architectural invariants; never restate obvious code.
-4. **100% Universal English:** All repository code, comments, commits, PRs, and documentation MUST be 100% English.
+4. **Universal English:** All repository code, comments, commits, PRs, and documentation MUST be English.
 5. **Deterministic Verification (TDD):** Every claim of completion requires automated reproducible verification (exit code 0).
-6. **Zero-Trust Security & Secrets Hygiene:** Fail-closed network rules, least-privilege policies, zero plaintext secrets in git.
+6. **Network Isolation & Secrets Hygiene:** Fail-closed network rules, least-privilege policies, no plaintext secrets in git.
 7. **Observability & Zero-Blindspot Telemetry:** Structured logging and healthchecks enabling 60-second root cause diagnosis.
 8. **Hardware Awareness & Idempotent Disaster Recovery:** Enforce RAM/CPU headroom and disposable one-command IaC rebuilds.
 

@@ -134,8 +134,8 @@ pct exec 102 -- mc mb -p minio-admin/build-cache
 pct exec 102 -- mc mb -p minio-admin/sdet-test-artifacts
 
 # 3. Apply 7-day automatic TTL expiration:
-pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/build-cache
-pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/sdet-test-artifacts
+pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/build-cache  # evidence: [provision-minio.py#L142](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-minio.py#L142)
+pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/sdet-test-artifacts  # evidence: [provision-minio.py#L143](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-minio.py#L143)
 
 # 4. Re-create the scoped IAM users, policies and runner reader aliases (the script also removes the admin alias):
 python scripts/proxmox/configure_iam_cache_accounts.py
@@ -147,7 +147,7 @@ pct exec 102 -- mc rm --recursive --force minio/build-cache/branches/master/
 pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
 ```
 
-### 4.4 Enterprise Credential Hardening & Rotation SOP
+### 4.4 Credential Hardening & Rotation SOP
 > [!WARNING]
 > **Credential Security Advisory:** Administrative and host credentials must be securely managed via environment variables and encrypted vaults. Never commit default credentials to version control.
 

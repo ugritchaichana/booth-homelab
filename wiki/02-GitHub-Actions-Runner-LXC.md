@@ -15,19 +15,21 @@ ostype: debian
 rootfs: local:102/vm-102-disk-0.raw,size=20G
 net0: name=eth0,bridge=vmbr1,ip=10.99.20.101/24,gw=10.99.20.1
 features: nesting=1,keyctl=1
-unprivileged: 1
+unprivileged: 0
 ```
+
+The runner CTs are provisioned privileged: [`provision-runner.py#L151`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-runner.py#L151) and [`provision-angular-runner.py#L186`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/scripts/proxmox/provision-angular-runner.py#L186) both pass `--unprivileged 0`. Only the OpenTofu module declares `unprivileged = true` ([`main.tf#L10`](https://github.com/ugritchaichana/booth-homelab/blob/179f82606f06823ebb04773777d3d1fd8c2728ae/iac/tofu/modules/lxc_runner/main.tf#L10)). Moving the live runners to unprivileged CTs is open.
 
 ### Critical Container Features:
 - **`nesting=1`**: Allows systemd containers to mount cgroups and run inner container runtimes (Docker-in-LXC).
-- **`keyctl=1`**: Enables Linux kernel keyring syscalls within unprivileged containers, required for Docker authentication and secure token handling.
+- **`keyctl=1`**: Enables Linux kernel keyring syscalls within the runner containers, required for Docker authentication and secure token handling.
 
 ---
 
 ## 2. Runtime Environment & Toolchain
 
 The runner image is provisioned with exact SDET development toolchains:
-- **GitHub Actions Runner:** `v2.337.0` (Latest release supporting Node.js 20/24 actions)
+- **GitHub Actions Runner:** `v2.337.0` ([job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356/job/111533373752) prints `Current runner version: '2.337.0'`)
 - **.NET SDK:** `8.0.425` (LTS runtime and build tools)
 - **Docker Engine:** `20.10.24` / Containerd
 - **Compression Tools:** `zstd` (Zstandard compression engine for high-speed cache payloads)
