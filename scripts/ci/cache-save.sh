@@ -11,7 +11,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMPROOT="${RUNNER_TEMP:-/tmp}"
 TARGET_ARCHIVE="$(mktemp -p "$TMPROOT" cache-payload.XXXXXX.tar.zst)"
 TARGET_SHA="${TARGET_ARCHIVE}.sha256"
-trap 'rm -f "$TARGET_ARCHIVE" "$TARGET_SHA"' EXIT INT TERM
+trap 'rm -f "$TARGET_ARCHIVE" "$TARGET_SHA"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 echo "=========================================================="
 echo "        ENTERPRISE DEEP CACHE SAVE (MINIO S3)            "
@@ -69,9 +71,8 @@ echo "[PASS] Compressed in ${COMPRESS_MS} ms (Payload Size: $RAW_SIZE)."
 
 # 2. Compute writer SHA256 integrity checksum
 echo "==> Generating SHA256 integrity digest..."
-TARGET_SHA="${TARGET_ARCHIVE}.sha256"
-sha256sum "$TARGET_ARCHIVE" | awk '{print $1}' > "$TARGET_SHA"
-echo "[PASS] Checksum: $(cat "$TARGET_SHA")"
+ARCHIVE_SHA=$(sha256sum "$TARGET_ARCHIVE" | awk '{print $1}')
+echo "[PASS] Checksum: $ARCHIVE_SHA"
 
 # 3. Upload archive and digest to MinIO S3 over Virtual Bus
 echo "==> Uploading to MinIO S3 over high-speed Proxmox Virtual Bus..."
@@ -81,15 +82,19 @@ else
     S3_ALIAS="minio"
 fi
 
-$MC_BIN cp "$TARGET_ARCHIVE" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst" || echo "[WARN] Branch cache upload skipped."
-$MC_BIN cp "$TARGET_SHA" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst.sha256" || echo "[WARN] Branch digest upload skipped."
-$MC_BIN cp "$TARGET_ARCHIVE" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst" || echo "[WARN] Latest cache upload skipped."
-$MC_BIN cp "$TARGET_SHA" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst.sha256" || echo "[WARN] Latest digest upload skipped."
+upload_with_digest() {
+    local object="$1"
+    printf '%s  %s\n' "$ARCHIVE_SHA" "$(basename "$object")" > "$TARGET_SHA"
+    $MC_BIN cp "$TARGET_ARCHIVE" "$object" || echo "[WARN] Cache upload skipped: $object"
+    $MC_BIN cp "$TARGET_SHA" "${object}.sha256" || echo "[WARN] Digest upload skipped: $object"
+}
+
+upload_with_digest "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst"
+upload_with_digest "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst"
 
 if [ "$SAFE_BRANCH" == "master" ] || [ "$SAFE_BRANCH" == "main" ]; then
     echo "==> Updating global baseline cache..."
-    $MC_BIN cp "$TARGET_ARCHIVE" "${S3_ALIAS}/build-cache/global/latest.tar.zst" || echo "[WARN] Global cache upload skipped."
-    $MC_BIN cp "$TARGET_SHA" "${S3_ALIAS}/build-cache/global/latest.tar.zst.sha256" || echo "[WARN] Global digest upload skipped."
+    upload_with_digest "${S3_ALIAS}/build-cache/global/latest.tar.zst"
 fi
 
 UPLOAD_END=$(date +%s%N)
