@@ -13,7 +13,7 @@
 <!-- Cite automated test outputs, exit codes, and verification commands. -->
 - [ ] `.NET Tests`: `dotnet test apps/backend/SdetTestingRig.sln` passed
 - [ ] `Angular Jest Tests`: `python scripts/ci/run_ct103_tests.py` passed
-- [ ] `AST Graph Diff Runner`: `powershell ./tests/verify-affected-graph.ps1` passed
+- [ ] `AST Graph Diff Runner`: `bash tests/verify-affected-graph.sh` and `pwsh ./tests/verify-affected-graph.ps1` passed
 - [ ] `Enterprise Zero-Trust Firewall`: `python scripts/proxmox/verify-enterprise-firewall.py` (10/10 assertions) passed
 - [ ] `IaC CI Quality Gate`: `tofu validate` and `ansible-playbook --syntax-check` passed
 - [ ] `Language Compliance`: 0 Thai characters in repository code and documentation

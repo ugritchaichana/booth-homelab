@@ -222,7 +222,6 @@ foreach ($testProj in $affectedTestProjects) {
     $runArgs = @(
         "test",
         $testProj,
-        "--no-restore",
         "--configuration", "Release",
         "--logger", "trx;LogFileName=$projName.trx",
         "--logger", "console;verbosity=normal",

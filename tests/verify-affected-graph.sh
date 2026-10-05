@@ -1,178 +1,173 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Automated Verification Suite for .NET Transitive Graph Selector (Linux/Bash)
-# ==============================================================================
+# Exact-set verification of the .NET transitive graph selector; all git writes happen in a disposable clone.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SELECTOR_SH="$REPO_ROOT/scripts/apps/dotnet-affected-test.sh"
-ROOT_DIR="$REPO_ROOT/apps/backend"
+SELECTOR_SH="${SELECTOR_SH:-$REPO_ROOT/scripts/apps/dotnet-affected-test.sh}"
+[ -f "$SELECTOR_SH" ] || { echo "Selector script not found: $SELECTOR_SH" >&2; exit 1; }
+SELECTOR_SH="$(cd "$(dirname "$SELECTOR_SH")" && pwd)/$(basename "$SELECTOR_SH")"
 
-echo "=========================================================="
-echo "   TDD Verification: Bash Transitive Graph Engine         "
-echo "=========================================================="
-echo "Repository Root: $REPO_ROOT"
-echo "Selector Script: $SELECTOR_SH"
-echo "Backend Dir:     $ROOT_DIR"
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 
-cd "$REPO_ROOT"
-
-# Provide hermetic author identities for git commit operations in test environments
-export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-Harness Test Runner}"
-export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-harness@booth-homelab.local}"
-export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-Harness Test Runner}"
-export GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-harness@booth-homelab.local}"
-
-ORIGINAL_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo master)"
-ORIGINAL_HEAD="$(git rev-parse HEAD)"
-TMP_BRANCH="test-affected-harness-$$"
-
+WORK=""
 cleanup() {
-    echo "==> Cleaning up harness test artifacts..."
-    cd "$REPO_ROOT"
-    git checkout "$ORIGINAL_BRANCH" >/dev/null 2>&1 || true
-    git branch -D "$TMP_BRANCH" >/dev/null 2>&1 || true
-    git checkout "$ORIGINAL_HEAD" -- apps/backend/ 2>/dev/null || true
-    git clean -fd apps/backend/ 2>/dev/null || true
-    rm -f "$REPO_ROOT/scripts/ci/probe.sh" 2>/dev/null || true
-    rm -f "$REPO_ROOT/docs/test-harness-doc.md" 2>/dev/null || true
+    case "$WORK" in
+        */selector-harness.*) [ -d "$WORK" ] && rm -rf -- "$WORK" ;;
+    esac
+    return 0
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-# Create isolated test branch
-git checkout -b "$TMP_BRANCH" >/dev/null 2>&1
+WORK="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/selector-harness.XXXXXX")"
+WORK="$(cd "$WORK" && pwd -P)"
+ROOT_DIR="$WORK/apps/backend"
 
-# Scenario 1: Committed Leaf Project Modification (Billing.Api)
+echo "=========================================================="
+echo "   Verification: Bash Transitive Graph Engine (exact sets) "
+echo "=========================================================="
+echo "Source Repository: $REPO_ROOT"
+echo "Selector Script:   $SELECTOR_SH"
+echo "Disposable Clone:  $WORK"
+
+case "$ROOT_DIR" in
+    *[Tt][Ee][Ss][Tt]*) echo "[FAIL] Clone path contains 'test'; the selector's path-based test-project filter would match every project: $ROOT_DIR" >&2; exit 1 ;;
+esac
+
+git clone --quiet --no-hardlinks "$REPO_ROOT" "$WORK"
+git -C "$WORK" config user.name "Harness Test Runner"
+git -C "$WORK" config user.email "harness@booth-homelab.local"
+git -C "$WORK" config commit.gpgsign false
+
+fail() {
+    echo "    [FAIL] $1" >&2
+    exit 1
+}
+
+fmt_set() {
+    if [ -z "$1" ]; then echo "(none)"; else printf '%s\n' "$1" | paste -sd, -; fi
+}
+
+OUT=""
+run_selector() {
+    local rc=0
+    OUT="$(cd "$WORK" && bash "$SELECTOR_SH" "$1" "$2" "$ROOT_DIR" "--dry-run" 2>&1)" || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "$OUT" >&2
+        fail "$LABEL: selector exited with code $rc"
+    fi
+}
+
+assert_exact_set() {
+    local expected actual
+    expected="$(printf '%s\n' "$@" | sed '/^$/d' | LC_ALL=C sort)"
+    actual="$(printf '%s\n' "$OUT" | tr -d '\r' | sed -n 's/^ *==> \[RUN\] //p' | LC_ALL=C sort)"
+    printf '%s\n' "$OUT" | tr -d '\r' | grep -E '==> \[RUN\]' || true
+    if [ "$actual" = "$expected" ]; then
+        echo "    [PASS] $LABEL: selected exactly {$(fmt_set "$actual")}"
+    else
+        echo "    expected: {$(fmt_set "$expected")}" >&2
+        echo "    actual:   {$(fmt_set "$actual")}" >&2
+        fail "$LABEL: selected set differs from the ProjectReference-graph oracle"
+    fi
+}
+
+assert_message() {
+    if printf '%s\n' "$OUT" | grep -qF "$1"; then
+        echo "    [PASS] $LABEL: selector reported \"$1\""
+    else
+        echo "$OUT" >&2
+        fail "$LABEL: selector output lacks \"$1\""
+    fi
+}
+
+BILLING_UNIT="Billing.Api.UnitTests.csproj"
+ORDER_UNIT="Order.Api.UnitTests.csproj"
+ORDER_INTEGRATION="Order.Api.IntegrationTests.csproj"
+
+LABEL="SCENARIO 1"
 echo ""
-echo ">>> [SCENARIO 1] Committed Leaf Project: Billing.Api/InvoiceGenerator.cs..."
-BASE_1="$(git rev-parse HEAD)"
+echo ">>> [SCENARIO 1] Committed leaf project: Billing.Api/InvoiceGenerator.cs..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "// Leaf edit trigger" >> "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
-git add "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
-git commit -m "test: leaf edit" >/dev/null 2>&1
-HEAD_1="$(git rev-parse HEAD)"
+git -C "$WORK" add -- apps/backend/src/Billing.Api/InvoiceGenerator.cs
+git -C "$WORK" commit --quiet -m "leaf edit"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set "$BILLING_UNIT" "$ORDER_INTEGRATION"
 
-OUT_1=$("$SELECTOR_SH" "$BASE_1" "$HEAD_1" "$ROOT_DIR" "--dry-run")
-echo "$OUT_1" | grep "==> \[RUN\]" || true
-
-if echo "$OUT_1" | grep -q "Billing.Api.UnitTests.csproj" && ! echo "$OUT_1" | grep -q "Order.Api.UnitTests.csproj"; then
-    echo "    [PASS] SCENARIO 1: Only Billing.Api.UnitTests was selected!"
-else
-    echo "    [FAIL] SCENARIO 1: Expected only Billing.Api.UnitTests.csproj."
-    exit 1
-fi
-
-# Scenario 2: Committed Root Domain Modification (Core.Domain) -> Transitive Propagation
+LABEL="SCENARIO 2"
 echo ""
-echo ">>> [SCENARIO 2] Committed Root Domain: Core.Domain/Money.cs..."
-BASE_2="$(git rev-parse HEAD)"
+echo ">>> [SCENARIO 2] Committed root domain: Core.Domain/Money.cs (transitive propagation)..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "// Root domain edit trigger" >> "$ROOT_DIR/src/Core.Domain/Money.cs"
-git add "$ROOT_DIR/src/Core.Domain/Money.cs"
-git commit -m "test: domain edit" >/dev/null 2>&1
-HEAD_2="$(git rev-parse HEAD)"
+git -C "$WORK" add -- apps/backend/src/Core.Domain/Money.cs
+git -C "$WORK" commit --quiet -m "domain edit"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set "$ORDER_UNIT" "$ORDER_INTEGRATION"
 
-OUT_2=$("$SELECTOR_SH" "$BASE_2" "$HEAD_2" "$ROOT_DIR" "--dry-run")
-echo "$OUT_2" | grep "==> \[RUN\]" || true
-
-if echo "$OUT_2" | grep -q "Order.Api.UnitTests.csproj" && ! echo "$OUT_2" | grep -q "Billing.Api.UnitTests.csproj"; then
-    echo "    [PASS] SCENARIO 2: Transitive DAG propagated Core.Domain -> Order.Api.UnitTests!"
-else
-    echo "    [FAIL] SCENARIO 2: Transitive propagation failed."
-    exit 1
-fi
-
-# Scenario 3: Committed Documentation-Only Change
+LABEL="SCENARIO 3"
 echo ""
-echo ">>> [SCENARIO 3] Committed Documentation-Only File: docs/test-harness-doc.md..."
-BASE_3="$(git rev-parse HEAD)"
-mkdir -p "$REPO_ROOT/docs"
-echo "# Docs only change" > "$REPO_ROOT/docs/test-harness-doc.md"
-git add "$REPO_ROOT/docs/test-harness-doc.md"
-git commit -m "test: docs change" >/dev/null 2>&1
-HEAD_3="$(git rev-parse HEAD)"
+echo ">>> [SCENARIO 3] Committed documentation-only file: docs/test-harness-doc.md..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
+mkdir -p "$WORK/docs"
+echo "# Docs only change" > "$WORK/docs/test-harness-doc.md"
+git -C "$WORK" add -- docs/test-harness-doc.md
+git -C "$WORK" commit --quiet -m "docs change"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set
+assert_message "Documentation-only change detected. Skipping test execution."
 
-OUT_3=$("$SELECTOR_SH" "$BASE_3" "$HEAD_3" "$ROOT_DIR" "--dry-run")
-echo "$OUT_3" | grep -E "\[OK\]|\[WARN\]" || true
-
-if echo "$OUT_3" | grep -q "Documentation-only change detected. Skipping test execution."; then
-    echo "    [PASS] SCENARIO 3: Zero tests triggered for docs-only change!"
-else
-    echo "    [FAIL] SCENARIO 3: Tests were erroneously triggered for documentation."
-    exit 1
-fi
-
-# Scenario 4: Committed Unmappable Non-Doc File -> Fail-Closed Full Suite
+LABEL="SCENARIO 4"
 echo ""
-echo ">>> [SCENARIO 4] Committed Unmappable Non-Doc: scripts/ci/probe.sh (Fail-Closed)..."
-BASE_4="$(git rev-parse HEAD)"
-mkdir -p "$REPO_ROOT/scripts/ci"
-echo "#!/bin/bash" > "$REPO_ROOT/scripts/ci/probe.sh"
-echo "echo probe" >> "$REPO_ROOT/scripts/ci/probe.sh"
-git add "$REPO_ROOT/scripts/ci/probe.sh"
-git commit -m "test: probe script non-doc" >/dev/null 2>&1
-HEAD_4="$(git rev-parse HEAD)"
+echo ">>> [SCENARIO 4] Committed unmappable non-doc: scripts/ci/probe.sh (fail-closed)..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
+mkdir -p "$WORK/scripts/ci"
+printf '#!/bin/bash\necho probe\n' > "$WORK/scripts/ci/probe.sh"
+git -C "$WORK" add -- scripts/ci/probe.sh
+git -C "$WORK" commit --quiet -m "probe script non-doc"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
+assert_message "Unmappable non-documentation change detected; selecting FULL test suite"
 
-OUT_4=$("$SELECTOR_SH" "$BASE_4" "$HEAD_4" "$ROOT_DIR" "--dry-run")
-echo "$OUT_4" | grep -E "\[WARN\]|==> \[RUN\]" || true
-
-if echo "$OUT_4" | grep -q "Unmappable non-documentation change detected; selecting FULL test suite" && \
-   echo "$OUT_4" | grep -q "Billing.Api.UnitTests.csproj" && \
-   echo "$OUT_4" | grep -q "Order.Api.UnitTests.csproj"; then
-    echo "    [PASS] SCENARIO 4: Fail-closed logic selected full test suite for unmappable non-doc file!"
-else
-    echo "    [FAIL] SCENARIO 4: Fail-closed full suite selection failed for unmappable non-doc change."
-    exit 1
-fi
-
-# Scenario 5: Committed Shared Build Config -> Fail-Closed All Suites
+LABEL="SCENARIO 5"
 echo ""
-echo ">>> [SCENARIO 5] Committed Shared Build Config: Directory.Build.props (Fail-Closed)..."
-BASE_5="$(git rev-parse HEAD)"
+echo ">>> [SCENARIO 5] Committed shared build config: Directory.Build.props (fail-closed)..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "<!-- Shared build config probe -->" >> "$ROOT_DIR/Directory.Build.props"
-git add "$ROOT_DIR/Directory.Build.props"
-git commit -m "test: Directory.Build.props" >/dev/null 2>&1
-HEAD_5="$(git rev-parse HEAD)"
+git -C "$WORK" add -- apps/backend/Directory.Build.props
+git -C "$WORK" commit --quiet -m "Directory.Build.props"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
+assert_message "Shared configuration modified; selecting all test suites"
 
-OUT_5=$("$SELECTOR_SH" "$BASE_5" "$HEAD_5" "$ROOT_DIR" "--dry-run")
-echo "$OUT_5" | grep -E "\[GLOBAL BUILD CONFIG DETECTED\]|==> \[RUN\]" || true
-
-if echo "$OUT_5" | grep -q "Shared configuration modified; selecting all test suites" && \
-   echo "$OUT_5" | grep -q "Billing.Api.UnitTests.csproj" && \
-   echo "$OUT_5" | grep -q "Order.Api.UnitTests.csproj"; then
-    echo "    [PASS] SCENARIO 5: Fail-closed logic selected all test suites for Directory.Build.props!"
-else
-    echo "    [FAIL] SCENARIO 5: Expected all test suites to be selected for Directory.Build.props."
-    exit 1
-fi
-
-# Scenario 6: Multi-Commit Committed Range (2 distinct commits)
+LABEL="SCENARIO 6"
 echo ""
-echo ">>> [SCENARIO 6] Multi-Commit Range (Commit 1: Core.Domain, Commit 2: Billing.Api)..."
-BASE_6="$(git rev-parse HEAD)"
-
-# Commit 1
+echo ">>> [SCENARIO 6] Two-commit range (Core.Domain, then Billing.Api)..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "// Range test 1" >> "$ROOT_DIR/src/Core.Domain/Money.cs"
-git add "$ROOT_DIR/src/Core.Domain/Money.cs"
-git commit -m "test: range commit 1 touching Core.Domain" >/dev/null 2>&1
-
-# Commit 2
+git -C "$WORK" add -- apps/backend/src/Core.Domain/Money.cs
+git -C "$WORK" commit --quiet -m "range commit 1 touching Core.Domain"
 echo "// Range test 2" >> "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
-git add "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
-git commit -m "test: range commit 2 touching Billing.Api" >/dev/null 2>&1
+git -C "$WORK" add -- apps/backend/src/Billing.Api/InvoiceGenerator.cs
+git -C "$WORK" commit --quiet -m "range commit 2 touching Billing.Api"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
 
-HEAD_6="$(git rev-parse HEAD)"
-
-OUT_6=$("$SELECTOR_SH" "$BASE_6" "$HEAD_6" "$ROOT_DIR" "--dry-run")
-echo "$OUT_6" | grep "==> \[RUN\]" || true
-
-if echo "$OUT_6" | grep -q "Order.Api.UnitTests.csproj" && echo "$OUT_6" | grep -q "Billing.Api.UnitTests.csproj"; then
-    echo "    [PASS] SCENARIO 6: Multi-commit range correctly selected both Order and Billing test suites!"
-else
-    echo "    [FAIL] SCENARIO 6: Expected both Order and Billing test suites for multi-commit range."
-    exit 1
-fi
+LABEL="SCENARIO 7"
+echo ""
+echo ">>> [SCENARIO 7] One commit: Directory.Build.props plus mappable Billing.Api (shared config widens the set)..."
+BASE="$(git -C "$WORK" rev-parse HEAD)"
+echo "<!-- Shared build config probe 2 -->" >> "$ROOT_DIR/Directory.Build.props"
+echo "// Mixed edit trigger" >> "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
+git -C "$WORK" add -- apps/backend/Directory.Build.props apps/backend/src/Billing.Api/InvoiceGenerator.cs
+git -C "$WORK" commit --quiet -m "shared config plus Billing.Api"
+run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
+assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
+assert_message "Shared configuration modified; selecting all test suites"
 
 echo ""
 echo "=========================================================="
-echo "   ALL 6 TDD SCENARIOS PASSED (TRANSITIVE GRAPH ENGINE VERIFIED)! "
+echo "   ALL 7 SCENARIOS PASSED (EXACT SETS MATCH THE GRAPH)    "
 echo "=========================================================="
