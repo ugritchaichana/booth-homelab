@@ -279,13 +279,13 @@ Execute tests directly inside the containers without triggering GitHub Actions:
 ```bash
 # Run .NET 8 Unit & Integration Tests in CT 102:
 pct exec 102 -- su - runner -c "
-  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/backend
+  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/backend
   dotnet test SdetTestingRig.sln --configuration Release --logger 'console;verbosity=normal'
 "
 
 # Run Angular Jest Standalone Tests in CT 103 (19 Tests / 4 Suites):
 pct exec 103 -- su - runner -c "
-  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/frontend
+  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/frontend
   npx jest --ci --colors --coverage
 "
 ```

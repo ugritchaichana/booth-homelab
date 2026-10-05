@@ -1,0 +1,34 @@
+---
+# ==============================================================================
+# Node.js 20 LTS & Angular Jest Headless Runner Configuration (CT 103)
+# ==============================================================================
+
+- name: Download NodeSource Node.js 20.x setup script
+  get_url:
+    url: "https://deb.nodesource.com/setup_20.x"
+    dest: "/tmp/nodesource_setup.sh"
+    mode: "0755"
+
+- name: Execute NodeSource repository setup
+  command: /tmp/nodesource_setup.sh
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Install nodejs
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+
+- name: Install MinIO Client (mc)
+  get_url:
+    url: "{{ mc_binary_url }}"
+    dest: /usr/local/bin/mc
+    mode: "0755"
+
+- name: Ensure MinIO alias exists on runner
+  become_user: "{{ runner_user }}"
+  command: >
+    /usr/local/bin/mc alias set minio {{ minio_s3_endpoint }}
+    {{ minio_root_user }} {{ minio_root_password }}
+  changed_when: false

@@ -115,20 +115,13 @@ Booth-homelab/
 │   │   ├── run-affected-tests/        # .NET transitive affected test runner
 │   │   └── run-angular-jest/          # Angular Jest suite & cache integration
 │   └── workflows/
-│       ├── pr-labeler.yml             # Auto-labeler for area and SDET pull requests
+│       ├── pr-labeler.yml             # Auto-labeler for area and application PRs
 │       ├── pr-reviewer-guard.yml      # Strips unneeded Copilot reviewers from PRs
 │       ├── reusable-sdet-pipeline.yml # Modular 6-stage parallel DAG pipeline
 │       ├── sdet-ci.yml                # Top-level orchestrator calling reusable pipeline
 │       └── wiki-sync.yml              # Autonomous wiki synchronization engine
 │
-├── scripts/
-│   ├── ci/                            # CI helper scripts (sync_wiki.py)
-│   ├── host-bootstrap/                # Baremetal host bootstrapping suite (00..06)
-│   ├── hyperv/                        # Hyper-V Gen2 VM deployment scripts
-│   ├── proxmox/                       # Proxmox API auto-configuration scripts
-│   └── sdet/                          # Test runners (run-angular-jest.sh, dotnet-affected-test.sh)
-│
-├── sdet/
+├── apps/                              # Application Workloads & Test Suites
 │   ├── backend/                       # .NET 8 Multi-Project Testing Solution
 │   │   ├── SdetTestingRig.sln
 │   │   ├── Directory.Build.props      # Enforces /p:Deterministic=true
@@ -136,12 +129,31 @@ Booth-homelab/
 │   │   └── tests/                     # Billing.Api.UnitTests, Order.Api.UnitTests, Order.Api.IntegrationTests
 │   └── frontend/                      # Angular 18/19 Standalone Jest Rig
 │       ├── package.json               # Dependencies & Jest configuration
-│       ├── jest.config.js             # jsdom preset configuration
+│       ├── jest.config.js             # Headless jsdom preset configuration
 │       └── src/app/                   # Billing & Order components and spec tests
+│
+├── iac/                               # Infrastructure as Code
+│   ├── tofu/                          # OpenTofu Provisioning (bpg/proxmox)
+│   │   ├── flavors.json               # Multi-Cloud Instance Catalog (AWS, GCP, Azure, Hetzner, DO)
+│   │   ├── main.tf                    # LXC / VM resources & cloud flavor mapping
+│   │   └── modules/                   # Reusable lxc_runner & minio_cache modules
+│   ├── ansible/                       # Ansible Configuration & Idempotent Playbooks
+│   │   ├── playbooks/site.yml         # Master playbook (host, cache, runners)
+│   │   ├── roles/                     # enterprise_firewall, minio_cache, runner_dotnet, runner_angular
+│   │   └── inventory/hosts.ini        # Target node and container inventory
+│   └── bootstrap/                     # Baremetal Debian-to-PVE host bootstrapping suite (00..06)
+│
+├── scripts/                           # Developer & CI Helper Scripts
+│   ├── apps/                          # Workload test runners (dotnet-affected-test, run-angular-jest)
+│   ├── ci/                            # CI utilities (cache-save, cache-restore, sync_wiki)
+│   ├── hyperv/                        # Hyper-V Gen2 VM deployment scripts
+│   └── proxmox/                       # Proxmox CLI operational & firewall verification scripts
 │
 ├── sandbox/                           # Docker MinIO S3 Local Sandbox (CREEP Hardened)
 ├── wiki/                              # Markdown documentation auto-synced to GitHub Wiki
+├── AGENTS.md                          # Universal machine-readable AI agent operating guide
 ├── AI_CONTEXT.md                      # Comprehensive ground truth specification for AI agents
+├── HANDOFF.md                         # Current system state & operational handoff log
 ├── RUNBOOK.md                         # Operations, maintenance, and troubleshooting runbooks
 └── README.md                          # Project documentation (this file)
 ```
@@ -177,7 +189,7 @@ pct exec 102 -- mc ls minio/build-cache/npm/
 ### 4. Running Local Tests
 - **.NET 8 Transitive Affected Tests:**
   ```powershell
-  pwsh -File ./scripts/sdet/dotnet-affected-test.ps1 -BaseRef origin/master -HeadRef HEAD
+  pwsh -File ./scripts/apps/dotnet-affected-test.ps1 -BaseRef origin/master -HeadRef HEAD
   ```
 - **Angular Jest Suite:**
   ```bash

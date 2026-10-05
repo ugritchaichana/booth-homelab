@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Multi-Cloud Hardware Instance Flavor Catalog mapping public cloud VM tiers to Proxmox VE hardware specs",
+  "providers": {
+    "aws": {
+      "name": "Amazon Web Services",
+      "instances": {
+        "t3.nano": { "cores": 2, "memory_mb": 512, "disk_gb": 10, "balloon_mb": 256, "description": "Burstable nano tier" },
+        "t3.micro": { "cores": 2, "memory_mb": 1024, "disk_gb": 15, "balloon_mb": 512, "description": "Burstable micro tier" },
+        "t3.small": { "cores": 2, "memory_mb": 2048, "disk_gb": 20, "balloon_mb": 1024, "description": "Burstable small (Ideal for MinIO cache)" },
+        "t3.medium": { "cores": 2, "memory_mb": 4096, "disk_gb": 30, "balloon_mb": 2048, "description": "Burstable medium (Standard CI Runner)" },
+        "t3.large": { "cores": 2, "memory_mb": 8192, "disk_gb": 50, "balloon_mb": 4096, "description": "Burstable large (Heavy build runner)" },
+        "t3.xlarge": { "cores": 4, "memory_mb": 16384, "disk_gb": 80, "balloon_mb": 8192, "description": "Burstable xlarge (High-concurrency runner)" },
+        "c5.large": { "cores": 2, "memory_mb": 4096, "disk_gb": 30, "balloon_mb": 2048, "description": "Compute Optimized large" },
+        "c5.xlarge": { "cores": 4, "memory_mb": 8192, "disk_gb": 50, "balloon_mb": 4096, "description": "Compute Optimized xlarge" },
+        "m5.large": { "cores": 2, "memory_mb": 8192, "disk_gb": 50, "balloon_mb": 4096, "description": "General Purpose balanced large" }
+      }
+    },
+    "gcp": {
+      "name": "Google Cloud Platform",
+      "instances": {
+        "e2-micro": { "cores": 2, "memory_mb": 1024, "disk_gb": 15, "balloon_mb": 512, "description": "Cost-optimized micro" },
+        "e2-small": { "cores": 2, "memory_mb": 2048, "disk_gb": 20, "balloon_mb": 1024, "description": "Cost-optimized small" },
+        "e2-medium": { "cores": 2, "memory_mb": 4096, "disk_gb": 30, "balloon_mb": 2048, "description": "Cost-optimized medium" },
+        "e2-standard-2": { "cores": 2, "memory_mb": 8192, "disk_gb": 50, "balloon_mb": 4096, "description": "Standard 2-vCPU workload" },
+        "e2-standard-4": { "cores": 4, "memory_mb": 16384, "disk_gb": 80, "balloon_mb": 8192, "description": "Standard 4-vCPU workload" },
+        "c2-standard-4": { "cores": 4, "memory_mb": 16384, "disk_gb": 80, "balloon_mb": 8192, "description": "Compute-optimized 4-vCPU" }
+      }
+    },
+    "azure": {
+      "name": "Microsoft Azure",
+      "instances": {
+        "Standard_B1s": { "cores": 1, "memory_mb": 1024, "disk_gb": 15, "balloon_mb": 512, "description": "Burstable B1s tier" },
+        "Standard_B2s": { "cores": 2, "memory_mb": 4096, "disk_gb": 30, "balloon_mb": 2048, "description": "Burstable B2s tier" },
+        "Standard_B2ms": { "cores": 2, "memory_mb": 8192, "disk_gb": 40, "balloon_mb": 4096, "description": "Burstable B2ms tier" },
+        "Standard_D2s_v5": { "cores": 2, "memory_mb": 8192, "disk_gb": 50, "balloon_mb": 4096, "description": "General purpose D2s tier" },
+        "Standard_D4s_v5": { "cores": 4, "memory_mb": 16384, "disk_gb": 80, "balloon_mb": 8192, "description": "General purpose D4s tier" },
+        "Standard_F2s_v2": { "cores": 2, "memory_mb": 4096, "disk_gb": 30, "balloon_mb": 2048, "description": "Compute optimized F2s tier" }
+      }
+    },
+    "hetzner": {
+      "name": "Hetzner Cloud",
+      "instances": {
+        "cx22": { "cores": 2, "memory_mb": 4096, "disk_gb": 40, "balloon_mb": 2048, "description": "Cost-efficient shared x86" },
+        "cx32": { "cores": 4, "memory_mb": 8192, "disk_gb": 80, "balloon_mb": 4096, "description": "Medium shared x86" },
+        "cx42": { "cores": 8, "memory_mb": 16384, "disk_gb": 160, "balloon_mb": 8192, "description": "Large shared x86" },
+        "cpx21": { "cores": 3, "memory_mb": 4096, "disk_gb": 80, "balloon_mb": 2048, "description": "Dedicated CPU performance" },
+        "cpx31": { "cores": 4, "memory_mb": 8192, "disk_gb": 160, "balloon_mb": 4096, "description": "High performance compute" }
+      }
+    },
+    "digitalocean": {
+      "name": "DigitalOcean",
+      "instances": {
+        "s-1vcpu-1gb": { "cores": 1, "memory_mb": 1024, "disk_gb": 25, "balloon_mb": 512, "description": "Basic 1GB Droplet" },
+        "s-1vcpu-2gb": { "cores": 1, "memory_mb": 2048, "disk_gb": 50, "balloon_mb": 1024, "description": "Basic 2GB Droplet" },
+        "s-2vcpu-2gb": { "cores": 2, "memory_mb": 2048, "disk_gb": 60, "balloon_mb": 1024, "description": "Basic 2 vCPU 2GB Droplet" },
+        "s-2vcpu-4gb": { "cores": 2, "memory_mb": 4096, "disk_gb": 80, "balloon_mb": 2048, "description": "Basic 2 vCPU 4GB Droplet" },
+        "c-2": { "cores": 2, "memory_mb": 4096, "disk_gb": 50, "balloon_mb": 2048, "description": "Dedicated CPU 2 Core" },
+        "c-4": { "cores": 4, "memory_mb": 8192, "disk_gb": 100, "balloon_mb": 4096, "description": "Dedicated CPU 4 Core" }
+      }
+    }
+  }
+}

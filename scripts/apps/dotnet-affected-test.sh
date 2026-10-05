@@ -6,7 +6,7 @@ set -euo pipefail
 
 BASE_REF="${1:-HEAD~1}"
 HEAD_REF="${2:-HEAD}"
-ROOT_DIR="${3:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../sdet/backend" && pwd)}"
+ROOT_DIR="${3:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../apps/backend" && pwd)}"
 RESULTS_DIR="${ROOT_DIR}/TestResults"
 
 echo "=========================================================="

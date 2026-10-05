@@ -1,0 +1,10 @@
+---
+# MinIO S3 Remote Cache Configuration
+minio_root_user: "minioadmin"
+minio_root_password: "{{ lookup('env', 'MINIO_ROOT_PASSWORD') | default('minioadmin', true) }}"
+minio_buckets:
+  - name: "build-cache"
+    policy: "download" # Anonymous read, authenticated write
+  - name: "test-artifacts"
+    policy: "download"
+minio_data_dir: "/data"

@@ -1,0 +1,38 @@
+---
+# ==============================================================================
+# Common Base OS Configuration & Utilities
+# ==============================================================================
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install essential baseline utilities
+  apt:
+    name:
+      - curl
+      - git
+      - zstd
+      - tar
+      - jq
+      - ca-certificates
+      - procps
+    state: present
+
+- name: Create CI runner user
+  user:
+    name: "{{ runner_user }}"
+    shell: /bin/bash
+    home: "/home/{{ runner_user }}"
+    groups: sudo
+    append: yes
+    create_home: yes
+
+- name: Ensure runner user has passwordless sudo
+  lineinfile:
+    path: /etc/sudoers.d/99-runner
+    line: "{{ runner_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: yes
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"

@@ -1,0 +1,7 @@
+---
+# CI Runners Configuration
+actions_runner_version: "2.321.0"
+zstd_package: "zstd"
+git_package: "git"
+curl_package: "curl"
+mc_binary_url: "https://dl.min.io/client/mc/release/linux-amd64/mc"

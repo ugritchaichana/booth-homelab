@@ -29,13 +29,13 @@ Every AI agent MUST verify changes using these automated commands. Do not conclu
 
 ```bash
 # 1. Run .NET 8 Backend Unit & Integration Tests (6 tests / 3 suites):
-dotnet test sdet/backend/SdetTestingRig.sln --verbosity quiet
+dotnet test apps/backend/SdetTestingRig.sln --verbosity quiet
 
 # 2. Run Angular Jest Standalone Tests (19 tests / 4 suites):
 # On Proxmox Runner CT 103:
 python scripts/ci/run_ct103_tests.py
-# Or inside sdet/frontend (if node_modules installed):
-npm test --prefix sdet/frontend -- --silent
+# Or inside apps/frontend (if node_modules installed):
+npm test --prefix apps/frontend -- --silent
 
 # 3. Verify .NET AST Transitive Dependency Graph Diff Runner (4 scenarios):
 pwsh -File ./tests/verify-affected-graph.ps1

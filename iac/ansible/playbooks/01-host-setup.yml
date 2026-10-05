@@ -1,0 +1,6 @@
+---
+- name: Proxmox Host Zero-Trust Network & Firewall
+  hosts: proxmox_node
+  gather_facts: true
+  roles:
+    - enterprise_firewall

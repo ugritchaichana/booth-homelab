@@ -1,20 +1,20 @@
 area:billing:
   - changed-files:
       - any-glob-to-any-file:
-          - 'sdet/backend/src/Billing.Api/**'
-          - 'sdet/backend/tests/Billing.Api.UnitTests/**'
+          - 'apps/backend/src/Billing.Api/**'
+          - 'apps/backend/tests/Billing.Api.UnitTests/**'
 
 area:order:
   - changed-files:
       - any-glob-to-any-file:
-          - 'sdet/backend/src/Order.Api/**'
-          - 'sdet/backend/tests/Order.Api.UnitTests/**'
+          - 'apps/backend/src/Order.Api/**'
+          - 'apps/backend/tests/Order.Api.UnitTests/**'
 
-area:sdet:
+area:apps:
   - changed-files:
       - any-glob-to-any-file:
-          - 'sdet/**'
-          - 'scripts/sdet/**'
+          - 'apps/**'
+          - 'scripts/apps/**'
 
 ci/cd:
   - changed-files:

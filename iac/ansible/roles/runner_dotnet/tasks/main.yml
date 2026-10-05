@@ -1,0 +1,47 @@
+---
+# ==============================================================================
+# .NET 8 LTS & Docker-in-LXC Runner Configuration (CT 102)
+# ==============================================================================
+
+- name: Download Microsoft package repository deb
+  get_url:
+    url: "https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb"
+    dest: "/tmp/packages-microsoft-prod.deb"
+    mode: "0644"
+
+- name: Install Microsoft repository
+  apt:
+    deb: "/tmp/packages-microsoft-prod.deb"
+    state: present
+
+- name: Install dotnet-sdk-8.0
+  apt:
+    name: dotnet-sdk-8.0
+    state: present
+    update_cache: yes
+
+- name: Install Docker CE prerequisites
+  apt:
+    name:
+      - docker.io
+      - containerd
+    state: present
+
+- name: Add runner user to docker group
+  user:
+    name: "{{ runner_user }}"
+    groups: docker
+    append: yes
+
+- name: Install MinIO Client (mc)
+  get_url:
+    url: "{{ mc_binary_url }}"
+    dest: /usr/local/bin/mc
+    mode: "0755"
+
+- name: Ensure MinIO alias exists on runner
+  become_user: "{{ runner_user }}"
+  command: >
+    /usr/local/bin/mc alias set minio {{ minio_s3_endpoint }}
+    {{ minio_root_user }} {{ minio_root_password }}
+  changed_when: false

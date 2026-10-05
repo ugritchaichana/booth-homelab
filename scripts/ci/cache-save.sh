@@ -27,7 +27,7 @@ fi
 
 while IFS= read -r dir; do
     [ -d "$dir" ] && CACHE_PATHS+=("$dir")
-done < <(find "$ROOT_DIR/sdet/backend" -type d \( -name "bin" -o -name "obj" \))
+done < <(find "$ROOT_DIR/apps/backend" -type d \( -name "bin" -o -name "obj" \))
 
 echo "==> Packing ${#CACHE_PATHS[@]} targets into zstd compressed stream..."
 

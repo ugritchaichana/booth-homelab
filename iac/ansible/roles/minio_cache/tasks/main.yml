@@ -1,0 +1,60 @@
+---
+# ==============================================================================
+# MinIO S3 Remote Cache Configuration (Alpine Linux)
+# ==============================================================================
+
+- name: Create MinIO data directory
+  file:
+    path: "{{ minio_data_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy MinIO environment configuration
+  copy:
+    dest: /etc/minio.env
+    mode: "0600"
+    content: |
+      MINIO_ROOT_USER={{ minio_root_user }}
+      MINIO_ROOT_PASSWORD={{ minio_root_password }}
+      MINIO_VOLUMES="{{ minio_data_dir }}"
+      MINIO_OPTS="--address :{{ minio_api_port }} --console-address :{{ minio_console_port }}"
+
+- name: Deploy OpenRC service for MinIO on Alpine
+  copy:
+    dest: /etc/init.d/minio
+    mode: "0755"
+    content: |
+      #!/sbin/openrc-run
+      name="minio"
+      description="MinIO High-Performance Object Storage"
+      command="/usr/local/bin/minio"
+      command_args="server {{ minio_data_dir }} --address :{{ minio_api_port }} --console-address :{{ minio_console_port }}"
+      command_background=true
+      pidfile="/var/run/minio.pid"
+
+      depend() {
+          need net
+      }
+
+- name: Ensure MinIO service is enabled and started
+  service:
+    name: minio
+    state: started
+    enabled: yes
+
+- name: Configure MinIO Client (mc) local alias
+  command: >
+    /usr/local/bin/mc alias set local http://127.0.0.1:{{ minio_api_port }}
+    {{ minio_root_user }} {{ minio_root_password }}
+  register: mc_alias_res
+  changed_when: false
+
+- name: Create required S3 buckets
+  command: "/usr/local/bin/mc mb --ignore-existing local/{{ item.name }}"
+  loop: "{{ minio_buckets }}"
+  changed_when: false
+
+- name: Enforce anonymous download policy for remote caching
+  command: "/usr/local/bin/mc anonymous set {{ item.policy }} local/{{ item.name }}"
+  loop: "{{ minio_buckets }}"
+  changed_when: false

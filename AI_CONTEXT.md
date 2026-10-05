@@ -79,7 +79,7 @@ CRITICAL AGENT RULES LEARNED FROM RUNTIME FAILURES:
    Keep it pure headless to preserve the 1.5GB RAM headroom.
 
 6. .NET DOMAIN CURRENCY DEFAULT:
-   In `sdet/backend/src/Core.Domain/Entities/Money.cs`, the default currency is "USD".
+   In `apps/backend/src/Core.Domain/Entities/Money.cs`, the default currency is "USD".
    Do NOT assert "THB" unless explicitly set in test constructor.
 ================================================================================
 ```
@@ -130,12 +130,12 @@ Bucket: minio/build-cache/
 
 ---
 
-## 7. SDET Codebases & Verification Commands
+## 7. Application Codebases & Verification Commands
 
 ### Backend (.NET 8 Solution)
-- **Path:** `sdet/backend/SdetTestingRig.sln`
+- **Path:** `apps/backend/SdetTestingRig.sln`
 - **Enforcement:** `Directory.Build.props` enforces `/p:Deterministic=true`.
-- **Test Runner Script:** `scripts/sdet/dotnet-affected-test.sh` (or `.ps1`).
+- **Test Runner Script:** `scripts/apps/dotnet-affected-test.sh` (or `.ps1`).
 - **Algorithm:** AST Transitive Dependency Graph traversal via XML `<ProjectReference>` parsing.
 - **Test Suites:**
   - `Billing.Api.UnitTests`: 2 unit tests
@@ -143,13 +143,13 @@ Bucket: minio/build-cache/
   - `Order.Api.IntegrationTests`: 2 integration tests (Simulates checkout workflow)
 - **Manual Verification:**
   ```powershell
-  dotnet test sdet/backend/SdetTestingRig.sln --configuration Release
+  dotnet test apps/backend/SdetTestingRig.sln --configuration Release
   ```
 
 ### Frontend (Angular 18/19 Standalone Jest)
-- **Path:** `sdet/frontend/`
+- **Path:** `apps/frontend/`
 - **Config:** `jest.config.js`, `setup-jest.ts`, `tsconfig.spec.json`.
-- **Test Runner Script:** `scripts/sdet/run-angular-jest.sh`.
+- **Test Runner Script:** `scripts/apps/run-angular-jest.sh`.
 - **Test Suites (4 Suites / 19 Tests):**
   - `billing.service.spec.ts` (Tax calculations, rounding, formatting)
   - `billing-summary.component.spec.ts` (DOM rendering, currency pipe)
@@ -157,7 +157,7 @@ Bucket: minio/build-cache/
   - `order-checkout.component.spec.ts` (Form validation, checkout submission)
 - **Manual Verification (Inside CT 103):**
   ```bash
-  pct exec 103 -- su - runner -c "cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/frontend && npx jest --ci --colors --coverage"
+  pct exec 103 -- su - runner -c "cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/frontend && npx jest --ci --colors --coverage"
   ```
 
 ---

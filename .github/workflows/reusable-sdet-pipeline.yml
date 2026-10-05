@@ -81,7 +81,7 @@ jobs:
 
       - name: Ensure Executable Permissions
         shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
+        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Restore Remote MinIO Cache
         id: restore-cache
@@ -96,7 +96,7 @@ jobs:
         run: |
           echo "==> Building .NET 8 Backend Solution..."
           BUILD_START=$(date +%s%N)
-          dotnet build sdet/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
+          dotnet build apps/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
           BUILD_END=$(date +%s%N)
           BUILD_MS=$(( (BUILD_END - BUILD_START) / 1000000 ))
           echo "build_duration_ms=${BUILD_MS}" >> "$GITHUB_OUTPUT"
@@ -120,7 +120,7 @@ jobs:
 
       - name: Ensure Executable Permissions
         shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
+        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Execute Transitive Affected Tests (Unit & Integration)
         id: run-tests
@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sdet-dotnet-test-results
-          path: sdet/backend/TestResults/
+          path: apps/backend/TestResults/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -152,7 +152,7 @@ jobs:
 
       - name: Ensure Executable Permissions
         shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
+        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Save Remote MinIO Cache
         uses: ./.github/actions/minio-cache
@@ -175,7 +175,7 @@ jobs:
 
       - name: Ensure Executable Permissions
         shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/sdet/*.sh 2>/dev/null || true
+        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Execute Angular Jest Suite
         id: run-angular
@@ -186,7 +186,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sdet-angular-coverage
-          path: sdet/frontend/coverage/
+          path: apps/frontend/coverage/
           retention-days: 7
           if-no-files-found: ignore
 

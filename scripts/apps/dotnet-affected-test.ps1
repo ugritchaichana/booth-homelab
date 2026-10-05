@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 
 if (-not $RootDir) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $RootDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir "..\..\sdet\backend"))
+    $RootDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir "..\..\apps\backend"))
 }
 if (-not $ResultsDir) {
     $ResultsDir = [System.IO.Path]::GetFullPath((Join-Path $RootDir "TestResults"))

@@ -4,7 +4,7 @@
 # ==============================================================================
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../sdet/frontend" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../apps/frontend" && pwd)"
 MINIO_S3="http://10.99.20.20:9000"
 NPM_CACHE_TARGET="minio/build-cache/npm/node_modules.tar.zst"
 

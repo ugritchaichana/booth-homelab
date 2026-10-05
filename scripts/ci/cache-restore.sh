@@ -60,8 +60,8 @@ rm -f "$TARGET_FILE"
 # Touch all restored dlls and obj inputs to current time so MSBuild sees them as fresh
 echo "==> Synchronizing MSBuild Intermediate Timestamps..."
 NOW_SEC=$(date +%s)
-find "$ROOT_DIR/sdet/backend" -type d \( -name "bin" -o -name "obj" \) -exec touch -t "$(date -d @$NOW_SEC +%Y%m%d%H%M.%S)" {} + 2>/dev/null || true
-find "$ROOT_DIR/sdet/backend" -type f \( -name "*.dll" -o -name "*.cache" -o -name "project.assets.json" \) -exec touch -t "$(date -d @$NOW_SEC +%Y%m%d%H%M.%S)" {} + 2>/dev/null || true
+find "$ROOT_DIR/apps/backend" -type d \( -name "bin" -o -name "obj" \) -exec touch -t "$(date -d @$NOW_SEC +%Y%m%d%H%M.%S)" {} + 2>/dev/null || true
+find "$ROOT_DIR/apps/backend" -type f \( -name "*.dll" -o -name "*.cache" -o -name "project.assets.json" \) -exec touch -t "$(date -d @$NOW_SEC +%Y%m%d%H%M.%S)" {} + 2>/dev/null || true
 
 # Any files modified in git diff against base commit should have timestamps strictly AFTER the output DLLs
 # to trigger surgical recompilation for ONLY modified projects

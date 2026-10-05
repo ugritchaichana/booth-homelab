@@ -47,7 +47,7 @@ Follow the operating standards defined in `GEMINI.md` and `AGENTS.md`:
 # 3. Deterministic Test Commands
 
 Execute these commands to verify any changes:
-- **Backend Tests:** `dotnet test sdet/backend/SdetTestingRig.sln --verbosity quiet` (6/6 pass)
+- **Backend Tests:** `dotnet test apps/backend/SdetTestingRig.sln --verbosity quiet` (6/6 pass)
 - **Frontend Tests:** `python scripts/ci/run_ct103_tests.py` (19/19 pass)
 - **Graph Diff Runner:** `pwsh -File ./tests/verify-affected-graph.ps1` (4/4 scenarios pass)
 - **Firewall Verification:** `python scripts/proxmox/verify-enterprise-firewall.py` (10/10 pass)

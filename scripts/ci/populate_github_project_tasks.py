@@ -49,8 +49,8 @@ Engineered a Git diff-driven transitive dependency graph test runner for .NET 8 
 - **Transitive Impact Analysis:** Editing `Core.Domain` automatically traverses and selects `Order.Api.UnitTests`.
 - **Zero-Waste Execution:** Editing non-code skips 100% of test suites.
 - **Runners:**
-  - `scripts/sdet/dotnet-affected-test.ps1` (PowerShell AST)
-  - `scripts/sdet/dotnet-affected-test.sh` (POSIX Bash for Linux/LXC)
+  - `scripts/apps/dotnet-affected-test.ps1` (PowerShell AST)
+  - `scripts/apps/dotnet-affected-test.sh` (POSIX Bash for Linux/LXC)
   - Automated 4-scenario TDD verification suite in `tests/verify-affected-graph.ps1` (1.12s execution).
 """
     },

@@ -1,0 +1,6 @@
+---
+- name: MinIO S3 Remote Cache Configuration
+  hosts: s3_cache
+  gather_facts: false
+  roles:
+    - minio_cache

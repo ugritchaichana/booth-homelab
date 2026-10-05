@@ -82,13 +82,13 @@ To execute test suites directly inside LXC containers without triggering GitHub 
 ```bash
 # CT 102 (.NET 8 Unit & Integration Tests):
 pct exec 102 -- su - runner -c "
-  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/backend
+  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/backend
   dotnet test SdetTestingRig.sln --configuration Release --logger 'console;verbosity=normal'
 "
 
 # CT 103 (Angular 18/19 Jest Standalone Tests - 19 Tests / 4 Suites):
 pct exec 103 -- su - runner -c "
-  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/frontend
+  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/frontend
   npx jest --ci --colors --coverage
 "
 ```

@@ -8,12 +8,12 @@ Write-Host "==========================================================" -Foregro
 Write-Host "   TDD Verification: Transitive Graph Engine Assertions    " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-$scriptPath = (Resolve-Path "$PSScriptRoot\..\scripts\sdet\dotnet-affected-test.ps1").Path
-$rootDir = (Resolve-Path "$PSScriptRoot\..\sdet\backend").Path
+$scriptPath = (Resolve-Path "$PSScriptRoot\..\scripts\apps\dotnet-affected-test.ps1").Path
+$rootDir = (Resolve-Path "$PSScriptRoot\..\apps\backend").Path
 
 function Reset-WorkingTree {
-    git checkout -- sdet/backend/ 2>$null
-    git clean -fd sdet/backend/ 2>$null
+    git checkout -- apps/backend/ 2>$null
+    git clean -fd apps/backend/ 2>$null
 }
 
 # Test 1: Leaf Project Modification (Billing.Api)
