@@ -18,6 +18,12 @@ echo "Backend Dir:     $ROOT_DIR"
 
 cd "$REPO_ROOT"
 
+# Provide hermetic author identities for git commit operations in test environments
+export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-Harness Test Runner}"
+export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-harness@booth-homelab.local}"
+export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-Harness Test Runner}"
+export GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-harness@booth-homelab.local}"
+
 ORIGINAL_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo master)"
 ORIGINAL_HEAD="$(git rev-parse HEAD)"
 TMP_BRANCH="test-affected-harness-$$"
