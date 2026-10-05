@@ -1,0 +1,43 @@
+name: Affected Test Selector CI
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'scripts/apps/dotnet-affected-test.*'
+      - 'tests/**'
+      - '.github/workflows/affected-selector-ci.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'scripts/apps/dotnet-affected-test.*'
+      - 'tests/**'
+      - '.github/workflows/affected-selector-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-selector-harness:
+    name: Verify Affected Graph Selector Engine
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@3951f0000cca386034d60c63863412a84687593e # v4.3.0
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Make Scripts Executable
+        run: chmod +x ./scripts/apps/*.sh ./tests/*.sh 2>/dev/null || true
+
+      - name: Run Bash Selector Test Harness (6 Scenarios)
+        run: ./tests/verify-affected-graph.sh
+
+      - name: Run PowerShell Selector Test Harness (5 Scenarios)
+        run: pwsh -File ./tests/verify-affected-graph.ps1

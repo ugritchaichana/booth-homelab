@@ -8,6 +8,7 @@ BASE_REF="${1:-HEAD~1}"
 HEAD_REF="${2:-HEAD}"
 ROOT_DIR="${3:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../apps/backend" && pwd)}"
 RESULTS_DIR="${ROOT_DIR}/TestResults"
+DRY_RUN="${4:-${DRY_RUN:-false}}"
 
 echo "=========================================================="
 echo "   .NET Transitive Dependency Graph Affected Test Runner   "
@@ -15,6 +16,7 @@ echo "=========================================================="
 echo "Root Directory:    $ROOT_DIR"
 echo "Base Reference:    $BASE_REF"
 echo "Head Reference:    $HEAD_REF"
+echo "Dry Run Mode:      $DRY_RUN"
 
 # 1. Collect Changed Files
 CHANGED_FILES=$(git diff --name-only "$BASE_REF" "$HEAD_REF" 2>/dev/null || true)
@@ -123,6 +125,11 @@ for t in "${AFFECTED_TESTS[@]}"; do
     echo "    ==> [RUN] $(basename "$t")"
 done
 
+if [ "$DRY_RUN" = "true" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "[DryRun] Returning affected suites without executing tests."
+    exit 0
+fi
+
 # 5. Deterministic Execution
 mkdir -p "$RESULTS_DIR"
 for t in "${AFFECTED_TESTS[@]}"; do
@@ -133,7 +140,7 @@ for t in "${AFFECTED_TESTS[@]}"; do
     dotnet test "$t" \
         --no-restore \
         --configuration Release \
-        /p:Deterministic=true \
+        -p:Deterministic=true \
         --logger "trx;LogFileName=${pname}.trx" \
         --results-directory "$RESULTS_DIR"
 done
