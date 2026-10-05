@@ -26,6 +26,8 @@ Instead of hardcoding memory and vCPU numbers, this setup abstracts sizing using
 tofu init
 ```
 
+Remote state lives in the MinIO bucket `tofu-state`. Locking uses an S3 lock object (`use_lockfile`) and needs OpenTofu >= 1.10.
+
 ### 2. Plan Deployment
 ```bash
 # Example 1: Using AWS Flavor Catalog
