@@ -33,3 +33,12 @@ coverage/
 *.env
 *.key
 *.pem
+
+# OpenTofu & Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+terraform.tfvars
+*.generated.ini

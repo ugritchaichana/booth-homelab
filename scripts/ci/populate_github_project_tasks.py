@@ -9,6 +9,7 @@ import json
 import subprocess
 
 PROJECT_NUM = 4
+PROJECT_ID = "PVT_kwHOBLpMNs4BlsmX"
 OWNER = "ugritchaichana"
 REPO = "ugritchaichana/booth-homelab"
 FIELD_STATUS_ID = "PVTSSF_lAHOBLpMNs4BlsmXzhkYYrw"
@@ -126,16 +127,60 @@ Conducted live performance benchmark tests across Master baseline, PR #1, and PR
 """
     },
     {
-        "title": "[ROADMAP-01] Zero-Trust DMZ Gateway (CT 100 nftables)",
+        "title": "[SEC-01] Enterprise Zero-Trust Netfilter Firewall & Layer 2 Bridge Port Isolation",
         "labels": ["security", "networking"],
-        "status": "Todo",
+        "status": "Done",
         "body": """### Summary
-Deploy CT 100 (`net-gateway`) on Alpine Linux with `nftables` to enforce strict Zero-Trust network segmentation.
+Implemented enterprise-grade zero-trust network segmentation and bridge port isolation on Proxmox VE 8.4.
 
-### Requirements
-- IP Address: `10.99.20.1` on `vmbr1`.
-- Block East-West lateral movement between runners (`CT 102 <-> CT 103`).
-- Allow egress only to external internet (WAN NAT via `vmbr0`) and internal services (MinIO CT 104, Shared Cache CT 101).
+### Capabilities & Assertions
+- **L2 Port Isolation:** Enforced `isolated on` on `veth102i0` and `veth103i0`.
+- **L3/L4 Netfilter Chain:** Persistent `HOMELAB-FORWARD` chain in `/etc/network/if-up.d/homelab-firewall`.
+- **East-West Traffic:** 100% packet loss between CT 102 (.NET) and CT 103 (Angular).
+- **Service Isolation:** Runner access to MinIO S3 API (:9000) allowed; Web Console (:9001) blocked.
+- **Egress Whitelist:** Outbound restricted strictly to ports 53, 80, 443, 123 (Default DROP).
+- **Verification:** 10/10 automated assertions passing via `scripts/proxmox/verify-enterprise-firewall.py`.
+"""
+    },
+    {
+        "title": "[IAC-02] Declarative OpenTofu Provisioning Engine with Multi-Cloud Flavor Catalog",
+        "labels": ["iac", "opentofu"],
+        "status": "Done",
+        "body": """### Summary
+Engineered declarative Infrastructure as Code using OpenTofu 1.13 and provider `bpg/proxmox` (~> 0.68.0).
+
+### Key Features
+- **Multi-Cloud Flavor Catalog (`iac/tofu/flavors.json`):** Abstracts hardware sizing using AWS (t3/c5/m5), GCP (e2/c2), Azure (B/D/F), Hetzner (cx/cpx), and DigitalOcean profiles.
+- **Dynamic HCL Mapping:** Automatically resolves vCPU, RAM, and Disk allocations based on selected cloud provider and instance flavor.
+- **Modular Topology:** Reusable modules for CI runners (`modules/lxc_runner`) and MinIO S3 cache (`modules/minio_cache`).
+- **Dynamic Inventory:** Generates Ansible inventory directly from OpenTofu state outputs.
+"""
+    },
+    {
+        "title": "[IAC-03] Enterprise Ansible Configuration Management & Idempotent Playbook Fleet",
+        "labels": ["iac", "ansible"],
+        "status": "Done",
+        "body": """### Summary
+Engineered declarative, idempotent configuration management in `iac/ansible/` for host networking, runners, and storage.
+
+### Deliverables
+- **Master Orchestrator:** `playbooks/site.yml` executing host setup, cache deployment, and runner provisioning.
+- **Structured Roles:** `common`, `enterprise_firewall`, `minio_cache`, `runner_dotnet`, `runner_angular`.
+- **Group Variables:** Centralized subnets, ports, runner versions, and S3 credentials in `inventory/group_vars/`.
+"""
+    },
+    {
+        "title": "[REFACTOR-01] Modern Workload Directory Restructuring (apps/) & IaC Decoupling",
+        "labels": ["refactoring", "architecture"],
+        "status": "Done",
+        "body": """### Summary
+Restructured repository directory hierarchy for universal 5-second clarity, removing domain jargon (`sdet/` -> `apps/`) and elevating `iac/` as a first-class citizen.
+
+### Directory Layout
+- `apps/backend/`: .NET 8 solution with deterministic MSBuild and DAG diff runner.
+- `apps/frontend/`: Angular 18/19 standalone Jest test suite with pure headless jsdom.
+- `iac/`: Clean separation into `tofu/`, `ansible/`, and `bootstrap/`.
+- `scripts/`: Compact developer CLI tools only (`scripts/apps/`, `scripts/ci/`, `scripts/proxmox/`).
 """
     },
     {
@@ -176,7 +221,7 @@ def main():
         print(f"\n[*] Processing Task: {title}")
         
         # 1. Create or Find Issue
-        check_issue = run(f'gh issue list --repo {REPO} --search "{title[:30]}" --json number,url,title')
+        check_issue = run(f'gh issue list --repo {REPO} --state all --search "{title[:30]}" --json number,url,title')
         issue_data = json.loads(check_issue) if check_issue else []
         matched = [i for i in issue_data if i.get("title") == title]
         
@@ -207,7 +252,7 @@ def main():
             try:
                 item_id = json.loads(item_raw).get("id")
                 target_status_id = STATUS_DONE_ID if status == "Done" else STATUS_TODO_ID
-                edit_cmd = f'gh project item-edit --id {item_id} --field-id {FIELD_STATUS_ID} --single-select-option-id {target_status_id}'
+                edit_cmd = f'gh project item-edit --id {item_id} --project-id {PROJECT_ID} --field-id {FIELD_STATUS_ID} --single-select-option-id {target_status_id}'
                 run(edit_cmd)
                 print(f"    [PASS] Added to Project #{PROJECT_NUM} with Status: {status}")
             except Exception as e:

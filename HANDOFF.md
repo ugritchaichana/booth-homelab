@@ -33,9 +33,17 @@ Follow the operating standards defined in `GEMINI.md` and `AGENTS.md`:
 - **CT 102 (`gha-runner-01` / `10.99.20.101`):** 3 vCPU, 4GB RAM. .NET 8 runner, Docker-in-LXC (`nesting=1,keyctl=1`), AST dependency graph diff runner.
 - **CT 103 (`gha-runner-angular` / `10.99.20.103`):** 2 vCPU, 1.5GB RAM. Angular 18/19 Standalone Jest runner, pure headless `jsdom` (no Chromium/GUI overhead).
 - **CT 104 (`minio-s3` / `10.99.20.20`):** 2 vCPU, 2GB RAM. Alpine MinIO S3 API (`:9000`), Web Console (`:9001`).
-  - Buckets: `build-cache`, `sdet-test-artifacts`.
+  - Buckets: `build-cache`, `test-artifacts`.
   - Access Policy: Public Read (`anonymous download`) / Authenticated Write (`s3:PutObject`, `s3:DeleteObject`).
   - Web Console: Accessible via `http://100.121.209.85:9001` (blocked from runners by firewall).
+
+### Infrastructure as Code (IaC) Stack
+- **`iac/tofu/`:** OpenTofu 1.13 declarative provisioning via `bpg/proxmox` provider (`~> 0.68.0`).
+  - **Multi-Cloud Instance Catalog (`flavors.json`):** Abstracts sizing to AWS (`t3`), GCP (`e2`), Azure (`Standard_B`), Hetzner (`cx`), and DigitalOcean (`s-1vcpu`).
+  - **Execution:** `tofu plan -var="cloud_provider=aws" -var="runner_dotnet_flavor=t3.medium"`
+- **`iac/ansible/`:** Idempotent configuration management for network, runners, and storage (`playbooks/site.yml`).
+  - **Roles:** `enterprise_firewall`, `minio_cache`, `runner_dotnet`, `runner_angular`.
+- **`iac/bootstrap/`:** Baremetal host bootstrap suite converting Debian 12 to Proxmox VE 8.4.
 
 ### Zero-Trust Firewall & Isolation
 - **Layer 2 Bridge Isolation:** `veth102i0` and `veth103i0` set to `isolated on`.
@@ -49,8 +57,9 @@ Follow the operating standards defined in `GEMINI.md` and `AGENTS.md`:
 Execute these commands to verify any changes:
 - **Backend Tests:** `dotnet test apps/backend/SdetTestingRig.sln --verbosity quiet` (6/6 pass)
 - **Frontend Tests:** `python scripts/ci/run_ct103_tests.py` (19/19 pass)
-- **Graph Diff Runner:** `pwsh -File ./tests/verify-affected-graph.ps1` (4/4 scenarios pass)
+- **Graph Diff Runner:** `powershell -ExecutionPolicy Bypass -File ./tests/verify-affected-graph.ps1` (4/4 scenarios pass)
 - **Firewall Verification:** `python scripts/proxmox/verify-enterprise-firewall.py` (10/10 pass)
+- **OpenTofu Validation:** `tofu -chdir=iac/tofu validate` (Success! Valid)
 - **Language Scan:** Verify 0 Thai characters across repository files.
 
 ---
@@ -60,4 +69,5 @@ Execute these commands to verify any changes:
 2. In GitHub Actions workflows, `actions/checkout@v4` must always be the first step before calling composite actions.
 3. Keep CT 103 purely headless with `jsdom` to avoid memory exhaustion; never install Chrome/Playwright inside CT 103.
 4. Maintain 100% English across all repository files and wiki pages.
+5. In OpenTofu submodules, always declare `terraform { required_providers { proxmox = { source = "bpg/proxmox" } } }` to avoid provider guessing failures.
 ```
