@@ -1,0 +1,23 @@
+name: SDET Hosted Fallback Drill
+
+on:
+  schedule:
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - '.github/workflows/sdet-fallback-drill.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  drill:
+    name: Hosted Drill
+    uses: ./.github/workflows/reusable-sdet-pipeline.yml
+    with:
+      target_branch: ${{ github.head_ref || github.ref_name }}
+      base_ref: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+      force_ubuntu_runner: true
