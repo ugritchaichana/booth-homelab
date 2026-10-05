@@ -25,14 +25,9 @@
     name: "{{ runner_user }}"
     shell: /bin/bash
     home: "/home/{{ runner_user }}"
-    groups: sudo
-    append: yes
     create_home: yes
 
-- name: Ensure runner user has passwordless sudo
-  lineinfile:
+- name: Ensure runner user has no sudoers drop-in
+  file:
     path: /etc/sudoers.d/99-runner
-    line: "{{ runner_user }} ALL=(ALL) NOPASSWD:ALL"
-    create: yes
-    mode: "0440"
-    validate: "/usr/sbin/visudo -cf %s"
+    state: absent

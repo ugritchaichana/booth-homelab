@@ -27,11 +27,15 @@
       - containerd
     state: present
 
-- name: Add runner user to docker group
-  user:
-    name: "{{ runner_user }}"
-    groups: docker
-    append: yes
+- name: Read members of the docker group
+  command: getent group docker
+  register: docker_group
+  changed_when: false
+  failed_when: false
+
+- name: Remove runner user from docker group
+  command: "gpasswd -d {{ runner_user }} docker"
+  when: runner_user in (docker_group.stdout.split(':')[-1].split(',') if docker_group.rc == 0 else [])
 
 - name: Install MinIO Client (mc)
   get_url:
