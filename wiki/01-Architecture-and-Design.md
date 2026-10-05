@@ -81,5 +81,5 @@ iface vmbr1 inet static
 
 ## 4. Architectural Invariants & Security
 1. **Runner Isolation:** Runners operate inside unprivileged LXC containers with strictly scoped capabilities (`features: nesting=1,keyctl=1`).
-2. **Branch-Scoped Cache Isolation:** MinIO storage uses branch prefixes (`branches/<branch-name>/`) to prevent cache poisoning across pull requests (addressing CREEP attack vectors / CVE-2025-36852).
+2. **Branch-Scoped Cache Isolation & IAM:** MinIO storage uses branch prefixes (`branches/<branch-name>/`), scoped read-only PR credentials, and SHA256 integrity digest verification to prevent cache poisoning across pull requests.
 3. **Zero Host Pollution:** Build artifacts and package dependencies never leak into the host Proxmox root filesystem.

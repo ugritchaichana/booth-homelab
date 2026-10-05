@@ -32,9 +32,9 @@ Container **CT 104 (`minio-s3`)** serves as our distributed S3-compatible remote
 
 The 7-day retention policy ensures that homelab virtual disk storage is never exhausted by stale PR build archives.
 
-### Access Policy: Public Read & Authenticated Write
-- **Public Read (Anonymous Download):** Both `build-cache` and `test-artifacts` enforce the `download` policy (`mc anonymous set download minio/<bucket>`). Anyone (developers, external pull requests, dashboards) can read and download cache archives and test reports without credentials.
-- **Strictly Authenticated Write/Edit:** Modifying, overwriting, or deleting objects (`s3:PutObject`, `s3:DeleteObject`) strictly requires authenticated credentials (`minioadmin` or a designated IAM service account). Unauthenticated write requests are rejected with `HTTP 403 Forbidden` (mitigating CVE-2025-36852 / CREEP cache poisoning attacks).
+### Access Policy: Read-Only PR Access & Authenticated Master Write
+- **Read-Only PR Access:** S3 cache buckets require authenticated access via scoped `sdet_pr_reader` credentials, allowing pull requests to restore dependencies without permission to write or poison cache keys.
+- **Strictly Authenticated Write/Edit:** Modifying, overwriting, or deleting objects (`s3:PutObject`, `s3:DeleteObject`) strictly requires authenticated writer credentials (`sdet_ci_writer`). Only verified builds on `master`/`main` can write, with SHA256 integrity digest verification before extraction.
 
 ---
 
@@ -71,9 +71,9 @@ minio/build-cache/
 │       └── build-cache-90980d8.tar.zst   <-- PR-scoped cache
 ```
 
-- Pull requests can read from `master`'s cache.
-- Pull requests write only to their own branch prefix.
-- Only merged code into `master` can update the authoritative `master` cache.
+- Pull requests operate with scoped read-only credentials (`sdet_pr_reader`) and cannot write or mutate cache keys.
+- Only authoritative CI runs on `master`/`main` possess write permissions (`sdet_ci_writer`).
+- All restored archives verify a writer-computed SHA256 integrity digest prior to workspace decompression.
 
 ---
 

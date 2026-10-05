@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "test": "jest --ci --colors",
-    "test:coverage": "jest --ci --coverage",
-    "test:affected": "node scripts/run-affected-jest.js"
+    "test:coverage": "jest --ci --coverage"
   },
   "dependencies": {
     "@angular/common": "^18.2.0",

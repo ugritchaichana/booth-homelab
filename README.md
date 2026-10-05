@@ -59,24 +59,23 @@ graph TD
 - **Sub-Second Restores:** In warm pipeline runs, `node_modules` (28 MiB) is restored in under 1 second, reducing total job duration from **1m58s** to **18s** (**84% duration reduction**).
 - **Immunity from External Outages:** Complete protection against public npm/NuGet rate limits, network jitter, or upstream CDN downtime.
 
-### 3. Enterprise Security, Zero-Trust Firewall & Isolation
+### 3. Network Isolation, Zero-Trust Firewall & Host Protection
 - **Layer 2 Bridge Port Isolation & Netfilter:**
   - Bridge port isolation (`isolated on`) prevents East-West frame switching between test runners (`CT 102` and `CT 103`).
-  - Kernel netfilter (`HOMELAB-FORWARD`) strictly blocks East-West runner traffic, rejects runner access to the MinIO web console (`:9001`), and restricts runner access to the MinIO S3 API (`:9000`).
-  - Runner outbound internet traffic is constrained to essential ports: DNS (`53`), HTTPS (`443`), HTTP (`80`), and NTP (`123`).
-- **Public Read & Scoped Write Access (CVE-2025-36852 / CREEP Mitigation):**
-  - S3 cache buckets enforce anonymous `download` policy, allowing unauthenticated read access for any pull request or developer to restore dependencies rapidly.
-  - Object creation, modification, and deletion (`s3:PutObject`, `s3:DeleteObject`) strictly require authenticated credentials; only verified pushes to `master` possess write authorization.
+  - Kernel netfilter (`HOMELAB-FORWARD`) strictly blocks East-West runner traffic, rejects runner access to the MinIO web console (`:9001`), and permits runner access only to the MinIO S3 API (`:9000`).
+  - Host ingress firewall (`HOMELAB-INPUT`) drops runner traffic destined for the host management plane (`:22` SSH and `:8006` Proxmox API).
+  - Outbound egress is strictly scoped via `ipset` to authorized package/API registries (`api.github.com`, `registry.npmjs.org`, `api.nuget.org`, Debian mirrors) with default-deny dropping all unauthorized high ports and external IPs.
+- **Least-Privilege IAM & Integrity Verification (Cache Poisoning Prevention):**
+  - PR runners operate with scoped read-only credentials (`sdet_pr_reader`), while write access (`sdet_ci_writer`) is restricted to the master branch pipeline.
+  - S3 archives enforce SHA256 integrity digest verification before decompression into the workspace with path traversal rejection.
 - **Zero Public WAN Exposure:**
   - Hypervisor management and containers reside behind Tailscale WireGuard Mesh with Subnet Routing (`10.99.10.0/24`, `10.99.20.0/24`).
 
-### 4. Credential Hardening & Password Complexity Standards
+### 4. Credential Hardening & Standards
 
 > [!IMPORTANT]
-> **Open-Source Default Credentials Disclaimer:**  
-> This repository ships with default sandbox credentials (e.g., `minioadmin` / `minioadmin` for MinIO S3 and local testing defaults for Proxmox VE) exclusively to ensure zero-friction onboarding, out-of-the-box local setup, and automated deterministic testing in isolated sandboxes.  
-> 
-> **Mandatory Production Rotation:** For any internet-accessible, team-shared, or production deployment, default credentials **MUST be rotated immediately**.
+> **Credential Security Advisory:**  
+> All administrative and API credentials must be injected via environment variables (`PVE_PASS`, `PVE_TOKEN_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`) and encrypted secret stores. Plaintext credentials must never be committed to source control.
 
 #### Production Password Standards (NIST SP 800-63B / CIS Benchmark)
 When deploying beyond an isolated development sandbox, generate passwords and secrets compliant with the following standards:
