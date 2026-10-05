@@ -63,5 +63,33 @@ describe('OrderService (Jest Unit Tests)', () => {
       expect(res.grandTotal).toBe(53.50);
       expect(res.voucherApplied).toBeNull();
     });
+
+    it('should clamp discount when fixed voucher exceeds subtotal', () => {
+      const res = service.calculateCheckout(5.00, 'SAVE10');
+      expect(res.discount).toBe(5.00);
+      expect(res.taxableAmount).toBe(0.00);
+      expect(res.tax).toBe(0.00);
+      expect(res.grandTotal).toBe(0.00);
+      expect(res.voucherApplied).toBe('SAVE10');
+    });
+
+    it('should clamp negative subtotal to zero', () => {
+      const res = service.calculateCheckout(-10);
+      expect(res.subtotal).toBe(0);
+      expect(res.discount).toBe(0);
+      expect(res.taxableAmount).toBe(0.00);
+      expect(res.tax).toBe(0.00);
+      expect(res.grandTotal).toBe(0.00);
+      expect(res.voucherApplied).toBeNull();
+    });
+
+    it('should accurately round taxable amount for percentage discount with fractional cents', () => {
+      const res = service.calculateCheckout(33.33, 'VIP20');
+      expect(res.discount).toBe(6.67);
+      expect(res.taxableAmount).toBe(26.66);
+      expect(res.tax).toBe(1.87);
+      expect(res.grandTotal).toBe(28.53);
+      expect(res.voucherApplied).toBe('VIP20');
+    });
   });
 });

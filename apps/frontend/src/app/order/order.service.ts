@@ -37,7 +37,7 @@ export class OrderService {
       }
     }
 
-    const taxableAmount = Math.max(0, subtotal - discount);
+    const taxableAmount = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
     const tax = Math.round(taxableAmount * 0.07 * 100) / 100;
     const grandTotal = Math.round((taxableAmount + tax) * 100) / 100;
 
