@@ -14,7 +14,7 @@ iac/ansible/
 │   └── group_vars/
 │       ├── all.yml            # Universal subnets, ports, gateway
 │       ├── ci_runners.yml     # Runner utilities, versions, mc binary
-│       └── s3_cache.yml       # MinIO credentials, bucket policies
+│       └── s3_cache.yml       # MinIO root credentials (from env, no defaults)
 ├── playbooks/
 │   ├── site.yml               # Master orchestration playbook
 │   ├── 01-host-setup.yml      # Zero-trust bridge isolation & netfilter rules
@@ -24,7 +24,7 @@ iac/ansible/
     ├── common/                # Base utilities (zstd, git, sudo, runner user)
     ├── enterprise_firewall/   # Netfilter HOMELAB-FORWARD chain & L2 isolation
     │   └── templates/         # homelab-firewall.j2 (parameterized netfilter)
-    ├── minio_cache/           # Alpine OpenRC service & anonymous policy
+    ├── minio_cache/           # Alpine OpenRC service & private buckets
     │   └── templates/         # minio.env.j2, minio.initd.j2
     ├── proxmox_host/          # LXC appliance template manager (pveam download)
     ├── runner_dotnet/         # CT 102 (.NET 8 SDK, Docker-in-LXC)

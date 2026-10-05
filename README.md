@@ -66,7 +66,8 @@ graph TD
   - Host ingress firewall (`HOMELAB-INPUT`) drops runner traffic destined for the host management plane (`:22` SSH and `:8006` Proxmox API).
   - Outbound egress is strictly scoped via `ipset` to authorized package/API registries (`api.github.com`, `registry.npmjs.org`, `api.nuget.org`, Debian mirrors) with default-deny dropping all unauthorized high ports and external IPs.
 - **Least-Privilege IAM & Integrity Verification (Cache Poisoning Prevention):**
-  - PR runners operate with scoped read-only credentials (`sdet_pr_reader`), while write access (`sdet_ci_writer`) is restricted to the master branch pipeline.
+  - Runners hold only a bucket-scoped reader alias (user from `SDET_PR_READER_USER`); the writer account (`SDET_CI_WRITER_USER`) credential reaches only the master cache-save job through the `cache-writer` GitHub Environment secrets, as an alias that lives for that job only.
+  - Enforced only once `configure_iam_cache_accounts.py` is re-run with rotated passwords and the `cache-writer` Environment is restricted to `master`; until then the previous credentials remain live.
   - S3 archives enforce SHA256 integrity digest verification before decompression into the workspace with path traversal rejection.
 - **Zero Public WAN Exposure:**
   - Hypervisor management and containers reside behind Tailscale WireGuard Mesh with Subnet Routing (`10.99.10.0/24`, `10.99.20.0/24`).

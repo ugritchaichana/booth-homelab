@@ -180,6 +180,7 @@ jobs:
   dotnet-cache-save:
     name: Cache (.NET)
     needs: [dotnet-build, dotnet-test]
+    environment: cache-writer
     if: always() && needs.dotnet-build.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: >
       ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
@@ -195,7 +196,31 @@ jobs:
         shell: bash
         run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
+      - name: Configure Writer Alias
+        id: writer
+        shell: bash
+        env:
+          MC_CONFIG_DIR: ${{ runner.temp }}/mc
+          WRITER_ACCESS_KEY: ${{ secrets.MINIO_WRITER_ACCESS_KEY }}
+          WRITER_SECRET_KEY: ${{ secrets.MINIO_WRITER_SECRET_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY" ] || [ -z "$WRITER_SECRET_KEY" ]; then
+            echo "::warning::MinIO writer credentials not configured; skipping cache save."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          elif ! command -v mc >/dev/null 2>&1; then
+            echo "::warning::mc not found on this runner; skipping cache save."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          elif mc alias set minio-writer http://10.99.20.20:9000 "$WRITER_ACCESS_KEY" "$WRITER_SECRET_KEY" >/dev/null 2>&1; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Writer alias setup failed; skipping cache save."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Save Remote MinIO Cache
+        if: steps.writer.outputs.configured == 'true'
+        env:
+          MC_CONFIG_DIR: ${{ runner.temp }}/mc
         uses: ./.github/actions/minio-cache
         with:
           mode: save

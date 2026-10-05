@@ -7,6 +7,8 @@ IP: 10.99.20.20/24 (vmbr1 DMZ)
 Port: 9000 (API), 9001 (Console)
 """
 
+import os
+import shlex
 import sys
 import time
 import paramiko
@@ -17,7 +19,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 PVE_HOST = os.environ.get("PVE_HOST", "100.121.209.85")
 PVE_USER = os.environ.get("PVE_USER", "root")
 PVE_PASS = os.environ["PVE_PASS"]
-MINIO_USER = os.environ.get("MINIO_ROOT_USER", "minioadmin")
+MINIO_USER = os.environ["MINIO_ROOT_USER"]
 MINIO_PASS = os.environ["MINIO_ROOT_PASSWORD"]
 CT_ID = "104"
 CT_NAME = "minio-s3"
@@ -92,6 +94,16 @@ echo "Downloading MinIO Client (mc)..."
 wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
 chmod +x /usr/local/bin/mc
 
+# Root credentials live in a root-only OpenRC conf.d file, never in the init script
+touch /etc/conf.d/minio
+chmod 600 /etc/conf.d/minio
+cat << 'EOF' > /etc/conf.d/minio
+set -a
+MINIO_ROOT_USER={shlex.quote(MINIO_USER)}
+MINIO_ROOT_PASSWORD={shlex.quote(MINIO_PASS)}
+set +a
+EOF
+
 # Create OpenRC Service
 cat << EOF > /etc/init.d/minio
 #!/sbin/openrc-run
@@ -101,8 +113,6 @@ command="/usr/local/bin/minio"
 command_args="server /data/minio --address :9000 --console-address :9001"
 command_background=true
 pidfile="/run/minio.pid"
-export MINIO_ROOT_USER="{MINIO_USER}"
-export MINIO_ROOT_PASSWORD="{MINIO_PASS}"
 
 depend() {{
     need net
@@ -124,7 +134,7 @@ for i in $(seq 1 15); do
 done
 
 # Configure mc alias and buckets
-/usr/local/bin/mc alias set local http://127.0.0.1:9000 {MINIO_USER} {MINIO_PASS}
+/usr/local/bin/mc alias set local http://127.0.0.1:9000 {shlex.quote(MINIO_USER)} {shlex.quote(MINIO_PASS)}
 /usr/local/bin/mc mb --ignore-existing local/build-cache
 /usr/local/bin/mc mb --ignore-existing local/test-artifacts
 
@@ -133,14 +143,19 @@ done
 /usr/local/bin/mc ilm rule add --expire-days 7 local/test-artifacts
 /usr/local/bin/mc ilm rule list local/build-cache
 """
-    sftp = ssh.open_sftp()
-    with sftp.open("/tmp/setup-minio.sh", "w") as f:
-        f.write(setup_script)
-    sftp.close()
+    host_script = exec_ssh(ssh, "mktemp")
+    ct_script = "/root/setup-minio.sh"
+    try:
+        sftp = ssh.open_sftp()
+        with sftp.open(host_script, "w") as f:
+            f.write(setup_script)
+        sftp.close()
 
-    exec_ssh(ssh, "chmod +x /tmp/setup-minio.sh")
-    exec_ssh(ssh, f"pct push {CT_ID} /tmp/setup-minio.sh /root/setup-minio.sh")
-    exec_ssh(ssh, f"pct exec {CT_ID} -- /bin/sh /root/setup-minio.sh", timeout=300)
+        exec_ssh(ssh, f"pct push {CT_ID} {host_script} {ct_script} --perms 0700")
+        exec_ssh(ssh, f"pct exec {CT_ID} -- /bin/sh {ct_script}", timeout=300)
+    finally:
+        exec_ssh(ssh, f"rm -f {host_script}")
+        exec_ssh(ssh, f"pct exec {CT_ID} -- rm -f {ct_script}")
     print(f"[+] MinIO S3 Server successfully configured in CT {CT_ID}!")
 
     # 5. Verify from Runner (CT 102 -> CT 104 connectivity)

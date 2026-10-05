@@ -8,7 +8,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 pve_host = os.environ.get("PVE_HOST", "100.121.209.85")
 pve_pass = os.environ["PVE_PASS"]
-minio_user = os.environ.get("MINIO_ROOT_USER", "minioadmin")
+minio_user = os.environ["MINIO_ROOT_USER"]
 minio_pass = os.environ["MINIO_ROOT_PASSWORD"]
 
 ssh = paramiko.SSHClient()
@@ -28,12 +28,20 @@ MINIO_BROWSER="on"
 set +a
 """
 
-sftp = ssh.open_sftp()
-with sftp.open("/tmp/minio.conf", "w") as f:
-    f.write(cfg)
-sftp.close()
+_, out, _ = ssh.exec_command("mktemp")
+host_conf = out.read().decode('utf-8').strip()
+try:
+    sftp = ssh.open_sftp()
+    with sftp.open(host_conf, "w") as f:
+        f.write(cfg)
+    sftp.close()
 
-ssh.exec_command("pct push 104 /tmp/minio.conf /etc/conf.d/minio")
+    _, out, _ = ssh.exec_command(f"pct push 104 {host_conf} /etc/conf.d/minio --perms 0600")
+    out.read()
+finally:
+    _, out, _ = ssh.exec_command(f"rm -f {host_conf}")
+    out.read()
+
 ssh.exec_command("pct exec 104 -- rc-update add minio default")
 _, out, err = ssh.exec_command("pct exec 104 -- rc-service minio restart")
 print("RC-SERVICE:\n" + out.read().decode('utf-8', errors='replace'))

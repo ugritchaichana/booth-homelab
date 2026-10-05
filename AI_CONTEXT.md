@@ -43,7 +43,7 @@ Before executing ANY `git commit`, `git push`, or infrastructure change, verify 
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **CT 102** | `gha-runner-01` | `10.99.20.101` | 3 vCPU, 4GB RAM, 20GB Disk | **.NET 8 Runner**<br>Labels: `[self-hosted, linux, proxmox, dotnet]`<br>Toolchain: .NET 8.0.425, Docker-in-LXC (`nesting=1,keyctl=1`), `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service` |
 | **CT 103** | `gha-runner-angular` | `10.99.20.103` | 2 vCPU, 1.5GB RAM, 12GB Disk | **Angular Jest Runner**<br>Labels: `[self-hosted, linux, proxmox, angular]`<br>Toolchain: Node.js 20.20.2 LTS, npm 10.8.2, jsdom, `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service` |
-| **CT 104** | `minio-s3` | `10.99.20.20` | 2 vCPU, 2GB RAM, 15GB Disk | **Distributed S3 Remote Cache**<br>API: `http://10.99.20.20:9000`<br>Console: `http://10.99.20.20:9001`<br>Auth: `minioadmin` / `minioadmin` (Dev default; rotate in production)<br>Buckets: `build-cache`, `test-artifacts` | `minio.service` |
+| **CT 104** | `minio-s3` | `10.99.20.20` | 2 vCPU, 2GB RAM, 15GB Disk | **Distributed S3 Remote Cache**<br>API: `http://10.99.20.20:9000`<br>Console: `http://10.99.20.20:9001`<br>Auth: root credentials injected via `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` (no defaults in the repo); runners use a bucket-scoped reader account; buckets are private<br>Buckets: `build-cache`, `test-artifacts` | `minio.service` |
 
 ---
 

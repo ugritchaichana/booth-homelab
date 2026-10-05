@@ -3,6 +3,13 @@
 # MinIO S3 Remote Cache Configuration (Alpine Linux)
 # ==============================================================================
 
+- name: Require MinIO root credentials from the environment
+  assert:
+    that:
+      - minio_root_user | length > 0
+      - minio_root_password | length > 0
+    fail_msg: "MINIO_ROOT_USER and MINIO_ROOT_PASSWORD must be set in the environment"
+
 - name: Create MinIO data directory
   file:
     path: "{{ minio_data_dir }}"
@@ -14,6 +21,7 @@
     src: minio.env.j2
     dest: /etc/minio.env
     mode: "0600"
+  no_log: true
 
 - name: Deploy OpenRC service for MinIO on Alpine from Jinja2 template
   template:
@@ -33,13 +41,14 @@
     {{ minio_root_user }} {{ minio_root_password }}
   register: mc_alias_res
   changed_when: false
+  no_log: true
 
 - name: Create required S3 buckets
   command: "/usr/local/bin/mc mb --ignore-existing local/{{ item.name }}"
   loop: "{{ minio_buckets }}"
   changed_when: false
 
-- name: Enforce anonymous download policy for remote caching
-  command: "/usr/local/bin/mc anonymous set {{ item.policy }} local/{{ item.name }}"
+- name: Keep buckets private (no anonymous access)
+  command: "/usr/local/bin/mc anonymous set none local/{{ item.name }}"
   loop: "{{ minio_buckets }}"
   changed_when: false

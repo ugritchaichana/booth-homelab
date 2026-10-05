@@ -126,16 +126,19 @@ pct exec 102 -- mc ls minio/sdet-test-artifacts
 ### 4.2 Disaster Recovery & Bucket Re-initialization
 If CT 104 is wiped, rebuilt, or cache corrupted:
 ```bash
-# 1. Register mc alias:
-pct exec 102 -- mc alias set minio http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+# 1. Register a temporary admin alias (runners never hold root credentials):
+pct exec 102 -- mc alias set minio-admin http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
 # 2. Re-create required buckets:
-pct exec 102 -- mc mb -p minio/build-cache
-pct exec 102 -- mc mb -p minio/sdet-test-artifacts
+pct exec 102 -- mc mb -p minio-admin/build-cache
+pct exec 102 -- mc mb -p minio-admin/sdet-test-artifacts
 
 # 3. Apply 7-day automatic TTL expiration:
-pct exec 102 -- mc ilm rule add --expire-days 7 minio/build-cache
-pct exec 102 -- mc ilm rule add --expire-days 7 minio/sdet-test-artifacts
+pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/build-cache
+pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/sdet-test-artifacts
+
+# 4. Re-create the scoped IAM users, policies and runner reader aliases (the script also removes the admin alias):
+python scripts/proxmox/configure_iam_cache_accounts.py
 ```
 
 ### 4.3 Cache Purge (Testing Cold Builds)
