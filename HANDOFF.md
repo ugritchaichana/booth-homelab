@@ -37,7 +37,7 @@ Adhere strictly to the Master Craftsman Operating Rules (GEMINI.md):
 - **UI Tweaks:** "No valid subscription" nag dialog has been permanently disabled via regex patch.
 
 ### Target Baremetal Hardware (Future Migration)
-- **Target Laptop:** Acer Swift Go 14 (`SFG14-73-54C7`), Intel Core Ultra 125H (14C/18T), 16GB LPDDR5X (Soldered), 512GB NVMe, Wi-Fi 7 only (No RJ-45).
+- **Target Baremetal Node:** Dedicated x86_64 Node (Multi-Core 14C/18T Architecture, 16GB+ RAM, NVMe SSD, Wi-Fi / Ethernet).
 - **Automated Portable Bundle:** Fully implemented in `scripts/host-bootstrap/` and packaged as `pve-bootstrap-bundle.tar.gz` ready to run via `./bootstrap.sh` on clean Debian 12 minimal install.
 
 ---
@@ -51,7 +51,7 @@ All codebase, scripts, tests, and documentation reside in:
 Booth-homelab/
 ├── RUNBOOK.md                         # Comprehensive 5-phase production operations runbook
 ├── HANDOFF.md                         # This session handover specification
-├── pve-bootstrap-bundle.tar.gz        # Packaged bootstrap suite for Acer Swift Go 14
+├── pve-bootstrap-bundle.tar.gz        # Packaged bootstrap suite for baremetal host
 │
 ├── scripts/
 │   ├── host-bootstrap/                # Modular Bash scripts for Baremetal PVE install (00..06)
@@ -127,6 +127,6 @@ The incoming session should pick up immediately on **Phase 3: Container Tier & C
    - **CT 102 & 103 (GHA Runners / Debian 12):** Deploy Docker-in-LXC with `nesting=1,keyctl=1`, `overlay2` storage driver, and `/dev/shm` 1024M tmpfs mount.
 2. **Option B: Author OpenTofu IaC Module (`bpg/proxmox`):**
    - Automate the provisioning of the above containers via OpenTofu using the API Token `root@pam!ai_agent`.
-3. **Option C: Hardware Migration to Acer Swift Go 14:**
-   - Execute the physical deployment runbook using `pve-bootstrap-bundle.tar.gz` on the physical laptop.
+3. **Option C: Hardware Migration to Baremetal Node:**
+   - Execute the physical deployment runbook using `pve-bootstrap-bundle.tar.gz` on the physical node.
 ```

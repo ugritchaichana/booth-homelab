@@ -28,12 +28,12 @@ Get-ChildItem -Path $scriptDir -Filter "*.sh" | ForEach-Object {
 $readmePath = Join-Path $scriptDir "README-BOOTSTRAP.txt"
 $readmeContent = @"
 ================================================================================
-  Acer Swift Go 14: Debian 12 -> Proxmox VE 8.x Host Bootstrap Suite
+  Baremetal Host: Debian 12 -> Proxmox VE 8.x Host Bootstrap Suite
 ================================================================================
 
 HOW TO RUN ON CLEAN DEBIAN 12 MINIMAL INSTALL:
 
-1. Insert this USB drive into the Acer Swift Go 14 laptop.
+1. Insert this USB drive into the target baremetal node.
 2. Mount the USB drive (as root):
      sudo mkdir -p /mnt/usb
      sudo mount /dev/sdb1 /mnt/usb    # (or check with: lsblk)

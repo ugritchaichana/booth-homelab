@@ -2,11 +2,11 @@
 
 ## 1. Overview & Hardware Constraints
 
-Booth Homelab is engineered to deliver high-density, reproducible CI/CD execution directly on personal workstation hardware (**Acer Swift Go 14**). It utilizes nested virtualization to isolate execution runners from host operating system state while maximizing hardware performance.
+Booth Homelab is engineered to deliver high-density, reproducible CI/CD execution directly on workstation and local hardware. It utilizes nested virtualization to isolate execution runners from host operating system state while maximizing hardware performance.
 
 ### Hardware Specifications
-- **Host Device:** Acer Swift Go 14 (AMD Ryzen AI CPU / AMD-V virtualization)
-- **Host Operating System:** Windows 11 Insider Preview (Canary / Dev channel)
+- **Host Device:** Modern Multi-Core Workstation / Laptop (AMD-V / VT-x Virtualization Passthrough)
+- **Host Operating System:** Windows 11 Pro / Enterprise
 - **Hypervisor:** Microsoft Hyper-V (Nested Virtualization enabled via `Set-VMProcessor -ExposeVirtualizationExtensions $true`)
 - **Virtual Appliance:** Proxmox VE 8.4.0 (Linux Kernel `6.8.12-9-pve`)
 - **Resource Allocation to Proxmox VM:**

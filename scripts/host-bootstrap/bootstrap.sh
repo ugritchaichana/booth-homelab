@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Master Orchestrator: Acer Swift Go 14 Proxmox VE 8.x Host Bootstrap
+# Master Orchestrator: Baremetal Host Proxmox VE 8.x Bootstrap Suite
 # ==============================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,7 +15,7 @@ exec > >(tee -a "${LOG_FILE}") 2>&1
 STAGE="${1:---stage=1}"
 
 echo -e "${BOLD}${CYAN}========================================================================${NC}"
-echo -e "${BOLD}${CYAN}   Acer Swift Go 14 Homelab: Host Bootstrapping Engine                 ${NC}"
+echo -e "${BOLD}${CYAN}   Baremetal Homelab: Host Bootstrapping Engine                        ${NC}"
 echo -e "${BOLD}${CYAN}   Target: Debian 12 -> Kernel 6.8+ -> PVE 8.x -> Routed NAT -> TS     ${NC}"
 echo -e "${BOLD}${CYAN}========================================================================${NC}"
 log_info "Bootstrap execution log: ${LOG_FILE}"

@@ -55,14 +55,14 @@ Engineered a Git diff-driven transitive dependency graph test runner for .NET 8 
 """
     },
     {
-        "title": "[IAC-01] Baremetal Host Bootstrapping Suite for Acer Swift Go 14",
+        "title": "[IAC-01] Baremetal Host Bootstrapping Suite for Dedicated Node",
         "labels": ["iac", "automation"],
         "status": "Done",
         "body": """### Summary
-Created a modular 7-stage Bash bootstrap suite and portable package for physical hardware migration to Intel Core Ultra 125H.
+Created a modular 7-stage Bash bootstrap suite and portable package for physical hardware migration to baremetal x86_64 host.
 
 ### Architecture & Deliverables
-- **Hardware Profile:** Acer Swift Go 14 (SFG14-73-54C7), 14C/18T, 16GB LPDDR5X, Wi-Fi 7 only.
+- **Hardware Profile:** Multi-Core x86_64 Node (14C/18T Hybrid), 16GB+ LPDDR5X/DDR5, Wi-Fi / Ethernet.
 - **Routed NAT Topology:** Dual bridges `vmbr0` and `vmbr1` with IP forwarding & Wi-Fi masquerade rules.
 - **Power & Stability:** `HandleLidSwitch=ignore` and persistent Wi-Fi powersave killswitch service.
 - **Bundle Archive:** `pve-bootstrap-bundle.tar.gz` ready for one-command execution via `./bootstrap.sh`.

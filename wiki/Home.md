@@ -21,7 +21,7 @@ Welcome to the central knowledge repository for **Booth Homelab** — an enterpr
 
 ```mermaid
 graph TD
-    subgraph Host ["Acer Swift Go 14 / Windows 11 Host"]
+    subgraph Host ["Workstation / Windows 11 Host"]
         HV["Hyper-V Virtual Switch (Default Switch NAT)"]
         PVE["Proxmox VE 8.4 (4 vCPU, 10GB RAM)"]
     end

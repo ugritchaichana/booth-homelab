@@ -195,5 +195,5 @@ def exec_pve(cmd: str) -> str:
 If instructed to continue into subsequent phases:
 1. **CT 100 Zero-Trust Gateway:** Provision Alpine 3.20 container with `nftables` on `10.99.20.1` to isolate East-West traffic between runners.
 2. **CT 101 Local Package Mirror:** Provision BaGet (.NET NuGet mirror) and Verdaccio (npm registry mirror) on `vmbr1` to create a 100% air-gapped homelab cache.
-3. **Baremetal Migration:** Apply `scripts/host-bootstrap/` (`pve-bootstrap-bundle.tar.gz`) to physical Acer Swift Go 14 laptop (`SFG14-73-54C7` Core Ultra 125H).
+3. **Baremetal Migration:** Apply `scripts/host-bootstrap/` (`pve-bootstrap-bundle.tar.gz`) to dedicated baremetal host (x86_64 multi-core server/laptop node).
 4. **IaC OpenTofu Lifecycle:** Implement ephemeral runner spawning via OpenTofu Proxmox provider using Golden Template 9001.

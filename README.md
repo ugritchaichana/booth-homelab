@@ -99,7 +99,7 @@ Booth-homelab/
 │
 ├── scripts/
 │   ├── ci/                            # CI helper scripts (sync_wiki.py)
-│   ├── host-bootstrap/                # Baremetal host installer for Acer Swift Go 14 (00..06)
+│   ├── host-bootstrap/                # Baremetal host bootstrapping suite (00..06)
 │   ├── hyperv/                        # Hyper-V Gen2 VM deployment scripts
 │   ├── proxmox/                       # Proxmox API auto-configuration scripts
 │   └── sdet/                          # Test runners (run-angular-jest.sh, dotnet-affected-test.sh)

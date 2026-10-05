@@ -62,11 +62,11 @@ log_success "Detected active Wi-Fi interface: ${WIFI_IFACE}"
 
 log_info "Testing DNS and Internet Connectivity..."
 if ! ping -c 2 -W 3 1.1.1.1 &>/dev/null; then
-    log_error "Cannot reach public IP 1.1.1.1. Ensure laptop is connected to Wi-Fi."
+    log_error "Cannot reach public IP 1.1.1.1. Ensure host is connected to Wi-Fi/Ethernet."
     exit 1
 fi
 if ! ping -c 2 -W 3 debian.org &>/dev/null; then
-    log_error "DNS resolution failed for debian.org. Check dormitory captive portal authentication."
+    log_error "DNS resolution failed for debian.org. Check network captive portal authentication or DNS settings."
     exit 1
 fi
 log_success "Internet connectivity and DNS resolution verified."

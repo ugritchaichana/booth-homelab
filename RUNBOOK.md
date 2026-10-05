@@ -5,8 +5,8 @@
 **Revision:** Phase 2 Complete (Dual-Runner .NET 8 + Angular Jest Rig Live)  
 **Target Environments:**
 - **Environment A (Live Active Rig):** Windows 11 Workstation / AMD Ryzen 5 5600X / 32GB RAM / Hyper-V Nested Proxmox VE 8.4.0
-- **Environment B (Target Baremetal Rig):** Acer Swift Go 14 (`SFG14-73-54C7` / Core Ultra 125H / 16GB LPDDR5X / Wi-Fi 7)  
-**Network Topography:** Dormitory Wi-Fi (CGNAT / AP Isolation) $\rightarrow$ Tailscale WireGuard Mesh $\rightarrow$ In-Memory Virtual Bus (`vmbr1`)
+- **Environment B (Target Baremetal Rig):** Dedicated x86_64 Node (Multi-Core 14C/18T Architecture / 16GB+ RAM / Wi-Fi & Ethernet)  
+**Network Topography:** Restricted Network / CGNAT $\rightarrow$ Tailscale WireGuard Mesh $\rightarrow$ In-Memory Virtual Bus (`vmbr1`)
 
 ---
 
@@ -14,7 +14,7 @@
 
 1. [Executive Architecture & Dual-Environment Matrix](#1-executive-architecture--dual-environment-matrix)
 2. [Environment A Operations: Live Workstation Hyper-V & Nested Proxmox](#2-environment-a-operations-live-workstation-hyper-v--nested-proxmox)
-3. [Environment B Operations: Baremetal Bootstrapping (Acer Swift Go 14)](#3-environment-b-operations-baremetal-bootstrapping-acer-swift-go-14)
+3. [Environment B Operations: Baremetal Bootstrapping (Dedicated Node)](#3-environment-b-operations-baremetal-bootstrapping-dedicated-node)
 4. [Container Fleet Architecture & Runner Lifecycle](#4-container-fleet-architecture--runner-lifecycle)
 5. [MinIO S3 Remote Cache Administration & Disaster Recovery (CT 104)](#5-minio-s3-remote-cache-administration--disaster-recovery-ct-104)
 6. [CI/CD Pipeline Integration & GitHub Workflows](#6-cicd-pipeline-integration--github-workflows)
@@ -29,13 +29,13 @@
 
 ### Dual-Environment Comparison Matrix
 
-| มิติ (Dimension) | Environment A (Live Active Workstation) | Environment B (Target Baremetal Laptop) |
+| มิติ (Dimension) | Environment A (Live Active Workstation) | Environment B (Target Baremetal Node) |
 | :--- | :--- | :--- |
 | **บทบาทหลัก** | Active Dev/Test & Autonomous Verification Rig | Dedicated Standalone SDET Homelab Server |
-| **ฮาร์ดแวร์แม่ข่าย** | AMD Ryzen 5 5600X (6C/12T), 32 GB DDR4 | Intel Core Ultra 125H (14C/18T: 4P+8E+2LP-E), 16 GB LPDDR5X |
+| **ฮาร์ดแวร์แม่ข่าย** | AMD Ryzen 5 5600X (6C/12T), 32 GB DDR4 | Modern Multi-Core x86_64 Node (14C/18T Hybrid), 16 GB+ RAM |
 | **ชั้น Hypervisor** | Windows 11 Pro Hyper-V (Gen 2 VM: `Proxmox-Lab`) | Proxmox VE 8.4 Baremetal on Debian 12 Minimal |
 | **Virtualization Mode** | Nested AMD-V Virtualization Passthrough | Baremetal KVM / Kernel 6.8+ Enterprise Stack |
-| **เครือข่าย Uplink** | Hyper-V Internal NAT Switch (`172.29.16.1/20`) | Wi-Fi 7 (Intel AX1675 / BE200) ผ่าน Routed NAT |
+| **เครือข่าย Uplink** | Hyper-V Internal NAT Switch (`172.29.16.1/20`) | Wi-Fi / Ethernet Adapter ผ่าน Routed NAT |
 | **Mesh Access** | Tailscale Mesh IP: `100.121.209.85:8006` | Tailscale Mesh IP (Subnet Router `10.99.10.0/24`) |
 | **Internal Bridges** | `vmbr0` (`10.99.10.1`), `vmbr1` (`10.99.20.1`) | `vmbr0` (`10.99.10.1`), `vmbr1` (`10.99.20.1`) |
 | **Storage Subsystem** | 50 GB VHDX (Ext4 LVM-Thin) | 512 GB PCIe Gen4 NVMe (Ext4 LVM-Thin — แบน ZFS) |
@@ -133,9 +133,9 @@ def exec_pve(cmd: str) -> str:
 
 ---
 
-## 3. Environment B Operations: Baremetal Bootstrapping (Acer Swift Go 14)
+## 3. Environment B Operations: Baremetal Bootstrapping (Dedicated Node)
 
-ใช้เมื่อต้องการย้ายระบบขึ้นติดตั้งบนฮาร์ดแวร์ Acer Swift Go 14 จริง (`SFG14-73-54C7` Core Ultra 125H / 16GB LPDDR5X):
+ใช้เมื่อต้องการย้ายระบบขึ้นติดตั้งบนเครื่อง Baremetal Node จริง (เช่น Mini-PC หรือ Server Node x86_64 16GB+ RAM):
 
 ### Step 3.1: การเตรียม Bootable USB & Bootstrap Bundle
 
@@ -148,15 +148,15 @@ powershell -ExecutionPolicy Bypass -File scripts/host-bootstrap/make-usb-pack.ps
 ```
 ไฟล์ที่ได้บน USB: `pve-bootstrap-bundle.tar.gz`
 
-### Step 3.2: ติดตั้ง Debian 12 Minimal บน Laptop
+### Step 3.2: ติดตั้ง Debian 12 Minimal บน Baremetal Node
 
 1. สร้าง Debian 12 Netinst USB ด้วย Rufus (เลือกโหมด **DD Image**).
-2. เข้า BIOS Acer Swift Go 14 (กด `F2` ตอนเปิดเครื่อง):
+2. เข้า BIOS ของเครื่อง Node (กด `F2` หรือ `Del` ตอนเปิดเครื่อง):
    - **Disable Secure Boot** (สำคัญมาก: ป้องกัน Kernel Proxmox เจอ `bad shim signature`).
    - ตั้งค่า Function Key Behavior เป็น Standard.
 3. ดำเนินการติดตั้ง Debian 12:
-   - เชื่อมต่อ Wi-Fi หอพัก.
-   - **Partitioning:** เลือก **Guided LVM (Ext4)** (*ห้ามเลือก ZFS เป็นอันขาด เพื่อป้องกัน RAM 16GB ถูกแย่งไป 50%*).
+   - เชื่อมต่อ Wi-Fi หรือเสียบสาย LAN.
+   - **Partitioning:** เลือก **Guided LVM (Ext4)** (*ห้ามเลือก ZFS เป็นอันขาด เพื่อป้องกัน RAM ถูกแย่งไป 50%*).
    - **Software Selection:** ติ๊กออกทั้งหมด เหลือเพียง **SSH server** และ **standard system utilities** (ห้ามลง Desktop GUI).
 
 ### Step 3.3: การรัน Bootstrap Stage 1 (Pre-Reboot)
@@ -492,7 +492,7 @@ flowchart TD
     Triage -- "เข้า Proxmox Web GUI :8006 ไม่ได้" --> N1["ตรวจสอบการเชื่อมต่อ Host"]
     N1 --> N2{"ใช้งานบน Environment ใด?"}
     N2 -- "Env A (Workstation)" --> N3["เช็ค Hyper-V: Get-VM 'Proxmox-Lab'\nหากปิดอยู่ให้รัน: Start-VM 'Proxmox-Lab'"]
-    N2 -- "Env B (Laptop)" --> N4["เช็ค Wi-Fi Captive Portal & Sleep\nรัน: systemctl status wifi-powersave-off"]
+    N2 -- "Env B (Baremetal Node)" --> N4["เช็ค Wi-Fi Captive Portal & Sleep\nรัน: systemctl status wifi-powersave-off"]
     N3 --> N5["เช็ค Tailscale:\ntailscale status (ดูว่า IP 100.121.209.85 ออนไลน์หรือไม่)"]
     N4 --> N5
 
