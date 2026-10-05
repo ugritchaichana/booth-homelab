@@ -75,7 +75,7 @@ For frontend SDET unit testing, **CT 103 (`gha-runner-angular`)** is deployed as
 
 - **Hostname:** `gha-runner-angular` (`10.99.20.103/24` -> GW `10.99.20.1`)
 - **OS:** Debian 12 Bookworm LXC (`cores: 2`, `memory: 1536`, `swap: 512`)
-- **Runtimes:** Node.js v20 LTS, npm 10.x, MinIO Client (`mc`), zstd
+- **Runtimes:** Node.js v22 LTS, npm 10.x, MinIO Client (`mc`), zstd
 - **Labels:** `[self-hosted, Linux, X64, proxmox, angular]`
 
 ---

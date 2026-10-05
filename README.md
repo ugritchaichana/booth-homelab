@@ -50,7 +50,7 @@ graph TD
   - Executes C# unit tests and integration tests (`OrderProcessingIntegrationTests.cs`) deterministically using `/p:Deterministic=true`.
   - Integrates an AST Transitive Dependency Graph analyzer to execute only affected test suites based on `git diff`.
 - **Angular Jest Runner (`pve-runner-angular` / CT 103):**
-  - Dedicated Debian 12 LXC running Node.js 20 LTS and npm 10.x.
+  - Dedicated Debian 12 LXC running Node.js 22 LTS and npm 10.x.
   - Pure headless testing using `jest-preset-angular` and `jsdom` (no Chromium or GUI browser overhead), maintaining an ultra-lean 1.5 GB RAM footprint.
   - Executes 4 spec suites (19 test cases) across components and services in **~2.3 seconds**.
 

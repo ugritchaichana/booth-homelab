@@ -117,7 +117,7 @@ if ! command -v node &>/dev/null; then
     apt-get install -y --no-install-recommends \\
         ca-certificates curl gnupg lsb-release git jq sudo build-essential wget zstd
 
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install -y nodejs
 fi
 

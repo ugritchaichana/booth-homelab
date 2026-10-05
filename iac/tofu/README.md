@@ -47,5 +47,5 @@ tofu apply -auto-approve
 | VMID | Hostname | OS / Engine | IP Address | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
 | **102** | `gha-runner-01` | Debian 12 (Bookworm) | `10.99.20.101/24` | .NET 8 LTS, Docker-in-LXC (`nesting=1,keyctl=1`) |
-| **103** | `gha-runner-angular` | Debian 12 (Bookworm) | `10.99.20.103/24` | Node.js 20 LTS, Angular Jest headless jsdom |
+| **103** | `gha-runner-angular` | Debian 12 (Bookworm) | `10.99.20.103/24` | Node.js 22 LTS, Angular Jest headless jsdom |
 | **104** | `minio-s3` | Alpine Linux 3.23 | `10.99.20.20/24` | In-memory MinIO S3 cache (`:9000`), Console (`:9001`) |
