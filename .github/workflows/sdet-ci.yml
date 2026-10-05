@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ master, main ]
   workflow_dispatch:
+    inputs:
+      force_ubuntu_runner:
+        description: 'Force execution on GitHub-hosted ubuntu-latest runners'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,3 +24,4 @@ jobs:
     with:
       target_branch: ${{ github.head_ref || github.ref_name }}
       base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || 'HEAD~1') }}
+      force_ubuntu_runner: ${{ inputs.force_ubuntu_runner || false }}

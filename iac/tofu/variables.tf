@@ -4,8 +4,8 @@
 
 variable "proxmox_endpoint" {
   type        = string
-  description = "Proxmox VE API endpoint URL (e.g., https://100.121.209.85:8006/)"
-  default     = "https://100.121.209.85:8006/"
+  description = "Proxmox VE API endpoint URL (e.g., https://pve.example.local:8006/)"
+  default     = ""
 }
 
 variable "proxmox_insecure" {

@@ -2,11 +2,12 @@
 # Example OpenTofu / Terraform Configuration Variables
 # ==============================================================================
 # Rename to terraform.tfvars or pass via environment variables (TF_VAR_*)
+# IMPORTANT: Never commit terraform.tfvars with real passwords to version control.
 
-proxmox_endpoint  = "https://100.121.209.85:8006/"
+proxmox_endpoint  = "https://<your-proxmox-host>:8006/"
 proxmox_insecure  = true
 proxmox_username  = "root@pam"
-proxmox_password  = "12345678"
+proxmox_password  = "your-secure-password"
 proxmox_node      = "pve"
 
 # Select Cloud Provider Catalog Abstraction (aws, gcp, azure, hetzner, digitalocean)

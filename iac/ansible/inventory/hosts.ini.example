@@ -1,11 +1,10 @@
 # ==============================================================================
-# Homelab Topology Ansible Inventory
+# Homelab Topology Ansible Inventory (Example Template)
 # ==============================================================================
-# Default template. For live hypervisor execution, provide the real host IP here,
-# use hosts.generated.ini from OpenTofu, or pass -e "ansible_host=<YOUR_PVE_IP>".
+# Copy this file to hosts.ini and set the hypervisor IP or mesh address.
 
 [proxmox_node]
-pve                ansible_host=127.0.0.1 ansible_user=root
+pve                ansible_host=<YOUR_PROXMOX_IP_OR_HOSTNAME> ansible_user=root
 
 [ci_runners]
 gha-runner-01      ansible_host=10.99.20.101 ansible_user=root vmid=102

@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: 'origin/master'
+      force_ubuntu_runner:
+        description: 'Force execution on GitHub-hosted ubuntu-latest runners'
+        required: false
+        type: boolean
+        default: false
     outputs:
       cache_hit:
         description: 'Cache hit status'
@@ -39,37 +44,49 @@ on:
         required: false
         type: string
         default: 'origin/master'
+      force_ubuntu_runner:
+        description: 'Force execution on GitHub-hosted ubuntu-latest runners'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # Stage 1: Runner Telemetry
   telemetry:
     name: Telemetry
-    runs-on: [self-hosted, linux, proxmox, dotnet]
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     steps:
       - name: Inspect Runner Telemetry
         shell: bash
         run: |
           echo "=========================================================="
-          echo "      PROXMOX VE SELF-HOSTED RUNNER TELEMETRY            "
+          echo "           RUNNER SYSTEM TELEMETRY                       "
           echo "=========================================================="
+          echo "Runner Mode: ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest fallback)' || 'Proxmox VE Self-Hosted (LXC)' }}"
           echo "Hostname:    $(hostname)"
           echo "Kernel:      $(uname -r)"
           echo "CPU Cores:   $(nproc)"
           echo "Memory:"
           free -h
           echo "Docker Info:"
-          docker --version || true
+          docker --version 2>/dev/null || true
           echo ".NET SDK Version:"
-          dotnet --version || true
+          dotnet --version 2>/dev/null || true
           echo "MinIO Health Check:"
-          curl -s -I http://10.99.20.20:9000/minio/health/live | grep -E "HTTP/|Server" || true
+          curl -s -m 2 -I http://10.99.20.20:9000/minio/health/live 2>/dev/null | grep -E "HTTP/|Server" || echo "MinIO unreachable (Clean build fallback active)"
           echo "=========================================================="
 
-  # Stage 2: .NET Solution Build & Remote Cache Restore (CT 102)
+  # Stage 2: .NET Solution Build & Remote Cache Restore
   dotnet-build:
     name: Build (.NET)
     needs: [telemetry]
-    runs-on: [self-hosted, linux, proxmox, dotnet]
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     outputs:
       cache_hit: ${{ steps.restore-cache.outputs.cache_hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
@@ -78,6 +95,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup .NET 8 SDK (Fallback Runner)
+        if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Ensure Executable Permissions
         shell: bash
@@ -104,11 +127,14 @@ jobs:
           echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
           echo "=========================================================="
 
-  # Stage 3: .NET Unit & Integration Tests (CT 102)
+  # Stage 3: .NET Unit & Integration Tests
   dotnet-test:
     name: Test (.NET)
     needs: [dotnet-build]
-    runs-on: [self-hosted, linux, proxmox, dotnet]
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     outputs:
       test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
     steps:
@@ -117,6 +143,12 @@ jobs:
         with:
           fetch-depth: 0
           clean: false
+
+      - name: Setup .NET 8 SDK (Fallback Runner)
+        if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Ensure Executable Permissions
         shell: bash
@@ -138,12 +170,15 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Stage 4: .NET Cache Update & MinIO Upload (CT 102)
+  # Stage 4: .NET Cache Update & MinIO Upload
   dotnet-cache-save:
     name: Cache (.NET)
     needs: [dotnet-build, dotnet-test]
     if: always() && needs.dotnet-build.result == 'success'
-    runs-on: [self-hosted, linux, proxmox, dotnet]
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     steps:
       - name: Checkout Repository (Preserve Binaries)
         uses: actions/checkout@v4
@@ -161,10 +196,13 @@ jobs:
           branch: ${{ inputs.target_branch }}
           commit_sha: ${{ github.sha }}
 
-  # Stage 5: Angular Jest Unit Tests (CT 103)
+  # Stage 5: Angular Jest Unit Tests
   angular-jest:
     name: Test (Angular)
-    runs-on: [self-hosted, linux, proxmox, angular]
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
     steps:
@@ -172,6 +210,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Setup Node.js 20 (Fallback Runner)
+        if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
 
       - name: Ensure Executable Permissions
         shell: bash
@@ -195,7 +239,10 @@ jobs:
     name: Report
     needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]
     if: always()
-    runs-on: [self-hosted, linux, proxmox, dotnet]
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     steps:
       - name: Generate Pipeline Summary Report
         shell: bash
@@ -204,10 +251,12 @@ jobs:
           BUILD_MS="${{ needs.dotnet-build.outputs.build_duration_ms }}"
           DOTNET_TEST_MS="${{ needs.dotnet-test.outputs.test_duration_ms }}"
           ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
+          RUNNER_LABEL="${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest)' || 'Proxmox VE Self-Hosted (LXC)' }}"
 
           echo "=========================================================="
           echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
           echo "=========================================================="
+          echo "Runner Mode:          ${RUNNER_LABEL}"
           echo "Branch / Ref:         ${{ inputs.target_branch }}"
           echo "Base Ref:             ${{ inputs.base_ref }}"
           echo "Cache Hit Status:     ${CACHE_HIT:-false}"
@@ -222,14 +271,14 @@ jobs:
             echo ""
             echo "| Technology Stack | Target Runner | Duration | Status |"
             echo "| :--- | :--- | :--- | :--- |"
-            echo "| **.NET 8 Solution Build** | \`pve-runner-01\` (CT 102) | **${BUILD_MS:-0} ms** | ${{ needs.dotnet-build.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **.NET Unit & Integration Tests** | \`pve-runner-01\` (CT 102) | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet-test.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **Angular Jest Unit Tests** | \`pve-runner-angular\` (CT 103) | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **MinIO S3 Cache Transfer** | Virtual Bus (\`10.99.20.20:9000\`) | Cache Hit: \`${CACHE_HIT:-false}\` | ⚡ Ultra-fast |"
+            echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms** | ${{ needs.dotnet-build.result == 'success' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **.NET Unit & Integration Tests** | ${RUNNER_LABEL} | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet-test.result == 'success' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **Angular Jest Unit Tests** | ${RUNNER_LABEL} | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **MinIO S3 Cache Transfer** | Virtual Bus (\`10.99.20.20:9000\`) | Cache Hit: \`${CACHE_HIT:-false}\` | ⚡ Fast |"
             echo ""
-            echo "### Parallel Dual-Runner Architecture"
-            echo "- 🖥️ **CT 102 (Debian LXC / .NET):** Executed .NET 8 compilation, unit tests, and integration tests."
-            echo "- ⚡ **CT 103 (Debian LXC / Angular):** Executed Angular Standalone Jest component & service tests."
+            echo "### Infrastructure Execution Model"
+            echo "- 🏗️ **Runner Infrastructure:** ${RUNNER_LABEL}"
+            echo "- 🔄 **Graceful Fallback:** Fork-safe automatic degradation to GitHub-hosted runners when self-hosted infrastructure is unreachable."
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ needs.dotnet-build.result }}" != "success" ] || [ "${{ needs.dotnet-test.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then

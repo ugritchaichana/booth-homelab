@@ -1,0 +1,74 @@
+name: IaC Governance & Quality Gate
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'iac/**'
+      - '.github/workflows/iac-ci.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'iac/**'
+      - '.github/workflows/iac-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tofu-quality-gate:
+    name: OpenTofu Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu CLI
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_wrapper: false
+
+      - name: Verify Formatting (tofu fmt -check)
+        run: |
+          echo "==> Checking OpenTofu code formatting across all modules..."
+          tofu fmt -check -recursive iac/tofu
+
+      - name: Initialize OpenTofu (Validation Mode)
+        run: |
+          echo "==> Initializing OpenTofu provider schema..."
+          tofu -chdir=iac/tofu init -backend=false
+
+      - name: Validate OpenTofu Syntax & Types
+        run: |
+          echo "==> Validating OpenTofu syntax and provider schemas..."
+          tofu -chdir=iac/tofu validate
+
+  ansible-quality-gate:
+    name: Ansible Syntax & Schema Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible Core
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core
+
+      - name: Validate Master Playbook Syntax
+        run: |
+          echo "==> Validating Ansible playbook syntax for site.yml..."
+          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/site.yml
+
+      - name: Validate Component Playbooks Syntax
+        run: |
+          echo "==> Validating individual playbook syntax..."
+          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/01-host-setup.yml
+          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/02-cache-storage.yml
+          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/03-runners.yml

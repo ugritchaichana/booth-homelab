@@ -20,20 +20,22 @@ MC_BIN="$(command -v mc || echo '/usr/bin/mc')"
 
 # 1. Restore node_modules from MinIO cache if available
 if [ ! -d "node_modules" ]; then
-    echo "==> node_modules missing. Checking MinIO S3 remote cache..."
-    if $MC_BIN stat "$NPM_CACHE_TARGET" >/dev/null 2>&1; then
+    echo "==> node_modules missing. Checking remote cache..."
+    if [ -x "$MC_BIN" ] && curl -s -m 2 "$MINIO_S3/minio/health/live" >/dev/null 2>&1 && $MC_BIN stat "$NPM_CACHE_TARGET" >/dev/null 2>&1; then
         echo "[CACHE HIT] Found node_modules cache on MinIO. Downloading..."
         $MC_BIN cp "$NPM_CACHE_TARGET" /tmp/node_modules.tar.zst
         tar -I "zstd -d -T0" -xf /tmp/node_modules.tar.zst -C "$ROOT_DIR"
         rm -f /tmp/node_modules.tar.zst
         echo "[OK] Restored node_modules from MinIO virtual bus."
     else
-        echo "[CACHE MISS] Running npm install..."
+        echo "[CACHE MISS / S3 OFFLINE] Running npm install..."
         npm install --prefer-offline --no-audit --no-fund
-        echo "==> Archiving node_modules to MinIO..."
-        tar -I "zstd -T0 -3" -cf /tmp/node_modules.tar.zst node_modules
-        $MC_BIN cp /tmp/node_modules.tar.zst "$NPM_CACHE_TARGET" || true
-        rm -f /tmp/node_modules.tar.zst
+        if [ -x "$MC_BIN" ] && curl -s -m 2 "$MINIO_S3/minio/health/live" >/dev/null 2>&1; then
+            echo "==> Archiving node_modules to MinIO..."
+            tar -I "zstd -T0 -3" -cf /tmp/node_modules.tar.zst node_modules 2>/dev/null || true
+            $MC_BIN cp /tmp/node_modules.tar.zst "$NPM_CACHE_TARGET" 2>/dev/null || true
+            rm -f /tmp/node_modules.tar.zst
+        fi
     fi
 fi
 

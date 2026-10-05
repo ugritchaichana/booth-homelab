@@ -9,6 +9,10 @@ locals {
   dotnet_specs  = local.resolve_flavor[var.cloud_provider][var.runner_dotnet_flavor]
   angular_specs = local.resolve_flavor[var.cloud_provider][var.runner_angular_flavor]
   minio_specs   = local.resolve_flavor[var.cloud_provider][var.minio_cache_flavor]
+
+  # Dynamically extract Proxmox host IP/FQDN from endpoint URL
+  pve_host_matches = regexall("https?://([^:/]+)", var.proxmox_endpoint)
+  pve_host         = length(local.pve_host_matches) > 0 ? local.pve_host_matches[0][0] : "127.0.0.1"
 }
 
 # ------------------------------------------------------------------------------
@@ -87,7 +91,7 @@ resource "local_file" "ansible_inventory" {
     # Cloud Flavor Provider: ${var.cloud_provider}
 
     [proxmox_node]
-    pve ansible_host=100.121.209.85 ansible_user=root
+    pve ansible_host=${local.pve_host} ansible_user=root
 
     [ci_runners]
     gha-runner-01      ansible_host=10.99.20.101 vmid=102 flavor=${var.runner_dotnet_flavor}

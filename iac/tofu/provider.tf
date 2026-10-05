@@ -5,8 +5,8 @@
 # Target: Proxmox VE 8.4 Hypervisor via Tailscale Mesh or Internal Gateway
 
 provider "proxmox" {
-  endpoint  = var.proxmox_endpoint
-  insecure  = var.proxmox_insecure
+  endpoint = var.proxmox_endpoint
+  insecure = var.proxmox_insecure
 
   # Authenticate via API Token (Recommended for CI/CD) or Credentials
   api_token = var.proxmox_api_token != "" ? var.proxmox_api_token : null
