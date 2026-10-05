@@ -53,8 +53,9 @@ iface vmbr1 inet manual
     # Port forward MinIO S3 API (9000) and Web Console (9001)
     post-up iptables -t nat -A PREROUTING -p tcp --dport 9001 -j DNAT --to-destination 10.99.20.20:9001
     post-up iptables -t nat -A PREROUTING -p tcp --dport 9000 -j DNAT --to-destination 10.99.20.20:9000
-    post-down iptables -t nat -D PREROUTING -p tcp --dport 9001 -j DNAT --to-destination 10.99.20.20:9001
-    post-down iptables -t nat -D PREROUTING -p tcp --dport 9000 -j DNAT --to-destination 10.99.20.20:9000
+    # Enable Bridge Netfilter for Layer 2 iptables inspection
+    post-up modprobe br_netfilter 2>/dev/null || true
+    post-up sysctl -w net.bridge.bridge-nf-call-iptables=1 2>/dev/null || true
 EOF
 
 log_success "Routed NAT configuration written to ${INTERFACES_FILE}"
