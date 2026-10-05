@@ -1,24 +1,27 @@
 ---
 # ==============================================================================
-# Proxmox Zero-Trust Firewall & Isolation Tasks
+# Proxmox Zero-Trust Firewall & Isolation Tasks (Idempotent)
 # ==============================================================================
 
-- name: Enable bridge port isolation on runner veth interfaces
-  command: "bridge link set dev {{ item }} isolated on"
+- name: Check bridge port isolation state on runner veth interfaces
+  ansible.builtin.command: "bridge link show dev {{ item }}"
   loop:
     - veth102i0
     - veth103i0
-  register: bridge_iso_result
+  register: bridge_links
   failed_when: false
-  changed_when: bridge_iso_result.rc == 0
+  changed_when: false
+
+- name: Enable bridge port isolation on runner veth interfaces
+  ansible.builtin.command: "bridge link set dev {{ item.item }} isolated on"
+  loop: "{{ bridge_links.results }}"
+  when: item.rc == 0 and 'isolated on' not in item.stdout
+  register: iso_res
+  changed_when: iso_res.rc == 0
 
 - name: Deploy persistent zero-trust firewall script from Jinja2 template
-  template:
+  ansible.builtin.template:
     src: homelab-firewall.j2
     dest: /etc/network/if-up.d/homelab-firewall
     mode: "0755"
   notify: Apply Firewall Rules
-
-- name: Apply current firewall rules immediately
-  command: /etc/network/if-up.d/homelab-firewall
-  changed_when: true

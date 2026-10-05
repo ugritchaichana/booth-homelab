@@ -1,0 +1,5 @@
+---
+- name: Apply Firewall Rules
+  ansible.builtin.command: /etc/network/if-up.d/homelab-firewall
+  register: fw_apply
+  changed_when: fw_apply.rc == 0

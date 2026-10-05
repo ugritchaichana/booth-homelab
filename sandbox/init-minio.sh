@@ -11,6 +11,7 @@ echo "==> [MinIO Provisioner] Connected. Provisioning S3 Buckets..."
 mc mb myminio/build-cache --ignore-existing
 mc mb myminio/sdet-test-artifacts --ignore-existing
 mc mb myminio/angular-nx-cache --ignore-existing
+mc mb myminio/tofu-state --ignore-existing
 
 echo "==> [MinIO Provisioner] Setting Public Read (Anonymous Download) Access..."
 mc anonymous set download myminio/build-cache || true
