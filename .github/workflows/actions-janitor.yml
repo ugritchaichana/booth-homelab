@@ -1,0 +1,47 @@
+name: Actions Janitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report only, cancel nothing
+        type: boolean
+        default: false
+      stale_minutes:
+        description: Minutes a self-hosted job must have been queued before its run is cancelled
+        type: number
+        default: 30
+  pull_request:
+    paths:
+      - '.github/workflows/actions-janitor.yml'
+      - 'scripts/ci/actions_janitor.sh'
+
+permissions:
+  actions: write
+  issues: write
+  contents: read
+
+concurrency:
+  group: actions-janitor
+  cancel-in-progress: false
+
+jobs:
+  janitor:
+    name: Janitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Cancel runs stuck on offline self-hosted runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run }}
+          STALE_MINUTES: ${{ inputs.stale_minutes || 30 }}
+          SELF_RUN_ID: ${{ github.run_id }}
+          RUNNER_ADMIN_TOKEN: ${{ secrets.RUNNER_ADMIN_READ_TOKEN }}
+        run: bash scripts/ci/actions_janitor.sh
