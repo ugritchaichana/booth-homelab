@@ -69,11 +69,30 @@ DL_END=$(date +%s%N)
 DL_MS=$(( (DL_END - START_TIME) / 1000000 ))
 echo "[PASS] Downloaded in ${DL_MS} ms from local virtual bus."
 
-# Decompress directly to root with zstd multi-threaded
-echo "==> Decompressing cache payload via zstd..."
-if ! tar --preserve-order -I "zstd -d -T0" -xf "$TARGET_FILE" -C / 2>/dev/null; then
-    echo "[WARN] Corrupted or incomplete cache payload. Discarding cache and continuing clean build."
+# Download SHA256 integrity digest
+if ! $MC_BIN cp "${FOUND_TARGET}.sha256" "${TARGET_FILE}.sha256" 2>/dev/null; then
+    echo "[WARN] Integrity digest missing for cache target ($FOUND_TARGET). Rejecting untrusted cache."
     rm -f "$TARGET_FILE"
+    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    exit 0
+fi
+
+# Verify SHA256 checksum
+EXPECTED_SHA=$(awk '{print $1}' "${TARGET_FILE}.sha256")
+ACTUAL_SHA=$(sha256sum "$TARGET_FILE" | awk '{print $1}')
+if [ -z "$EXPECTED_SHA" ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+    echo "[ABORT] Cache integrity verification failed! Expected: '$EXPECTED_SHA', Actual: '$ACTUAL_SHA'"
+    rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"
+    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    exit 1
+fi
+echo "[PASS] Verified SHA256 integrity digest ($ACTUAL_SHA)."
+
+# Decompress strictly to ROOT_DIR with zstd multi-threaded (GNU tar strips leading / by default)
+echo "==> Decompressing cache payload via zstd into workspace..."
+if ! tar -I "zstd -d -T0" -xf "$TARGET_FILE" -C "$ROOT_DIR" 2>/dev/null; then
+    echo "[WARN] Corrupted or invalid cache payload. Discarding cache and continuing clean build."
+    rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"
     echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
     exit 0
 fi
@@ -81,7 +100,13 @@ fi
 EXTRACT_END=$(date +%s%N)
 EXTRACT_MS=$(( (EXTRACT_END - DL_END) / 1000000 ))
 echo "[PASS] Decompressed in ${EXTRACT_MS} ms."
-rm -f "$TARGET_FILE"
+rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"
+
+# Link restored NuGet cache to HOME if needed for external tool resolution
+if [ -d "$ROOT_DIR/.nuget/packages" ] && [ ! -d "$HOME/.nuget/packages" ]; then
+    mkdir -p "$HOME/.nuget"
+    ln -s "$ROOT_DIR/.nuget/packages" "$HOME/.nuget/packages" 2>/dev/null || true
+fi
 
 # MSBuild Timestamp Synchronization:
 # Touch all restored dlls and obj inputs to current time so MSBuild sees them as fresh

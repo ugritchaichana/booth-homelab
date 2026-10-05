@@ -50,6 +50,9 @@ on:
         type: boolean
         default: false
 
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
 jobs:
   # Stage 1: Runner Telemetry
   telemetry:
