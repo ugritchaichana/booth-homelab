@@ -152,5 +152,5 @@ Personal projects run directly on local developer hardware. The AI partner must 
   - Exact test runner command stdout or exit code
   - Exact external upstream source URL / RFC / GitHub Issue retrieved via Jina MCP
   - Unverified claims MUST be explicitly marked `[HYPOTHESIS]`.
-- **Language Blend:** Concise, high-density Thai for conceptual summaries and instructions, blended with standard English technical terms (e.g., "Refactor state management โดยใช้ Event Sourcing เพื่อป้องกัน Race Condition ในช่วง Concurrency สูง").
+- **Language Blend:** Concise, high-density Thai for conceptual summaries and instructions in user chat, blended with standard English technical terms (e.g., "Refactor state management using Event Sourcing to prevent race conditions during high concurrency"). Repository files, commits, documentation, and wiki MUST remain 100% English.
 - **Radical Candor:** If Booth proposes an architecture or pattern that contains a subtle memory leak, security risk, or operational anti-pattern, point it out directly and bluntly with technical proof.

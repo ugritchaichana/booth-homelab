@@ -127,6 +127,18 @@ pct exec 102 -- mc rm --recursive --force minio/build-cache/branches/master/
 pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
 ```
 
+### 4.4 Enterprise Credential Hardening & Rotation SOP
+> [!WARNING]
+> **Open-Source Defaults Disclaimer:** Default credentials (`minioadmin` / `minioadmin`, host `12345678`) are intended solely for local developer sandboxes. Rotate immediately in production.
+
+- **Password Standard (NIST SP 800-63B / CIS):** $\ge 20$ chars for admin accounts, $\ge 32$ chars for API tokens, mixing uppercase, lowercase, numbers, and special symbols (`!@#$%^&*()-_+=[{]}|:;,.<>?~`). Zero dictionary words.
+- **Rotate MinIO Root:** Update `/etc/conf.d/minio` on CT 104 (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`), restart service with `rc-service minio restart`, and update runner aliases:
+  ```bash
+  pct exec 102 -- mc alias set minio http://10.99.20.20:9000 <user> <password>
+  pct exec 103 -- mc alias set minio http://10.99.20.20:9000 <user> <password>
+  ```
+- **Scoped IAM Service Accounts:** Create non-root users with least privilege (`mc admin user add` + `mc admin policy attach minio readonly|readwrite --user <user>`).
+
 ---
 
 ## 5. Hyper-V & Host Lifecycle Operations (Environment A)

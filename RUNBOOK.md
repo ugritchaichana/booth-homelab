@@ -17,6 +17,11 @@
 3. [Environment B Operations: Baremetal Bootstrapping (Dedicated Node)](#3-environment-b-operations-baremetal-bootstrapping-dedicated-node)
 4. [Container Fleet Architecture & Runner Lifecycle](#4-container-fleet-architecture--runner-lifecycle)
 5. [MinIO S3 Remote Cache Administration & Disaster Recovery (CT 104)](#5-minio-s3-remote-cache-administration--disaster-recovery-ct-104)
+   - [5.1 Bucket Hierarchy & TTL Policies](#51-bucket-hierarchy--ttl-policies)
+   - [5.2 Disaster Recovery & Bucket Re-initialization SOP](#52-disaster-recovery--bucket-re-initialization-sop)
+   - [5.3 Cache Purge for Cold Build Benchmarking](#53-cache-purge-for-cold-build-benchmarking)
+   - [5.4 Enterprise Credential Hardening & Rotation SOP](#54-enterprise-credential-hardening--rotation-sop)
+   - [5.5 Enterprise Password Complexity Standards (NIST SP 800-63B / CIS)](#55-enterprise-password-complexity-standards-nist-sp-800-63b--cis)
 6. [CI/CD Pipeline Integration & GitHub Workflows](#6-cicd-pipeline-integration--github-workflows)
 7. [Ephemeral Runner Lifecycle & Zero-Trace Decommissioning (IaC)](#7-ephemeral-runner-lifecycle--zero-trace-decommissioning-iac)
 8. [Troubleshooting, Empirical Traps & Incident Decision Trees](#8-troubleshooting-empirical-traps--incident-decision-trees)
@@ -109,6 +114,10 @@ Get-VMNetworkAdapter "Proxmox-Lab" | Set-VMNetworkAdapter -MacAddressSpoofing On
   - Password: `[LOCAL_VAULT]` (`12345678` in development sandbox)
   - PVE AI API Token ID: `root@pam!ai_agent`
   - PVE AI API Token Secret: `d217551a-c823-4f09-a417-192304bd16cd`
+
+> [!WARNING]
+> **Host Credential Rotation Advisory:**  
+> The password `12345678` is strictly for isolated local development sandboxes. For any shared, staging, or production baremetal host, run `passwd root` immediately during provisioning to set a secure password meeting the [Section 5.5 Enterprise Password Complexity Standards](#55-enterprise-password-complexity-standards-nist-sp-800-63b--cis).
 
 ### 2.3 Non-Interactive Host Execution via Python Paramiko
 
@@ -340,6 +349,60 @@ pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
 # Verify bucket is empty:
 pct exec 102 -- mc ls minio/build-cache/
 ```
+
+### 5.4 Enterprise Credential Hardening & Rotation SOP
+
+> [!WARNING]
+> **Open-Source Default Credentials Disclaimer:**  
+> The homelab configuration uses standard default credentials (`minioadmin` / `minioadmin` on CT 104, `root` / `12345678` on development Proxmox instances) strictly to facilitate turn-key open-source evaluation and deterministic test execution in isolated sandboxes.  
+> **These defaults MUST be changed before exposing services to any shared network or production environment.**
+
+#### Step 1: Rotate MinIO Root Administrative Credentials
+To rotate root credentials on CT 104 (Alpine LXC):
+```bash
+# 1. Generate strong credentials adhering to the password standard
+NEW_ROOT_USER="minio_admin_$(openssl rand -hex 4)"
+NEW_ROOT_PASS="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9!@#$%^&*()-_+=' | head -c 24)"
+
+# 2. Update MinIO environment file on CT 104
+pct exec 104 -- sh -c "cat <<EOF > /etc/conf.d/minio
+MINIO_VOLUMES=\"/var/lib/minio/data\"
+MINIO_OPTS=\"--address :9000 --console-address :9001\"
+MINIO_ROOT_USER=\"$NEW_ROOT_USER\"
+MINIO_ROOT_PASSWORD=\"$NEW_ROOT_PASS\"
+EOF"
+
+# 3. Restart MinIO service daemon
+pct exec 104 -- rc-service minio restart
+
+# 4. Update MinIO client alias on test runners (CT 102 and CT 103)
+pct exec 102 -- mc alias set minio http://10.99.20.20:9000 "$NEW_ROOT_USER" "$NEW_ROOT_PASS"
+pct exec 103 -- mc alias set minio http://10.99.20.20:9000 "$NEW_ROOT_USER" "$NEW_ROOT_PASS"
+```
+
+#### Step 2: Provision Granular IAM Service Accounts (Least Privilege)
+Never distribute root administrative credentials to CI/CD runners. Instead, create scoped IAM Service Accounts:
+```bash
+# Create read-only service account for PR workflows
+pct exec 102 -- mc admin user add minio sdet_pr_reader StrongPrReaderP@ss123!
+pct exec 102 -- mc admin policy attach minio readonly --user sdet_pr_reader
+
+# Create read-write service account for master pipeline
+pct exec 102 -- mc admin user add minio sdet_ci_writer StrongCiWriterP@ss456!
+pct exec 102 -- mc admin policy attach minio readwrite --user sdet_ci_writer
+```
+
+### 5.5 Enterprise Password Complexity Standards (NIST SP 800-63B / CIS)
+
+All passwords, service keys, and access tokens used across the homelab infrastructure must comply with the following cryptographic and entropy standards:
+
+| Criteria | Administrative / Root Accounts | CI/CD Service Accounts & API Keys |
+| :--- | :--- | :--- |
+| **Minimum Length** | **$\ge 20$ characters** | **$\ge 32$ characters** (or 256-bit entropy) |
+| **Character Classes** | $\ge 4$ classes: `[A-Z]`, `[a-z]`, `[0-9]`, `[!@#$%^&*()-_+=[{]}\|:;,.<>?~]` | Cryptographically secure pseudo-random (`openssl rand -base64 32`) |
+| **Banned Patterns** | Dictionary words, leetspeak (`P@ssw0rd`), sequential runs (`123456`, `qwerty`), project names (`booth`, `minio`, `proxmox`) | Shared secrets, hardcoded repository commits |
+| **Rotation Cadence** | On team personnel change or suspected credential leak | 90 days or automated dynamic rotation |
+| **Storage Standard** | Password vault / Secret manager (Bitwarden, Vault, KeePassXC) | GitHub Actions Encrypted Secrets / Environment Variables |
 
 ---
 

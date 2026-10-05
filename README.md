@@ -59,11 +59,35 @@ graph TD
 - **Sub-Second Restores:** In warm pipeline runs, `node_modules` (28 MiB) is restored in under 1 second, reducing total job duration from **1m58s** to **18s** (**84% duration reduction**).
 - **Immunity from External Outages:** Complete protection against public npm/NuGet rate limits, network jitter, or upstream CDN downtime.
 
-### 3. Enterprise Security & CREEP Mitigation
-- Hardened against remote cache poisoning (**CVE-2025-36852 / CREEP**):
+### 3. Enterprise Security, Zero-Trust Firewall & Isolation
+- **Layer 2 Bridge Port Isolation & Netfilter:**
+  - Bridge port isolation (`isolated on`) prevents East-West frame switching between test runners (`CT 102` and `CT 103`).
+  - Kernel netfilter (`HOMELAB-FORWARD`) strictly blocks East-West runner traffic, rejects runner access to the MinIO web console (`:9001`), and restricts runner access to the MinIO S3 API (`:9000`).
+  - Runner outbound internet traffic is constrained to essential ports: DNS (`53`), HTTPS (`443`), HTTP (`80`), and NTP (`123`).
+- **Hardened Against Remote Cache Poisoning (CVE-2025-36852 / CREEP):**
   - Pull Request workflows execute with Read-Only cache credentials.
   - Only verified pushes to `master` are authorized to save updated cache payloads.
-- Hypervisor and containers reside behind Tailscale WireGuard Mesh with Subnet Routing (`10.99.10.0/24`, `10.99.20.0/24`), eliminating exposed WAN ports.
+- **Zero Public WAN Exposure:**
+  - Hypervisor management and containers reside behind Tailscale WireGuard Mesh with Subnet Routing (`10.99.10.0/24`, `10.99.20.0/24`).
+
+### 4. Credential Hardening & Password Complexity Standards
+
+> [!IMPORTANT]
+> **Open-Source Default Credentials Disclaimer:**  
+> This repository ships with default sandbox credentials (e.g., `minioadmin` / `minioadmin` for MinIO S3 and local testing defaults for Proxmox VE) exclusively to ensure zero-friction onboarding, out-of-the-box local setup, and automated deterministic testing in isolated sandboxes.  
+> 
+> **Mandatory Production Rotation:** For any internet-accessible, team-shared, or production deployment, default credentials **MUST be rotated immediately**.
+
+#### Production Password Standards (NIST SP 800-63B / CIS Benchmark)
+When deploying beyond an isolated development sandbox, generate passwords and secrets compliant with the following standards:
+- **Length:** Minimum **16 to 24+ characters** for root/administrative accounts; minimum **32+ characters** for CI/CD API tokens and service keys.
+- **Character Composition:** Must contain a balanced mixture of four character classes:
+  - Uppercase letters (`A-Z`)
+  - Lowercase letters (`a-z`)
+  - Decimal digits (`0-9`)
+  - Special symbols (`!@#$%^&*()-_+=[{]}|:;,.<>?~`)
+- **Entropy & Pattern Defense:** Zero dictionary words, no sequential strings (`123456`, `qwerty`), and no homelab, project, or personal identifiers (`booth`, `minio`, `proxmox`).
+- **Role-Based Least Privilege:** Never reuse root administrative credentials (`minioadmin`) across pipeline jobs. Provision dedicated IAM Service Accounts with granular policies (e.g., Read-Only for PR builds, Write for master releases).
 
 ---
 
