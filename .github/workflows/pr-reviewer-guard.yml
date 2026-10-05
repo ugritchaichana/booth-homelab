@@ -12,7 +12,7 @@ permissions:
 jobs:
   strip-copilot-reviewer:
     name: Guard
-    runs-on: [self-hosted, linux, proxmox]
+    runs-on: ubuntu-latest
     steps:
       - name: Remove Copilot Pull Request Reviewer
         env:
