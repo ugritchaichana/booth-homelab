@@ -5,6 +5,12 @@ outputs:
   angular_duration_ms:
     description: 'Execution duration in milliseconds'
     value: ${{ steps.exec-angular.outputs.angular_duration_ms }}
+  npm_cache_hit:
+    description: 'true only when node_modules was restored from the cache and verified'
+    value: ${{ steps.exec-angular.outputs.npm_cache_hit }}
+  npm_cache_key:
+    description: 'Cache object key (relative to build-cache/npm/); empty when no restore was attempted'
+    value: ${{ steps.exec-angular.outputs.npm_cache_key }}
 
 runs:
   using: 'composite'
@@ -15,9 +21,10 @@ runs:
       run: |
         chmod +x ./scripts/apps/run-angular-jest.sh
         START=$(date +%s%N)
+        set -o pipefail
         set +e
-        ./scripts/apps/run-angular-jest.sh
-        rc=$?
+        ./scripts/apps/run-angular-jest.sh 2>&1 | tee "${RUNNER_TEMP}/angular-cache-restore.log"
+        rc=${PIPESTATUS[0]}
         set -e
         DURATION=$(( ($(date +%s%N) - START) / 1000000 ))
         echo "angular_duration_ms=${DURATION}" >> "$GITHUB_OUTPUT"

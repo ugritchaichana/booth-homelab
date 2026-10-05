@@ -57,7 +57,7 @@ if [ -z "$FOUND_TARGET" ]; then
     exit 0
 fi
 
-echo "[CACHE HIT] Found S3 Cache Target: $FOUND_TARGET"
+echo "[CACHE CANDIDATE] Found S3 Cache Target: $FOUND_TARGET"
 SIZE=$($MC_BIN stat --json "$FOUND_TARGET" | jq -r '.size // 0')
 echo "Payload Size: $((SIZE / 1024 / 1024)) MB ($SIZE bytes)"
 
@@ -144,4 +144,5 @@ TOTAL_RESTORE_MS=$(( (NOW_END - START_TIME) / 1000000 ))
 echo "=========================================================="
 echo " [OK] Total Cache Restore Time: ${TOTAL_RESTORE_MS} ms"
 echo "=========================================================="
+echo "[CACHE HIT] Restored $FOUND_TARGET into the workspace."
 echo "cache_hit=true" >> "${GITHUB_OUTPUT:-/dev/null}"

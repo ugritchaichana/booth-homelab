@@ -26,7 +26,8 @@ runs:
       run: |
         if [ "${{ inputs.mode }}" = "restore" ]; then
           echo "[*] Restoring MinIO S3 cache for branch: ${{ inputs.branch }}"
-          ./scripts/ci/cache-restore.sh "${{ inputs.branch }}"
+          set -o pipefail
+          ./scripts/ci/cache-restore.sh "${{ inputs.branch }}" 2>&1 | tee "${RUNNER_TEMP}/dotnet-cache-restore.log"
         elif [ "${{ inputs.mode }}" = "save" ]; then
           echo "[*] Saving MinIO S3 cache for branch: ${{ inputs.branch }} (Commit: ${{ inputs.commit_sha }})"
           ./scripts/ci/cache-save.sh "${{ inputs.branch }}" "${{ inputs.commit_sha }}"

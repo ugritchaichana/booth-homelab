@@ -116,6 +116,13 @@ jobs:
           mode: restore
           branch: ${{ inputs.target_branch }}
 
+      - name: Assert .NET Cache Telemetry
+        shell: bash
+        env:
+          RESTORE_LOG: ${{ runner.temp }}/dotnet-cache-restore.log
+          REPORTED_CACHE_HIT: ${{ steps.restore-cache.outputs.cache_hit }}
+        run: ./scripts/ci/assert-cache-telemetry.sh "$RESTORE_LOG" "$REPORTED_CACHE_HIT"
+
       - name: Compile Solution (/p:Deterministic=true)
         id: compile
         shell: bash
@@ -236,6 +243,8 @@ jobs:
           || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
+      npm_cache_hit: ${{ steps.run-angular.outputs.npm_cache_hit }}
+      npm_cache_key: ${{ steps.run-angular.outputs.npm_cache_key }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -256,6 +265,14 @@ jobs:
         id: run-angular
         uses: ./.github/actions/run-angular-jest
 
+      - name: Assert Angular Cache Telemetry
+        if: always() && steps.run-angular.outcome != 'skipped'
+        shell: bash
+        env:
+          RESTORE_LOG: ${{ runner.temp }}/angular-cache-restore.log
+          REPORTED_CACHE_HIT: ${{ steps.run-angular.outputs.npm_cache_hit }}
+        run: ./scripts/ci/assert-cache-telemetry.sh "$RESTORE_LOG" "$REPORTED_CACHE_HIT"
+
       - name: Archive Angular Coverage
         if: always()
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
@@ -265,10 +282,59 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # Stage 5b: Angular npm Cache Upload (writer credentials live only here)
+  angular-cache-save:
+    name: Cache (Angular)
+    needs: [angular-jest]
+    environment: cache-writer
+    if: always() && needs.angular-jest.result == 'success' && needs.angular-jest.outputs.npm_cache_hit != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
+    steps:
+      - name: Checkout Repository (Preserve node_modules)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          clean: false
+
+      - name: Ensure Executable Permissions
+        shell: bash
+        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
+
+      - name: Configure Writer Alias
+        id: writer
+        shell: bash
+        env:
+          MC_CONFIG_DIR: ${{ runner.temp }}/mc
+          WRITER_ACCESS_KEY: ${{ secrets.MINIO_WRITER_ACCESS_KEY }}
+          WRITER_SECRET_KEY: ${{ secrets.MINIO_WRITER_SECRET_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY" ] || [ -z "$WRITER_SECRET_KEY" ]; then
+            echo "::warning::MinIO writer credentials not configured; skipping cache save."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          elif ! command -v mc >/dev/null 2>&1; then
+            echo "::warning::mc not found on this runner; skipping cache save."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          elif mc alias set minio-writer http://10.99.20.20:9000 "$WRITER_ACCESS_KEY" "$WRITER_SECRET_KEY" >/dev/null 2>&1; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Writer alias setup failed; skipping cache save."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save Angular npm Cache
+        if: steps.writer.outputs.configured == 'true'
+        shell: bash
+        env:
+          MC_CONFIG_DIR: ${{ runner.temp }}/mc
+          NPM_CACHE_KEY: ${{ needs.angular-jest.outputs.npm_cache_key }}
+        run: ./scripts/ci/save-npm-cache.sh "$NPM_CACHE_KEY"
+
   # Stage 6: Performance & Quality Summary Report
   summary:
     name: Report
-    needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]
+    needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest, angular-cache-save]
     if: ${{ !cancelled() }}
     runs-on: >
       ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
@@ -282,6 +348,8 @@ jobs:
           BUILD_MS="${{ needs.dotnet-build.outputs.build_duration_ms }}"
           DOTNET_TEST_MS="${{ needs.dotnet-test.outputs.test_duration_ms }}"
           ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
+          NPM_CACHE_HIT="${{ needs.angular-jest.outputs.npm_cache_hit }}"
+          NPM_CACHE_SAVE_RESULT="${{ needs.angular-cache-save.result }}"
           RUNNER_LABEL="${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest)' || 'Proxmox VE Self-Hosted (LXC)' }}"
 
           echo "=========================================================="
@@ -290,7 +358,8 @@ jobs:
           echo "Runner Mode:          ${RUNNER_LABEL}"
           echo "Branch / Ref:         ${{ inputs.target_branch }}"
           echo "Base Ref:             ${{ inputs.base_ref }}"
-          echo "Cache Hit Status:     ${CACHE_HIT:-false}"
+          echo ".NET Cache Hit:       ${CACHE_HIT:-false}"
+          echo "npm Cache Hit:        ${NPM_CACHE_HIT:-false}"
           echo "Build Duration:       ${BUILD_MS:-N/A} ms"
           echo ".NET Test Duration:   ${DOTNET_TEST_MS:-N/A} ms"
           echo "Angular Test Duration:${ANGULAR_MS:-N/A} ms"
@@ -305,11 +374,13 @@ jobs:
             echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms** | ${{ needs.dotnet-build.result == 'success' && '✅ Success' || '❌ Failed' }} |"
             echo "| **.NET Unit & Integration Tests** | ${RUNNER_LABEL} | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet-test.result == 'success' && '✅ Success' || '❌ Failed' }} |"
             echo "| **Angular Jest Unit Tests** | ${RUNNER_LABEL} | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **MinIO S3 Cache Transfer** | Virtual Bus (\`10.99.20.20:9000\`) | Cache Hit: \`${CACHE_HIT:-false}\` | ⚡ Fast |"
+            echo "| **MinIO cache restore (.NET)** | Virtual Bus (\`10.99.20.20:9000\`) | - | Hit: \`${CACHE_HIT:-false}\` |"
+            echo "| **MinIO cache restore (npm)** | Virtual Bus (\`10.99.20.20:9000\`) | - | Hit: \`${NPM_CACHE_HIT:-false}\` |"
+            echo "| **MinIO cache save (npm)** | Virtual Bus (\`10.99.20.20:9000\`) | - | ${NPM_CACHE_SAVE_RESULT:-skipped} |"
             echo ""
             echo "### Infrastructure Execution Model"
             echo "- 🏗️ **Runner Infrastructure:** ${RUNNER_LABEL}"
-            echo "- 🔄 **Graceful Fallback:** Fork-safe automatic degradation to GitHub-hosted runners when self-hosted infrastructure is unreachable."
+            echo "- **Runner selection:** Forks and manual \`force_ubuntu_runner\` dispatches run on ubuntu-latest. There is no automatic fallback when the self-hosted runners are offline."
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ needs.dotnet-build.result }}" != "success" ] || [ "${{ needs.dotnet-test.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then

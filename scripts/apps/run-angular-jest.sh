@@ -18,11 +18,51 @@ START_TIME=$(date +%s%N)
 
 MC_BIN="$(command -v mc || echo '/usr/bin/mc')"
 
-# 1. Restore node_modules from MinIO cache if available
-if [ ! -d "node_modules" ]; then
+# 1. Restore node_modules from the MinIO cache (read-only; the save job owns uploads)
+NPM_CACHE_HIT=false
+NPM_CACHE_KEY=""
+
+restore_npm_cache() {
+    if [ ! -x "$MC_BIN" ]; then
+        echo "[CACHE OFFLINE] MinIO client ($MC_BIN) not executable. Running npm install."
+        return 1
+    fi
+    if ! curl -s -m 2 "$MINIO_S3/minio/health/live" >/dev/null 2>&1; then
+        echo "[CACHE OFFLINE] MinIO endpoint unreachable. Running npm install."
+        return 1
+    fi
+    if ! $MC_BIN stat "$NPM_CACHE_TARGET" >/dev/null 2>&1; then
+        echo "[CACHE MISS] No object at $NPM_CACHE_TARGET. Running npm install."
+        return 1
+    fi
+    if ! $MC_BIN cp "$NPM_CACHE_TARGET" "$NODE_MODULES_ARCHIVE" >/dev/null; then
+        echo "[CACHE MISS] Download of $NPM_CACHE_TARGET failed. Running npm install."
+        return 1
+    fi
+    if ! $MC_BIN cp "${NPM_CACHE_TARGET}.sha256" "${NODE_MODULES_ARCHIVE}.sha256" >/dev/null 2>&1; then
+        echo "[CACHE MISS] Integrity digest missing for $NPM_CACHE_TARGET. Running npm install."
+        return 1
+    fi
+    EXPECTED_SHA="$(awk 'NR==1{print $1}' "${NODE_MODULES_ARCHIVE}.sha256")"
+    ACTUAL_SHA="$(sha256sum "$NODE_MODULES_ARCHIVE" | awk '{print $1}')"
+    if ! [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+        echo "[CACHE MISS] Digest mismatch (expected '$EXPECTED_SHA', actual '$ACTUAL_SHA'). Running npm install."
+        return 1
+    fi
+    if ! tar -I "zstd -d -T0" -xf "$NODE_MODULES_ARCHIVE" -C "$ROOT_DIR"; then
+        rm -rf "$ROOT_DIR/node_modules"
+        echo "[CACHE MISS] Extraction failed. Running npm install."
+        return 1
+    fi
+    echo "[CACHE HIT] Restored node_modules from $NPM_CACHE_TARGET."
+}
+
+if [ -d "node_modules" ]; then
+    echo "[CACHE SKIP] node_modules already present; no restore attempted and no cache key reported."
+else
     TMPROOT="${RUNNER_TEMP:-/tmp}"
     NODE_MODULES_ARCHIVE="$(mktemp -p "$TMPROOT" node_modules.XXXXXX.tar.zst)"
-    trap 'rm -f "$NODE_MODULES_ARCHIVE"' EXIT
+    trap 'rm -f "$NODE_MODULES_ARCHIVE" "${NODE_MODULES_ARCHIVE}.sha256"' EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
@@ -32,40 +72,23 @@ if [ ! -d "node_modules" ]; then
     fi
     NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
     DEPS_HASH="$(cat "${DEP_FILES[@]}" | sha256sum | awk '{print $1}')"
-    NPM_CACHE_TARGET="${NPM_CACHE_ROOT}/node${NODE_MAJOR}-${DEPS_HASH}/node_modules.tar.zst"
-
-    case "${GITHUB_EVENT_NAME:-}:${GITHUB_REF:-}" in
-        push:refs/heads/master|push:refs/heads/main) CACHE_WRITE_ALLOWED=true ;;
-        *) CACHE_WRITE_ALLOWED=false ;;
-    esac
+    NPM_CACHE_KEY="node${NODE_MAJOR}-${DEPS_HASH}/node_modules.tar.zst"
+    NPM_CACHE_TARGET="${NPM_CACHE_ROOT}/${NPM_CACHE_KEY}"
 
     echo "==> node_modules missing. Checking remote cache ($NPM_CACHE_TARGET)..."
-    NPM_RESTORED=false
-    if [ -x "$MC_BIN" ] && curl -s -m 2 "$MINIO_S3/minio/health/live" >/dev/null 2>&1 && $MC_BIN stat "$NPM_CACHE_TARGET" >/dev/null 2>&1; then
-        echo "[CACHE HIT] Found node_modules cache on MinIO. Downloading..."
-        if $MC_BIN cp "$NPM_CACHE_TARGET" "$NODE_MODULES_ARCHIVE" && tar -I "zstd -d -T0" -xf "$NODE_MODULES_ARCHIVE" -C "$ROOT_DIR"; then
-            NPM_RESTORED=true
-            echo "[OK] Restored node_modules from MinIO virtual bus."
-        else
-            echo "[WARN] Cache download or extraction failed. Falling back to npm install."
-            rm -rf "$ROOT_DIR/node_modules"
-        fi
-        rm -f "$NODE_MODULES_ARCHIVE"
+    if restore_npm_cache; then
+        NPM_CACHE_HIT=true
     fi
+    rm -f "$NODE_MODULES_ARCHIVE" "${NODE_MODULES_ARCHIVE}.sha256"
+fi
 
-    if [ "$NPM_RESTORED" != "true" ]; then
-        echo "[CACHE MISS / S3 OFFLINE] Running npm install..."
-        npm install --prefer-offline --no-audit --no-fund
-        if [ "$CACHE_WRITE_ALLOWED" != "true" ]; then
-            echo "[SKIP] Not a push to master/main. node_modules cache upload disabled."
-        elif [ -x "$MC_BIN" ] && curl -s -m 2 "$MINIO_S3/minio/health/live" >/dev/null 2>&1; then
-            echo "==> Archiving node_modules to MinIO..."
-            if tar -I "zstd -T0 -3" -cf "$NODE_MODULES_ARCHIVE" node_modules 2>/dev/null; then
-                $MC_BIN cp "$NODE_MODULES_ARCHIVE" "$NPM_CACHE_TARGET" 2>/dev/null || true
-            fi
-            rm -f "$NODE_MODULES_ARCHIVE"
-        fi
-    fi
+{
+    echo "npm_cache_hit=${NPM_CACHE_HIT}"
+    echo "npm_cache_key=${NPM_CACHE_KEY}"
+} >> "${GITHUB_OUTPUT:-/dev/null}"
+
+if [ ! -d "node_modules" ]; then
+    npm install --prefer-offline --no-audit --no-fund
 fi
 
 # 2. Execute Jest Tests
