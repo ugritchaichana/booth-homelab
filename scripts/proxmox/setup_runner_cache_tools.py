@@ -7,8 +7,6 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 pve_host = os.environ.get("PVE_HOST", "100.121.209.85")
 pve_pass = os.environ["PVE_PASS"]
-minio_user = os.environ.get("MINIO_ROOT_USER", "minioadmin")
-minio_pass = os.environ["MINIO_ROOT_PASSWORD"]
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -20,23 +18,23 @@ setup_cmds = [
     "curl -s https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc 2>/dev/null || true"
 ]
 
+def run(cmd):
+    _, out, _ = ssh.exec_command(cmd)
+    text = out.read().decode('utf-8', errors='replace').strip()
+    print(f"[EXEC] {cmd} -> {text}")
+    return text
+
+
 # Install mc from CT 104 (copy binary directly over SSH between CTs)
-copy_mc = f"""
-pct exec 104 -- cat /usr/bin/minio-client > /tmp/mc
-pct push 102 /tmp/mc /usr/local/bin/mc
-pct exec 102 -- chmod +x /usr/local/bin/mc
-pct exec 102 -- apt-get update -y && pct exec 102 -- apt-get install -y zstd time
-pct exec 102 -- su - runner -c "mc alias set minio http://10.99.20.20:9000 {minio_user} {minio_pass}"
-"""
+host_tmp = run("mktemp")
+try:
+    run(f"pct exec 104 -- cat /usr/bin/minio-client > {host_tmp}")
+    run(f"pct push 102 {host_tmp} /usr/local/bin/mc")
+finally:
+    run(f"rm -f {host_tmp}")
+run("pct exec 102 -- chmod +x /usr/local/bin/mc")
+run("pct exec 102 -- apt-get update -y && pct exec 102 -- apt-get install -y zstd time")
 
-for line in copy_mc.strip().splitlines():
-    line = line.strip()
-    if not line:
-        continue
-    _, out, err = ssh.exec_command(line)
-    print(f"[EXEC] {line} -> {out.read().decode('utf-8', errors='replace').strip()}")
-
-_, out, _ = ssh.exec_command("pct exec 102 -- su - runner -c 'mc ls minio/'")
-print("\n[PASS] Runner MC test:\n" + out.read().decode('utf-8', errors='replace'))
+print("\n[PASS] Runner MC version:\n" + run("pct exec 102 -- mc --version"))
 
 ssh.close()

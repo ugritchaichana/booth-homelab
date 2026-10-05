@@ -19,9 +19,9 @@ Container **CT 104 (`minio-s3`)** serves as our distributed S3-compatible remote
 
 - **S3 API Endpoint:** `http://10.99.20.20:9000`
 - **Web Console Endpoint:** `http://10.99.20.20:9001` (forwardable via SSH or web proxy)
-- **Local Access Alias on CT 102:**
+- **Runner Access Alias on CT 102 / CT 103 (reader account only):**
   ```bash
-  mc alias set minio http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+  mc alias set minio http://10.99.20.20:9000 "$SDET_PR_READER_USER" "$SDET_PR_READER_PASS"
   ```
 
 ### Storage Buckets & Lifecycle Management (ILM)
@@ -80,9 +80,9 @@ minio/build-cache/
 ## 5. Enterprise Credential Hardening & Password Standards
 
 > [!WARNING]
-> **Open-Source Default Credentials Disclaimer:**  
-> This homelab repository provides pre-configured credentials (`minioadmin` / `minioadmin`) strictly for zero-friction local developer onboarding and rapid testing sandbox evaluation.  
-> **These default credentials MUST be rotated before deploying in any production, team-shared, or internet-accessible network.**
+> **No Credentials Ship With This Repository:**  
+> The MinIO root, IAM reader and IAM writer credentials are supplied only through environment variables (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `SDET_PR_READER_PASS`, `SDET_CI_WRITER_PASS`); the provisioning scripts and the Ansible role stop when one is missing.  
+> **Any credential that was ever committed to this repository's history must be treated as exposed and rotated.**
 
 ### Credential Rotation SOP
 To update root credentials on the Alpine MinIO container (`CT 104`):
@@ -91,16 +91,15 @@ To update root credentials on the Alpine MinIO container (`CT 104`):
 pct exec 104 -- sh -c "cat <<EOF > /etc/conf.d/minio
 MINIO_VOLUMES=\"/var/lib/minio/data\"
 MINIO_OPTS=\"--address :9000 --console-address :9001\"
-MINIO_ROOT_USER=\"minio_admin_secure\"
-MINIO_ROOT_PASSWORD=\"S3cur3P@ssw0rd!Enterprise#2026\"
+MINIO_ROOT_USER=\"<new-root-user>\"
+MINIO_ROOT_PASSWORD=\"<new-root-password>\"
 EOF"
 
 # 2. Restart MinIO service daemon
 pct exec 104 -- rc-service minio restart
 
-# 3. Update client aliases on test runners (CT 102 & CT 103)
-pct exec 102 -- mc alias set minio http://10.99.20.20:9000 minio_admin_secure "S3cur3P@ssw0rd!Enterprise#2026"
-pct exec 103 -- mc alias set minio http://10.99.20.20:9000 minio_admin_secure "S3cur3P@ssw0rd!Enterprise#2026"
+# 3. Runners hold only the reader alias, so a root rotation needs no runner change.
+#    Rotate the reader/writer accounts by re-running scripts/proxmox/configure_iam_cache_accounts.py.
 ```
 
 ### Scoped IAM Service Accounts (Least Privilege)

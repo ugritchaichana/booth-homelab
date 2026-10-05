@@ -318,37 +318,42 @@ If CT 104 is reprovisioned or cache data is purged:
 # 1. Verify MinIO Server is running
 pct exec 104 -- rc-service minio status
 
-# 2. Configure mc alias on host or runner (CT 102 / 103)
-pct exec 102 -- mc alias set minio http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+# 2. Configure a temporary admin alias on CT 102 (step 7 removes it; runners never hold root credentials)
+pct exec 102 -- mc alias set minio-admin http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
 # 3. Create all required buckets
-pct exec 102 -- mc mb -p minio/build-cache
-pct exec 102 -- mc mb -p minio/sdet-test-artifacts
+pct exec 102 -- mc mb -p minio-admin/build-cache
+pct exec 102 -- mc mb -p minio-admin/sdet-test-artifacts
 
-# 4. Set anonymous download access (Public Read / Authenticated Write)
-pct exec 102 -- mc anonymous set download minio/build-cache
-pct exec 102 -- mc anonymous set download minio/sdet-test-artifacts
+# 4. Keep buckets private (no anonymous access; runners use scoped IAM accounts)
+pct exec 102 -- mc anonymous set none minio-admin/build-cache
+pct exec 102 -- mc anonymous set none minio-admin/sdet-test-artifacts
 
 # 5. Set lifecycle policy to auto-expire files older than 7 days (prevents disk bloat)
-pct exec 102 -- mc ilm rule add --expire-days 7 minio/build-cache
-pct exec 102 -- mc ilm rule add --expire-days 7 minio/sdet-test-artifacts
+pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/build-cache
+pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/sdet-test-artifacts
 
 # 6. Verify upload/download over vmbr1 Virtual Bus
 pct exec 102 -- bash -c "
   echo 'healthcheck' > /tmp/hc.txt
-  mc cp /tmp/hc.txt minio/build-cache/healthcheck.txt
-  mc cp minio/build-cache/healthcheck.txt /tmp/hc-download.txt
+  mc cp /tmp/hc.txt minio-admin/build-cache/healthcheck.txt
+  mc cp minio-admin/build-cache/healthcheck.txt /tmp/hc-download.txt
   cat /tmp/hc-download.txt
-  mc rm minio/build-cache/healthcheck.txt
+  mc rm minio-admin/build-cache/healthcheck.txt
 "
+
+# 7. Re-create the scoped IAM users, policies and runner reader aliases (the script also removes the admin alias)
+python scripts/proxmox/configure_iam_cache_accounts.py
 ```
 
 ### 5.3 Cache Purge for Cold Build Benchmarking
 
 ```bash
-# Purge all .NET and npm caches:
-pct exec 102 -- mc rm --recursive --force minio/build-cache/branches/master/
-pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
+# Purge all .NET and npm caches (needs the temporary admin alias; the runner reader and writer cannot delete):
+pct exec 102 -- mc alias set minio-admin http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+pct exec 102 -- mc rm --recursive --force minio-admin/build-cache/branches/master/
+pct exec 102 -- mc rm --recursive --force minio-admin/build-cache/npm/
+pct exec 102 -- mc alias remove minio-admin
 
 # Verify bucket is empty:
 pct exec 102 -- mc ls minio/build-cache/

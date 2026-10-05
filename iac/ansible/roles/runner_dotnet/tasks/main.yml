@@ -39,9 +39,23 @@
     dest: /usr/local/bin/mc
     mode: "0755"
 
-- name: Ensure MinIO alias exists on runner
+- name: Require MinIO reader credentials from the environment
+  assert:
+    that:
+      - lookup('env', 'SDET_PR_READER_USER') | length > 0
+      - lookup('env', 'SDET_PR_READER_PASS') | length > 0
+    fail_msg: "SDET_PR_READER_USER and SDET_PR_READER_PASS must be set in the environment"
+
+- name: Ensure MinIO reader alias exists on runner
   become_user: "{{ runner_user }}"
   command: >
     /usr/local/bin/mc alias set minio {{ minio_s3_endpoint }}
-    {{ minio_root_user }} {{ minio_root_password }}
+    {{ lookup('env', 'SDET_PR_READER_USER') | quote }} {{ lookup('env', 'SDET_PR_READER_PASS') | quote }}
   changed_when: false
+  no_log: true
+
+- name: Remove any writer alias from runner
+  become_user: "{{ runner_user }}"
+  command: /usr/local/bin/mc alias remove minio-writer
+  changed_when: false
+  failed_when: false

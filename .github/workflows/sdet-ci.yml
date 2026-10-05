@@ -21,6 +21,7 @@ jobs:
   pipeline:
     name: CI
     uses: ./.github/workflows/reusable-sdet-pipeline.yml
+    secrets: inherit
     with:
       target_branch: ${{ github.head_ref || github.ref_name }}
       base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || (github.event.before && github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'HEAD~1')) }}

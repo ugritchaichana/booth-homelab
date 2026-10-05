@@ -21,7 +21,7 @@ PVE_HOST = os.getenv("PVE_HOST", "100.121.209.85")
 PVE_PORT = int(os.getenv("PVE_PORT", "8006"))
 PVE_USER = os.getenv("PVE_USER", "root")
 PVE_PASS = os.environ["PVE_PASS"]
-API_TOKEN_ID = os.getenv("PVE_TOKEN_ID", "root@pam!ai_agent")
+API_TOKEN_ID = os.environ["PVE_TOKEN_ID"]
 API_TOKEN_SECRET = os.environ["PVE_TOKEN_SECRET"]
 
 def test_api():

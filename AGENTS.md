@@ -19,7 +19,7 @@ This document is the authoritative, machine-readable operational guide for AI co
   - Layer 2 bridge port isolation on `vmbr1` (`isolated on` for `veth102i0` and `veth103i0`).
   - Layer 3/4 `HOMELAB-FORWARD` netfilter chain: East-West runner traffic dropped, runner access to `:9001` dropped, runner internet egress restricted to ports 53, 80, 443, 123.
 - **S3 Bucket Policy:**
-  - `build-cache` and `test-artifacts`: Public Read (`anonymous download`) / Authenticated Write (`minioadmin` or scoped IAM service accounts).
+  - `build-cache` and `test-artifacts`: private (no anonymous access). Runners read through a bucket-scoped IAM reader (`iac/minio/policies/build-cache-reader.json`); the writer credential is held only by the master cache-save job via the `cache-writer` GitHub Environment.
 
 ---
 

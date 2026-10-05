@@ -34,7 +34,7 @@ Follow the operating standards defined in `GEMINI.md` and `AGENTS.md`:
 - **CT 103 (`gha-runner-angular` / `10.99.20.103`):** 2 vCPU, 1.5GB RAM. Angular 18/19 Standalone Jest runner, pure headless `jsdom` (no Chromium/GUI overhead).
 - **CT 104 (`minio-s3` / `10.99.20.20`):** 2 vCPU, 2GB RAM. Alpine MinIO S3 API (`:9000`), Web Console (`:9001`).
   - Buckets: `build-cache`, `test-artifacts`.
-  - Access Policy: Public Read (`anonymous download`) / Authenticated Write (`s3:PutObject`, `s3:DeleteObject`).
+  - Access Policy: private (no anonymous access). Runners read through a bucket-scoped IAM reader; only the master cache-save job writes, with a writer credential from the `cache-writer` GitHub Environment.
   - Web Console: Accessible via `http://100.121.209.85:9001` (blocked from runners by firewall).
 
 ### Infrastructure as Code (IaC) Stack
