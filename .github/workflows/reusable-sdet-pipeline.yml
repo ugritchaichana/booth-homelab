@@ -177,7 +177,7 @@ jobs:
   dotnet-cache-save:
     name: Cache (.NET)
     needs: [dotnet-build, dotnet-test]
-    if: always() && needs.dotnet-build.result == 'success' && (inputs.target_branch == 'master' || inputs.target_branch == 'main')
+    if: always() && needs.dotnet-build.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: >
       ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
           && fromJSON('["ubuntu-latest"]')
