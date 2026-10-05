@@ -27,11 +27,6 @@ runs:
         if [ "${{ inputs.mode }}" = "restore" ]; then
           echo "[*] Restoring MinIO S3 cache for branch: ${{ inputs.branch }}"
           ./scripts/ci/cache-restore.sh "${{ inputs.branch }}"
-          if [ -f .cache-hit ] || [ "${CACHE_HIT:-}" = "true" ]; then
-            echo "cache_hit=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
-          fi
         elif [ "${{ inputs.mode }}" = "save" ]; then
           echo "[*] Saving MinIO S3 cache for branch: ${{ inputs.branch }} (Commit: ${{ inputs.commit_sha }})"
           ./scripts/ci/cache-save.sh "${{ inputs.branch }}" "${{ inputs.commit_sha }}"

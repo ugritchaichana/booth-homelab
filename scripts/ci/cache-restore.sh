@@ -23,14 +23,14 @@ MC_BIN="$(command -v mc || echo '/usr/bin/mc')"
 # Graceful Degradation Check 1: MinIO CLI Availability
 if [ ! -x "$MC_BIN" ]; then
     echo "[WARN] MinIO client ($MC_BIN) not executable. Proceeding with clean build without cache."
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 0
 fi
 
 # Graceful Degradation Check 2: Endpoint Health Probing (2s timeout)
 if ! curl -s -m 2 http://10.99.20.20:9000/minio/health/live >/dev/null 2>&1; then
     echo "[WARN] MinIO S3 endpoint unreachable. Gracefully falling back to fresh build."
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 0
 fi
 
@@ -51,7 +51,7 @@ done
 
 if [ -z "$FOUND_TARGET" ]; then
     echo "[CACHE MISS] No compatible cache found on S3. Full clean build required."
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 0
 fi
 
@@ -63,7 +63,7 @@ START_TIME=$(date +%s%N)
 if ! $MC_BIN cp "$FOUND_TARGET" "$TARGET_FILE" 2>/dev/null; then
     echo "[WARN] Download interrupted or timed out. Proceeding with clean build."
     rm -f "$TARGET_FILE"
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 0
 fi
 
@@ -75,7 +75,7 @@ echo "[PASS] Downloaded in ${DL_MS} ms from local virtual bus."
 if ! $MC_BIN cp "${FOUND_TARGET}.sha256" "${TARGET_FILE}.sha256" 2>/dev/null; then
     echo "[WARN] Integrity digest missing for cache target ($FOUND_TARGET). Rejecting untrusted cache."
     rm -f "$TARGET_FILE"
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 0
 fi
 
@@ -85,7 +85,7 @@ ACTUAL_SHA=$(sha256sum "$TARGET_FILE" | awk '{print $1}')
 if [ -z "$EXPECTED_SHA" ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
     echo "[ABORT] Cache integrity verification failed! Expected: '$EXPECTED_SHA', Actual: '$ACTUAL_SHA'"
     rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 1
 fi
 echo "[PASS] Verified SHA256 integrity digest ($ACTUAL_SHA)."
@@ -95,7 +95,7 @@ echo "==> Decompressing cache payload via zstd into workspace..."
 if ! tar -I "zstd -d -T0" -xf "$TARGET_FILE" -C "$ROOT_DIR" 2>/dev/null; then
     echo "[WARN] Corrupted or invalid cache payload. Discarding cache and continuing clean build."
     rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"
-    echo "CACHE_HIT=false" >> "${GITHUB_ENV:-/dev/null}"
+    echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
     exit 0
 fi
 
@@ -142,4 +142,4 @@ TOTAL_RESTORE_MS=$(( (NOW_END - START_TIME) / 1000000 ))
 echo "=========================================================="
 echo " [OK] Total Cache Restore Time: ${TOTAL_RESTORE_MS} ms"
 echo "=========================================================="
-echo "CACHE_HIT=true" >> "${GITHUB_ENV:-/dev/null}"
+echo "cache_hit=true" >> "${GITHUB_OUTPUT:-/dev/null}"
