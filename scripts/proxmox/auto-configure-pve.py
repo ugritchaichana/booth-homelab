@@ -10,9 +10,11 @@ Automated Proxmox VE 8.x Configuration and AI Foundation Engine.
 import sys
 import paramiko
 
-PVE_HOST = "100.121.209.85"
-PVE_USER = "root"
-PVE_PASS = "12345678"
+import os
+
+PVE_HOST = os.environ.get("PVE_HOST", "100.121.209.85")
+PVE_USER = os.environ.get("PVE_USER", "root")
+PVE_PASS = os.environ["PVE_PASS"]
 
 def run_cmd(ssh, cmd, ignore_error=False):
     print(f"\n==> [EXEC] {cmd}")

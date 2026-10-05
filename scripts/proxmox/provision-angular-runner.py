@@ -18,9 +18,9 @@ import paramiko
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-PVE_HOST = "100.121.209.85"
-PVE_USER = "root"
-PVE_PASS = "12345678"
+PVE_HOST = os.environ.get("PVE_HOST", "100.121.209.85")
+PVE_USER = os.environ.get("PVE_USER", "root")
+PVE_PASS = os.environ["PVE_PASS"]
 CT_ID = "103"
 CT_NAME = "gha-runner-angular"
 TEMPLATE = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"

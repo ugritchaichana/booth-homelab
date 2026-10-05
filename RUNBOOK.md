@@ -111,13 +111,13 @@ Get-VMNetworkAdapter "Proxmox-Lab" | Set-VMNetworkAdapter -MacAddressSpoofing On
   - Via Hyper-V Internal NAT: `http://172.29.21.44:9001/`
 - **Host Credentials:**
   - Username: `root` (Realm: `root@pam`)
-  - Password: `[LOCAL_VAULT]` (`12345678` in development sandbox)
+  - Password: `[SECURE_VAULT]` (Injected via `PVE_PASS` environment variable)
   - PVE AI API Token ID: `root@pam!ai_agent`
-  - PVE AI API Token Secret: `d217551a-c823-4f09-a417-192304bd16cd`
+  - PVE AI API Token Secret: `[SECURE_VAULT]` (Injected via `PVE_TOKEN_SECRET` environment variable)
 
 > [!WARNING]
-> **Host Credential Rotation Advisory:**  
-> The password `12345678` is strictly for isolated local development sandboxes. For any shared, staging, or production baremetal host, run `passwd root` immediately during provisioning to set a secure password meeting the [Section 5.5 Enterprise Password Complexity Standards](#55-enterprise-password-complexity-standards-nist-sp-800-63b--cis).
+> **Host Credential Security Advisory:**  
+> Plaintext passwords and API tokens must never be committed to git. Always inject credentials via environment variables and local vaults adhering to [Section 5.5 Enterprise Password Complexity Standards](#55-enterprise-password-complexity-standards-nist-sp-800-63b--cis).
 
 ### 2.3 Non-Interactive Host Execution via Python Paramiko
 
@@ -319,7 +319,7 @@ If CT 104 is reprovisioned or cache data is purged:
 pct exec 104 -- rc-service minio status
 
 # 2. Configure mc alias on host or runner (CT 102 / 103)
-pct exec 102 -- mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin
+pct exec 102 -- mc alias set minio http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
 # 3. Create all required buckets
 pct exec 102 -- mc mb -p minio/build-cache
@@ -357,9 +357,8 @@ pct exec 102 -- mc ls minio/build-cache/
 ### 5.4 Enterprise Credential Hardening & Rotation SOP
 
 > [!WARNING]
-> **Open-Source Default Credentials Disclaimer:**  
-> The homelab configuration uses standard default credentials (`minioadmin` / `minioadmin` on CT 104, `root` / `12345678` on development Proxmox instances) strictly to facilitate turn-key open-source evaluation and deterministic test execution in isolated sandboxes.  
-> **These defaults MUST be changed before exposing services to any shared network or production environment.**
+> **Credential Hardening Disclaimer:**  
+> All administrative credentials on CT 104 and Proxmox VE must be rotated and securely injected via environment variables. Never use default or predictable credentials in any shared or production environment.
 
 #### Step 1: Rotate MinIO Root Administrative Credentials
 To rotate root credentials on CT 104 (Alpine LXC):

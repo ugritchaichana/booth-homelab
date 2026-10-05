@@ -20,9 +20,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 PVE_HOST = os.getenv("PVE_HOST", "100.121.209.85")
 PVE_PORT = int(os.getenv("PVE_PORT", "8006"))
 PVE_USER = os.getenv("PVE_USER", "root")
-PVE_PASS = os.getenv("PVE_PASS", "12345678")
+PVE_PASS = os.environ["PVE_PASS"]
 API_TOKEN_ID = os.getenv("PVE_TOKEN_ID", "root@pam!ai_agent")
-API_TOKEN_SECRET = os.getenv("PVE_TOKEN_SECRET", "d217551a-c823-4f09-a417-192304bd16cd")
+API_TOKEN_SECRET = os.environ["PVE_TOKEN_SECRET"]
 
 def test_api():
     print(f"\n[1/3] Testing Proxmox REST API (https://{PVE_HOST}:{PVE_PORT}/api2/json)...")

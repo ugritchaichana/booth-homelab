@@ -26,7 +26,7 @@ Follow the operating standards defined in `GEMINI.md` and `AGENTS.md`:
 - **Access Endpoints:**
   - Tailscale Mesh: `https://100.121.209.85:8006/`
   - Hyper-V NAT: `https://172.29.21.44:8006/`
-  - API Token: `root@pam!ai_agent` (`d217551a-c823-4f09-a417-192304bd16cd`)
+  - API Token: `root@pam!ai_agent` (`[CONFIGURED_IN_LOCAL_VAULT / ENV: PVE_TOKEN_SECRET]`)
 - **Virtual Bus Subnet (`vmbr1` - `10.99.20.0/24`):** High-speed Linux bridge (>800 MiB/s transfer).
 
 ### Active Container Fleet

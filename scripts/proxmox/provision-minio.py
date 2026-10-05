@@ -14,9 +14,11 @@ import paramiko
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-PVE_HOST = "100.121.209.85"
-PVE_USER = "root"
-PVE_PASS = "12345678"
+PVE_HOST = os.environ.get("PVE_HOST", "100.121.209.85")
+PVE_USER = os.environ.get("PVE_USER", "root")
+PVE_PASS = os.environ["PVE_PASS"]
+MINIO_USER = os.environ.get("MINIO_ROOT_USER", "minioadmin")
+MINIO_PASS = os.environ["MINIO_ROOT_PASSWORD"]
 CT_ID = "104"
 CT_NAME = "minio-s3"
 TEMPLATE = "local:vztmpl/alpine-3.23-default_20260116_amd64.tar.xz"
@@ -74,7 +76,7 @@ def main():
     print("[+] CT 104 Internet connectivity verified.")
 
     # 4. Install MinIO and OpenRC Service inside Alpine
-    setup_script = """#!/bin/sh
+    setup_script = f"""#!/bin/sh
 set -e
 
 apk update
@@ -91,7 +93,7 @@ wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
 chmod +x /usr/local/bin/mc
 
 # Create OpenRC Service
-cat << 'EOF' > /etc/init.d/minio
+cat << EOF > /etc/init.d/minio
 #!/sbin/openrc-run
 name="minio"
 description="MinIO Object Storage"
@@ -99,12 +101,12 @@ command="/usr/local/bin/minio"
 command_args="server /data/minio --address :9000 --console-address :9001"
 command_background=true
 pidfile="/run/minio.pid"
-export MINIO_ROOT_USER="minioadmin"
-export MINIO_ROOT_PASSWORD="minioadmin"
+export MINIO_ROOT_USER="{MINIO_USER}"
+export MINIO_ROOT_PASSWORD="{MINIO_PASS}"
 
-depend() {
+depend() {{
     need net
-}
+}}
 EOF
 
 chmod +x /etc/init.d/minio
@@ -122,7 +124,7 @@ for i in $(seq 1 15); do
 done
 
 # Configure mc alias and buckets
-/usr/local/bin/mc alias set local http://127.0.0.1:9000 minioadmin minioadmin
+/usr/local/bin/mc alias set local http://127.0.0.1:9000 {MINIO_USER} {MINIO_PASS}
 /usr/local/bin/mc mb --ignore-existing local/build-cache
 /usr/local/bin/mc mb --ignore-existing local/test-artifacts
 

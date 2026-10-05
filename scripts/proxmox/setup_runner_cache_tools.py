@@ -1,12 +1,18 @@
+import os
 import sys
 import paramiko
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
+pve_host = os.environ.get("PVE_HOST", "100.121.209.85")
+pve_pass = os.environ["PVE_PASS"]
+minio_user = os.environ.get("MINIO_ROOT_USER", "minioadmin")
+minio_pass = os.environ["MINIO_ROOT_PASSWORD"]
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect("100.121.209.85", username="root", password="12345678", timeout=5)
+ssh.connect(pve_host, username="root", password=pve_pass, timeout=5)
 
 setup_cmds = [
     "apt-get update -y && apt-get install -y zstd",
@@ -15,12 +21,12 @@ setup_cmds = [
 ]
 
 # Install mc from CT 104 (copy binary directly over SSH between CTs)
-copy_mc = """
+copy_mc = f"""
 pct exec 104 -- cat /usr/bin/minio-client > /tmp/mc
 pct push 102 /tmp/mc /usr/local/bin/mc
 pct exec 102 -- chmod +x /usr/local/bin/mc
 pct exec 102 -- apt-get update -y && pct exec 102 -- apt-get install -y zstd time
-pct exec 102 -- su - runner -c "mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin"
+pct exec 102 -- su - runner -c "mc alias set minio http://10.99.20.20:9000 {minio_user} {minio_pass}"
 """
 
 for line in copy_mc.strip().splitlines():

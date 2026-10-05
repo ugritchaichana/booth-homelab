@@ -110,7 +110,7 @@ pct exec 102 -- mc ls minio/sdet-test-artifacts
 If CT 104 is wiped, rebuilt, or cache corrupted:
 ```bash
 # 1. Register mc alias:
-pct exec 102 -- mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin
+pct exec 102 -- mc alias set minio http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
 # 2. Re-create required buckets:
 pct exec 102 -- mc mb -p minio/build-cache
@@ -129,7 +129,7 @@ pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
 
 ### 4.4 Enterprise Credential Hardening & Rotation SOP
 > [!WARNING]
-> **Open-Source Defaults Disclaimer:** Default credentials (`minioadmin` / `minioadmin`, host `12345678`) are intended solely for local developer sandboxes. Rotate immediately in production.
+> **Credential Security Advisory:** Administrative and host credentials must be securely managed via environment variables and encrypted vaults. Never commit default credentials to version control.
 
 - **Password Standard (NIST SP 800-63B / CIS):** $\ge 20$ chars for admin accounts, $\ge 32$ chars for API tokens, mixing uppercase, lowercase, numbers, and special symbols (`!@#$%^&*()-_+=[{]}|:;,.<>?~`). Zero dictionary words.
 - **Rotate MinIO Root:** Update `/etc/conf.d/minio` on CT 104 (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`), restart service with `rc-service minio restart`, and update runner aliases:

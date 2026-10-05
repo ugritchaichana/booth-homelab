@@ -21,7 +21,7 @@ Container **CT 104 (`minio-s3`)** serves as our distributed S3-compatible remote
 - **Web Console Endpoint:** `http://10.99.20.20:9001` (forwardable via SSH or web proxy)
 - **Local Access Alias on CT 102:**
   ```bash
-  mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin
+  mc alias set minio http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
   ```
 
 ### Storage Buckets & Lifecycle Management (ILM)

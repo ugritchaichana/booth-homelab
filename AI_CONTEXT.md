@@ -28,8 +28,8 @@ Before executing ANY `git commit`, `git push`, or infrastructure change, verify 
   - Hyper-V NAT IP: `https://172.29.21.44:8006/`
 - **Host Credentials:**
   - Username: `root` (realm `root@pam`)
-  - Password: `[CONFIGURED_IN_LOCAL_VAULT]` (`12345678` in development sandbox; rotate in production per NIST SP 800-63B)
-  - PVE AI API Token: `root@pam!ai_agent` = `d217551a-c823-4f09-a417-192304bd16cd`
+  - Password: `[CONFIGURED_IN_LOCAL_VAULT / ENV: PVE_PASS]`
+  - PVE AI API Token: `root@pam!ai_agent` = `[CONFIGURED_IN_LOCAL_VAULT / ENV: PVE_TOKEN_SECRET]`
 
 ### Network Topography
 - `vmbr0`: `10.99.10.1/24` (Management & Services Subnet)

@@ -2,7 +2,7 @@
 set -eu
 
 echo "==> [MinIO Provisioner] Waiting for MinIO service..."
-until mc alias set myminio http://minio:9000 minioadmin minioadmin_secret; do
+until mc alias set myminio http://minio:9000 minioadmin sandbox_minio_admin_secret; do
   echo "==> MinIO not ready yet. Retrying in 1 second..."
   sleep 1
 done

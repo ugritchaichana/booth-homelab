@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import paramiko
@@ -5,17 +6,22 @@ import paramiko
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
+pve_host = os.environ.get("PVE_HOST", "100.121.209.85")
+pve_pass = os.environ["PVE_PASS"]
+minio_user = os.environ.get("MINIO_ROOT_USER", "minioadmin")
+minio_pass = os.environ["MINIO_ROOT_PASSWORD"]
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect("100.121.209.85", username="root", password="12345678", timeout=5)
+ssh.connect(pve_host, username="root", password=pve_pass, timeout=5)
 
-cfg = """data_dirs="/var/lib/minio/data"
+cfg = f"""data_dirs="/var/lib/minio/data"
 command_user="minio:minio"
 supervisor=supervise-daemon
 
 set -a
-MINIO_ROOT_USER="minioadmin"
-MINIO_ROOT_PASSWORD="minioadmin"
+MINIO_ROOT_USER="{minio_user}"
+MINIO_ROOT_PASSWORD="{minio_pass}"
 MINIO_ADDRESS="0.0.0.0:9000"
 MINIO_CONSOLE_ADDRESS="0.0.0.0:9001"
 MINIO_BROWSER="on"
@@ -41,7 +47,7 @@ print("HEALTH:\n" + out.read().decode('utf-8', errors='replace'))
 ssh.exec_command("pct exec 104 -- ln -sf /usr/bin/minio-client /usr/bin/mc")
 
 cmds = [
-    "mc alias set local http://127.0.0.1:9000 minioadmin minioadmin",
+    f"mc alias set local http://127.0.0.1:9000 {minio_user} {minio_pass}",
     "mc mb --ignore-existing local/build-cache",
     "mc mb --ignore-existing local/test-artifacts",
     "mc ls local/"
