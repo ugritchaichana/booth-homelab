@@ -9,11 +9,14 @@ public class OrderController
 
     public Money Checkout(decimal subtotal)
     {
-        return _service.CalculateTotal(subtotal, 0.07m);
+        var baseAmount = Math.Max(0m, subtotal);
+        return _service.CalculateTotal(baseAmount, 0.07m);
     }
 
     public Money CheckoutWithVoucher(decimal subtotal, decimal discount)
     {
-        return _service.CalculateTotal(subtotal - discount, 0.07m);
+        var clampedDiscount = Math.Min(discount, subtotal);
+        var baseAmount = Math.Max(0m, subtotal - clampedDiscount);
+        return _service.CalculateTotal(baseAmount, 0.07m);
     }
 }

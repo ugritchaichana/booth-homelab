@@ -29,4 +29,12 @@ public class OrderControllerTests
         var total = controller.Checkout(1.50m);
         Assert.Equal(1.61m, total.Amount);
     }
+
+    [Fact]
+    public void CheckoutWithVoucher_DiscountExceedsSubtotal_ReturnsZero()
+    {
+        var controller = new OrderController();
+        var total = controller.CheckoutWithVoucher(5m, 10m);
+        Assert.Equal(0.00m, total.Amount);
+    }
 }
