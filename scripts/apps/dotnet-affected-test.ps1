@@ -105,10 +105,24 @@ foreach ($file in $uniqueChanged) {
 Write-Host "`n==> Step 2: Directly Modified Projects ($($directProjects.Count)):"
 $directProjects | ForEach-Object { Write-Host "    - $(Split-Path $_ -Leaf)" -ForegroundColor Yellow }
 
+# 2.1 Shared Build Configuration Invalidation (Fail-Closed)
+$hasGlobalConfig = $uniqueChanged | Where-Object { $_ -match '(^|[\\/])(Directory\.Build\.props|Directory\.Packages\.props|nuget\.config|global\.json)$|\.sln$' }
+if ($hasGlobalConfig) {
+    Write-Host "`n==> [GLOBAL BUILD CONFIG DETECTED] Shared configuration modified; selecting all test suites." -ForegroundColor Magenta
+    $allCsprojFiles | Where-Object { $_ -match '[Tt]est' } | ForEach-Object { $directProjects.Add($_) | Out-Null }
+}
+
+# 2.2 Unmappable Change Resolution (Fail-Closed for Non-Docs)
 if ($directProjects.Count -eq 0) {
-    Write-Host "`n[OK] Modified files do not belong to any .NET project. Skipping test execution." -ForegroundColor Green
-    if ($DryRun) { return @() }
-    exit 0
+    $nonDocs = $uniqueChanged | Where-Object { $_ -notmatch '\.(md|txt|png|jpg|svg|ico)$|(^|[\\/])(docs|wiki|\.github)[\\/]' }
+    if ($nonDocs) {
+        Write-Host "`n[WARN] Unmappable non-documentation change detected; selecting FULL test suite (fail-closed)." -ForegroundColor Yellow
+        $allCsprojFiles | Where-Object { $_ -match '[Tt]est' } | ForEach-Object { $directProjects.Add($_) | Out-Null }
+    } else {
+        Write-Host "`n[OK] Documentation-only change detected. Skipping test execution." -ForegroundColor Green
+        if ($DryRun) { return @() }
+        exit 0
+    }
 }
 
 # 3. Build Reverse Dependency Graph (Child -> Parents / Dependents)

@@ -84,7 +84,26 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path "$resultsDir\Order.Api.UnitTests.trx")) 
     exit 1
 }
 
+# Test 5: Global Build Config Modification (Directory.Build.props) -> Fail-Closed All Suites
+Write-Host "`n>>> [TEST 5] Modifying Global Config: Directory.Build.props (Fail-Closed)..." -ForegroundColor Yellow
+Reset-WorkingTree
+Add-Content -Path "$rootDir\Directory.Build.props" -Value "`n<!-- Global probe -->"
+
+$test5Projects = & $scriptPath -BaseRef "HEAD" -HeadRef "HEAD" -RootDir $rootDir -IncludeWorkingTree -DryRun
+$test5Names = @($test5Projects | ForEach-Object { Split-Path $_ -Leaf })
+Reset-WorkingTree
+
+Write-Host "    Resolved Suites Count: $($test5Names.Count)"
+Write-Host "    Suites: $($test5Names -join ', ')"
+if ($test5Names.Count -ge 2 -and $test5Names -contains "Billing.Api.UnitTests.csproj" -and $test5Names -contains "Order.Api.UnitTests.csproj") {
+    Write-Host "    [PASS] TEST 5: Fail-closed logic successfully selected all test suites for Directory.Build.props modification!" -ForegroundColor Green
+} else {
+    Write-Host "    [FAIL] TEST 5: Expected all test suites to be selected." -ForegroundColor Red
+    Reset-WorkingTree
+    exit 1
+}
+
 Reset-WorkingTree
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host "   ALL 4 TDD SCENARIOS PASSED WITH MATHEMATICAL CERTAINTY! " -ForegroundColor Green
+Write-Host "   ALL 5 TDD SCENARIOS PASSED WITH MATHEMATICAL CERTAINTY! " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green

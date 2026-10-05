@@ -51,9 +51,22 @@ done <<< "$CHANGED_FILES"
 # Deduplicate direct projects
 readarray -t UNIQUE_DIRECT < <(printf '%s\n' "${DIRECT_PROJECTS[@]:-}" | sort -u | grep -v '^$' || true)
 
+# 2.1 Shared Build Configuration Invalidation (Fail-Closed)
+if echo "$CHANGED_FILES" | grep -qE '(^|/)(Directory\.Build\.props|Directory\.Packages\.props|nuget\.config|global\.json)$|\.sln$'; then
+    echo "==> [GLOBAL BUILD CONFIG DETECTED] Shared configuration modified; selecting all test suites."
+    mapfile -t UNIQUE_DIRECT < <(find "$ROOT_DIR" -name "*.csproj" | grep -iE 'test')
+fi
+
+# 2.2 Unmappable Change Resolution (Fail-Closed for Non-Docs)
 if [ ${#UNIQUE_DIRECT[@]} -eq 0 ]; then
-    echo "[OK] Modified files do not belong to any .NET project. Skipping test execution."
-    exit 0
+    NON_DOCS=$(echo "$CHANGED_FILES" | grep -vE '\.(md|txt|png|jpg|svg|ico)$|(^|/)(docs|wiki|\.github)/' || true)
+    if [ -n "$NON_DOCS" ]; then
+        echo "[WARN] Unmappable non-documentation change detected; selecting FULL test suite (fail-closed)."
+        mapfile -t UNIQUE_DIRECT < <(find "$ROOT_DIR" -name "*.csproj" | grep -iE 'test')
+    else
+        echo "[OK] Documentation-only change detected. Skipping test execution."
+        exit 0
+    fi
 fi
 
 echo "==> Step 2: Directly Modified Projects (${#UNIQUE_DIRECT[@]}):"

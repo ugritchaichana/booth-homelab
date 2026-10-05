@@ -23,5 +23,5 @@ jobs:
     uses: ./.github/workflows/reusable-sdet-pipeline.yml
     with:
       target_branch: ${{ github.head_ref || github.ref_name }}
-      base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || 'HEAD~1') }}
+      base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || (github.event.before && github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'HEAD~1')) }}
       force_ubuntu_runner: ${{ inputs.force_ubuntu_runner || false }}

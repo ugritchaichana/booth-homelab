@@ -37,7 +37,7 @@ python scripts/ci/run_ct103_tests.py
 # Or inside apps/frontend (if node_modules installed):
 npm test --prefix apps/frontend -- --silent
 
-# 3. Verify .NET AST Transitive Dependency Graph Diff Runner (4 scenarios):
+# 3. Verify .NET AST Transitive Dependency Graph Diff Runner (5 scenarios):
 pwsh -File ./tests/verify-affected-graph.ps1
 
 # 4. Verify Enterprise Zero-Trust Firewall (13/13 assertions):

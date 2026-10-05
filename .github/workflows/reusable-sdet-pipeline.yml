@@ -95,13 +95,13 @@ jobs:
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Setup .NET 8 SDK (Fallback Runner)
         if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: '8.0.x'
 
@@ -142,14 +142,14 @@ jobs:
       test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
     steps:
       - name: Checkout Repository (Preserve Binaries)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           clean: false
 
       - name: Setup .NET 8 SDK (Fallback Runner)
         if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: '8.0.x'
 
@@ -166,7 +166,7 @@ jobs:
 
       - name: Archive .NET Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: sdet-dotnet-test-results
           path: apps/backend/TestResults/
@@ -184,7 +184,7 @@ jobs:
           || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     steps:
       - name: Checkout Repository (Preserve Binaries)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           clean: false
 
@@ -210,13 +210,13 @@ jobs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 1
 
       - name: Setup Node.js 20 (Fallback Runner)
         if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: '20.x'
 
@@ -230,7 +230,7 @@ jobs:
 
       - name: Archive Angular Coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: sdet-angular-coverage
           path: apps/frontend/coverage/
