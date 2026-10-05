@@ -181,17 +181,33 @@ pct exec 102 -- mc ls minio/build-cache/npm/
   ```
 - **Angular Jest Suite:**
   ```bash
-  cd sdet/frontend && npm test
+  python scripts/ci/run_ct103_tests.py
+  ```
+
+### 5. AI-Native Implementation & Agent Onboarding
+
+This repository is optimized for autonomous AI coding assistants (Antigravity, Claude Code, Cursor, Copilot Workspace, Gemini CLI). More than 80% to 100% of implementation can be safely executed by an AI agent:
+
+- **Universal Agent Guide:** [`AGENTS.md`](AGENTS.md) — Authoritative machine-readable operational guide covering commands, empirical traps, and topology.
+- **Agent Handover Prompt:** [`HANDOFF.md`](HANDOFF.md) — Turnkey prompt to paste directly into any new AI session to resume immediately.
+- **Deep Technical Context:** [`AI_CONTEXT.md`](AI_CONTEXT.md) — Architectural invariants, security policies, and debugging heuristics.
+- **Engineering Standards:** [`GEMINI.md`](GEMINI.md) — The 8 Core Engineering Pillars governing clean code, deterministic verification, and zero-trust security.
+- **Hardware-Free Local Sandbox:** Launch the complete local S3 cache sandbox with:
+  ```powershell
+  docker compose -f sandbox/docker-compose.sandbox.yml up -d
+  pwsh -File sandbox/verify-sandbox.ps1
   ```
 
 ---
 
 ## 📚 Documentation & Project Tracking
 
+- **Universal AI Agent Guide:** [AGENTS.md](AGENTS.md) (Standard entrypoint for all AI coding agents)
+- **AI Handover Prompt:** [HANDOFF.md](HANDOFF.md) (Turnkey session handover prompt)
+- **AI Machine Context:** [AI_CONTEXT.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/AI_CONTEXT.md) (Architectural invariants)
 - **Online Knowledge Base:** [GitHub Wiki](https://github.com/ugritchaichana/booth-homelab/wiki) (Auto-synced from `wiki/`)
+- **Operations Runbook:** [RUNBOOK.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/RUNBOOK.md) (Bootstrapping and maintenance procedures)
 - **Project Tracking Board:** [GitHub Project #4 (Booth Homelab - SDET & IaC Testing Rig)](https://github.com/users/ugritchaichana/projects/4)
-- **AI Agent Context:** Consult [AI_CONTEXT.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/AI_CONTEXT.md) for deep machine-readable invariants and troubleshooting heuristics.
-- **Operations Runbook:** Consult [RUNBOOK.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/RUNBOOK.md) for step-by-step baremetal bootstrapping and maintenance procedures.
 
 ---
 

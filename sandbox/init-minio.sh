@@ -8,18 +8,28 @@ until mc alias set myminio http://minio:9000 minioadmin minioadmin_secret; do
 done
 
 echo "==> [MinIO Provisioner] Connected. Provisioning S3 Buckets..."
-mc mb myminio/angular-nx-cache --ignore-existing
+mc mb myminio/build-cache --ignore-existing
 mc mb myminio/sdet-test-artifacts --ignore-existing
+mc mb myminio/angular-nx-cache --ignore-existing
+
+echo "==> [MinIO Provisioner] Setting Public Read (Anonymous Download) Access..."
+mc anonymous set download myminio/build-cache || true
+mc anonymous set download myminio/sdet-test-artifacts || true
 
 echo "==> [MinIO Provisioner] Setting 7-day ILM Expiration Rules..."
-# Check and set ILM rule for angular-nx-cache
-if ! mc ilm rule list myminio/angular-nx-cache 2>/dev/null | grep -q "Days: 7"; then
-  mc ilm rule add myminio/angular-nx-cache --expire-days 7 || true
+# Check and set ILM rule for build-cache
+if ! mc ilm rule list myminio/build-cache 2>/dev/null | grep -q "Days: 7"; then
+  mc ilm rule add myminio/build-cache --expire-days 7 || true
 fi
 
 # Check and set ILM rule for sdet-test-artifacts
 if ! mc ilm rule list myminio/sdet-test-artifacts 2>/dev/null | grep -q "Days: 7"; then
   mc ilm rule add myminio/sdet-test-artifacts --expire-days 7 || true
+fi
+
+# Check and set ILM rule for angular-nx-cache
+if ! mc ilm rule list myminio/angular-nx-cache 2>/dev/null | grep -q "Days: 7"; then
+  mc ilm rule add myminio/angular-nx-cache --expire-days 7 || true
 fi
 
 echo "==> [MinIO Provisioner] Registering IAM Policies (CREEP CVE-2025-36852 Mitigated)..."

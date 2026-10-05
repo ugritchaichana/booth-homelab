@@ -53,7 +53,9 @@ graph TD
 
 ## 🔗 External Traceability Links
 - **GitHub Repository:** [ugritchaichana/booth-homelab](https://github.com/ugritchaichana/booth-homelab)
+- **Universal AI Agent Guide:** [AGENTS.md](https://github.com/ugritchaichana/booth-homelab/blob/master/AGENTS.md)
+- **AI Handover Prompt:** [HANDOFF.md](https://github.com/ugritchaichana/booth-homelab/blob/master/HANDOFF.md)
 - **GitHub Project Board:** [Booth Homelab SDET Delivery (#4)](https://github.com/users/ugritchaichana/projects/4)
 - **Releases:** [Release v1.0.0](https://github.com/ugritchaichana/booth-homelab/releases/tag/v1.0.0)
-- **MinIO Web Console:** `http://100.121.209.85:9001` (Direct SSH Port Forward)
+- **MinIO Web Console:** `http://100.121.209.85:9001` (Object Browser)
 - **Proxmox Web GUI:** `https://100.121.209.85:8006` (Linux PAM authentication)
