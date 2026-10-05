@@ -8,9 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$outputArchive = Join-Path $scriptDir "..\..\pve-bootstrap-bundle.tar.gz"
-$outputArchive = [System.IO.Path]::GetFullPath($outputArchive)
+$outputArchive = Join-Path $scriptDir "pve-bootstrap-bundle.tar.gz"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   Packaging Host Bootstrap Suite for USB Flash Drive    " -ForegroundColor Cyan

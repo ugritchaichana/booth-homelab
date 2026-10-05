@@ -23,7 +23,10 @@ iac/ansible/
 └── roles/
     ├── common/                # Base utilities (zstd, git, sudo, runner user)
     ├── enterprise_firewall/   # Netfilter HOMELAB-FORWARD chain & L2 isolation
+    │   └── templates/         # homelab-firewall.j2 (parameterized netfilter)
     ├── minio_cache/           # Alpine OpenRC service & anonymous policy
+    │   └── templates/         # minio.env.j2, minio.initd.j2
+    ├── proxmox_host/          # LXC appliance template manager (pveam download)
     ├── runner_dotnet/         # CT 102 (.NET 8 SDK, Docker-in-LXC)
     └── runner_angular/        # CT 103 (Node.js 20 LTS, Jest headless jsdom)
 ```

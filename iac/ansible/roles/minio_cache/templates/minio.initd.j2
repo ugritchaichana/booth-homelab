@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# OpenRC Service Script for MinIO High-Performance Object Storage
+# Managed by Ansible - Role: minio_cache
+# ==============================================================================
+
+name="minio"
+description="MinIO High-Performance Object Storage"
+command="/usr/local/bin/minio"
+command_args="server {{ minio_data_dir }} --address :{{ minio_api_port }} --console-address :{{ minio_console_port }}"
+command_background=true
+pidfile="/var/run/minio.pid"
+
+depend() {
+    need net
+}

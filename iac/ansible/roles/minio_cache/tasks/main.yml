@@ -9,32 +9,17 @@
     state: directory
     mode: "0755"
 
-- name: Deploy MinIO environment configuration
-  copy:
+- name: Deploy MinIO environment configuration from Jinja2 template
+  template:
+    src: minio.env.j2
     dest: /etc/minio.env
     mode: "0600"
-    content: |
-      MINIO_ROOT_USER={{ minio_root_user }}
-      MINIO_ROOT_PASSWORD={{ minio_root_password }}
-      MINIO_VOLUMES="{{ minio_data_dir }}"
-      MINIO_OPTS="--address :{{ minio_api_port }} --console-address :{{ minio_console_port }}"
 
-- name: Deploy OpenRC service for MinIO on Alpine
-  copy:
+- name: Deploy OpenRC service for MinIO on Alpine from Jinja2 template
+  template:
+    src: minio.initd.j2
     dest: /etc/init.d/minio
     mode: "0755"
-    content: |
-      #!/sbin/openrc-run
-      name="minio"
-      description="MinIO High-Performance Object Storage"
-      command="/usr/local/bin/minio"
-      command_args="server {{ minio_data_dir }} --address :{{ minio_api_port }} --console-address :{{ minio_console_port }}"
-      command_background=true
-      pidfile="/var/run/minio.pid"
-
-      depend() {
-          need net
-      }
 
 - name: Ensure MinIO service is enabled and started
   service:
