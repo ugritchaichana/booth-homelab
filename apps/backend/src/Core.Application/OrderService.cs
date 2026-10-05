@@ -6,6 +6,7 @@ public class OrderService
 {
     public Money CalculateTotal(decimal baseAmount, decimal taxRate)
     {
-        return new Money(baseAmount + (baseAmount * taxRate), "USD");
+        var tax = Math.Round(baseAmount * taxRate, 2, MidpointRounding.AwayFromZero);
+        return new Money(baseAmount + tax, "USD");
     }
 }

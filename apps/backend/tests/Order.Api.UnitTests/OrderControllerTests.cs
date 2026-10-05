@@ -21,4 +21,12 @@ public class OrderControllerTests
         var total = controller.CheckoutWithVoucher(100m, 10m);
         Assert.Equal(96.3m, total.Amount);
     }
+
+    [Fact]
+    public void Checkout_AppliesAwayFromZeroRounding_MatchesFrontend()
+    {
+        var controller = new OrderController();
+        var total = controller.Checkout(1.50m);
+        Assert.Equal(1.61m, total.Amount);
+    }
 }
