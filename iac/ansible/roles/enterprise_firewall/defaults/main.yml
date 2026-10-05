@@ -1,0 +1,36 @@
+---
+egress_ipset_timeout: 3600
+egress_deny_log_prefix: "HOMELAB-EGRESS-DENY"
+egress_upstream_dns:
+  - 1.1.1.1
+  - 8.8.8.8
+
+# dnsmasq matches every subdomain of each entry; there is no wildcard syntax
+egress_allowed_domains:
+  # GitHub essential operations
+  - github.com
+  - api.github.com
+  - actions.githubusercontent.com
+  # GitHub downloading actions
+  - codeload.github.com
+  # GitHub job summaries, logs, artifacts and caches
+  - results-receiver.actions.githubusercontent.com
+  - blob.core.windows.net
+  # GitHub runner version updates and release assets
+  - objects.githubusercontent.com
+  - objects-origin.githubusercontent.com
+  - github-releases.githubusercontent.com
+  - github-registry-files.githubusercontent.com
+  - release-assets.githubusercontent.com
+  # Package registries and tool sources
+  - registry.npmjs.org
+  - api.nuget.org
+  - globalcdn.nuget.org
+  - deb.debian.org
+  - security.debian.org
+  - deb.nodesource.com
+  - packages.microsoft.com
+  - dot.net
+  - aka.ms
+  - builds.dotnet.microsoft.com
+  - dl.min.io

@@ -1,0 +1,13 @@
+[Unit]
+Description=Homelab runner egress resolver (feeds ipset ci-allowed-egress)
+After=network.target
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/sbin/ipset create -exist ci-allowed-egress hash:ip timeout {{ egress_ipset_timeout }}
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --pid-file=/run/homelab-egress-dns.pid --conf-file=/etc/homelab-egress/dnsmasq.conf
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
