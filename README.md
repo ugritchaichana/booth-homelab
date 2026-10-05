@@ -195,6 +195,6 @@ pct exec 102 -- mc ls minio/build-cache/npm/
 
 ---
 
-## ⚖️ License & Identity Governance
+## ⚖️ License & Governance
 
-Developed by **Booth** (`ugritchaichana`) under the **Master Craftsman Operating Ethos**. Built for reproducible, deterministic, and enduring engineering excellence.
+Open-source project maintained under standard dual-identity governance. Built for reproducible, deterministic, and enduring engineering excellence.

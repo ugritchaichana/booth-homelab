@@ -1,7 +1,7 @@
 # 06. Operational Runbooks and Troubleshooting
 
-**Standard:** Big Tech SaaS Continuous Testing Standard  
-**Lead Architects:** Booth (`ugritchaichana`) & Antigravity (Lead AI Co-Architect)  
+**Standard:** Continuous Testing Infrastructure Specification  
+**Status:** Active  
 **Revision:** Phase 2 Complete (Dual-Runner .NET 8 + Angular Jest Rig Live)  
 
 ---

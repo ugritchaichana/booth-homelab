@@ -1,2 +1,2 @@
 ---
-*Booth Homelab • Master Craftsman Engineering • Maintained by [ugritchaichana](https://github.com/ugritchaichana)*
+*Booth Homelab • Continuous Testing & IaC Infrastructure • [ugritchaichana](https://github.com/ugritchaichana)*

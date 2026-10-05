@@ -1,7 +1,6 @@
 # 🤖 AI_CONTEXT.md: Machine-Readable Operational Ground Truth
 
-> **TARGET AUDIENCE:** Autonomous AI Coding Assistants, LLM Pair-Programming Agents, and Subagents operating on `Booth-homelab`.  
-> **MAINTAINER:** Booth (`ugritchaichana`) & Antigravity (Lead AI Co-Architect)  
+> **GOVERNANCE:** Personal Workspace (`ugritchaichana`)  
 > **REVISION:** Phase 2 Complete (Dual-Runner .NET + Angular Jest Rig Live)  
 > **OPERATING MODE:** Full Autonomous Mode (Leave-it-Running) — Zero intermediate confirmation prompts for routine commands, edits, or tests.
 
@@ -200,9 +199,9 @@ If instructed to continue into subsequent phases:
 
 ---
 
-## 10. The 8 Master Craftsman Pillars (Immutable AGY Engineering Harness)
+## 10. The 8 Core Engineering Pillars (Operating Standards)
 
-Every autonomous AI agent interacting with this codebase MUST strictly adhere to the **8 Master Craftsman Pillars**:
+Every autonomous AI agent interacting with this codebase MUST strictly adhere to the **8 Core Engineering Pillars**:
 
 1. **Clean Code Style:** Single responsibility, intention-revealing naming, zero dead code, and clean architecture separation.
 2. **Idiomatic Best Practices:** Idiomatic .NET 8 C#, Angular Standalone TypeScript, Python, and shell scripts.
