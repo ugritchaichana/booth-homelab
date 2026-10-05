@@ -8,7 +8,10 @@ BRANCH_NAME="${1:-master}"
 CACHE_KEY="${2:-$(git rev-parse --short HEAD)}"
 SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's#[^a-zA-Z0-9._-]#_#g')
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TARGET_ARCHIVE="/tmp/cache-payload.tar.zst"
+TMPROOT="${RUNNER_TEMP:-/tmp}"
+TARGET_ARCHIVE="$(mktemp -p "$TMPROOT" cache-payload.XXXXXX.tar.zst)"
+TARGET_SHA="${TARGET_ARCHIVE}.sha256"
+trap 'rm -f "$TARGET_ARCHIVE" "$TARGET_SHA"' EXIT INT TERM
 
 echo "=========================================================="
 echo "        ENTERPRISE DEEP CACHE SAVE (MINIO S3)            "

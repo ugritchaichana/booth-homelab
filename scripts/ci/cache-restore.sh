@@ -7,7 +7,9 @@ set -euo pipefail
 BRANCH_NAME="${1:-master}"
 SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's#[^a-zA-Z0-9._-]#_#g')
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TARGET_FILE="/tmp/cache-restore.tar.zst"
+TMPROOT="${RUNNER_TEMP:-/tmp}"
+TARGET_FILE="$(mktemp -p "$TMPROOT" cache-restore.XXXXXX.tar.zst)"
+trap 'rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"' EXIT INT TERM
 
 echo "=========================================================="
 echo "      ENTERPRISE DEEP CACHE RESTORE (MINIO S3)           "
