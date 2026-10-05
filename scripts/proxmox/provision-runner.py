@@ -171,9 +171,11 @@ if ! command -v docker &>/dev/null || ! command -v dotnet &>/dev/null; then
         ca-certificates curl gnupg lsb-release git jq sudo build-essential \\
         docker.io wget libicu-dev
 
-    wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
-    chmod +x /tmp/dotnet-install.sh
-    /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet
+    DOTNET_INSTALL_SCRIPT="$(mktemp)"
+    wget -q https://dot.net/v1/dotnet-install.sh -O "$DOTNET_INSTALL_SCRIPT"
+    bash "$DOTNET_INSTALL_SCRIPT" --channel 8.0 --install-dir /usr/share/dotnet
+    bash "$DOTNET_INSTALL_SCRIPT" --channel 10.0 --install-dir /usr/share/dotnet
+    rm -f "$DOTNET_INSTALL_SCRIPT"
     ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
     ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
 

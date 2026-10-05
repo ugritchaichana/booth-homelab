@@ -1,22 +1,46 @@
 ---
 # ==============================================================================
-# .NET 8 LTS & Docker-in-LXC Runner Configuration (CT 102)
+# .NET SDK & Docker-in-LXC Runner Configuration (CT 102)
 # ==============================================================================
 
-- name: Download Microsoft package repository deb
-  get_url:
-    url: "https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb"
-    dest: "/tmp/packages-microsoft-prod.deb"
-    mode: "0644"
+- name: Probe for the Microsoft package repository package
+  command: dpkg-query -W -f='${Status}' packages-microsoft-prod
+  register: msft_repo_probe
+  changed_when: false
+  failed_when: false
 
-- name: Install Microsoft repository
-  apt:
-    deb: "/tmp/packages-microsoft-prod.deb"
-    state: present
+- name: Add the Microsoft package repository
+  when: "'install ok installed' not in (msft_repo_probe.stdout | default(''))"
+  block:
+    - name: Create a private temporary directory for the Microsoft repository deb
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: msft-repo.
+      register: msft_repo_tmp
 
-- name: Install dotnet-sdk-8.0
+    - name: Download and install the Microsoft repository deb
+      block:
+        - name: Download Microsoft package repository deb
+          get_url:
+            url: "https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb"
+            dest: "{{ msft_repo_tmp.path }}/packages-microsoft-prod.deb"
+            mode: "0644"
+
+        - name: Install Microsoft repository
+          apt:
+            deb: "{{ msft_repo_tmp.path }}/packages-microsoft-prod.deb"
+            state: present
+      always:
+        - name: Remove the temporary directory
+          file:
+            path: "{{ msft_repo_tmp.path }}"
+            state: absent
+
+- name: Install dotnet-sdk-10.0 next to dotnet-sdk-8.0
   apt:
-    name: dotnet-sdk-8.0
+    name:
+      - dotnet-sdk-8.0
+      - dotnet-sdk-10.0
     state: present
     update_cache: yes
 

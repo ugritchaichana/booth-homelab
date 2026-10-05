@@ -3,7 +3,7 @@
 Automated Proxmox VE 8.x Configuration and AI Foundation Engine.
 1. Removes "No valid subscription" nag dialog.
 2. Updates PVE Appliance template list (pveam update).
-3. Downloads essential templates: debian-12-standard and alpine-3.20-default.
+3. Downloads essential templates: debian-12-standard and alpine-3.23-default (first build pveam lists).
 4. Generates an API Token for AI Agent (root@pam!ai_token) with full Administrator permissions.
 """
 
@@ -52,7 +52,7 @@ def main():
     run_cmd(ssh, "pveam update")
     print("[PASS] Appliance list updated.")
 
-    # 3. Download Templates (Debian 12 and Alpine 3.20)
+    # 3. Download Templates (Debian 12 and Alpine 3.23)
     print("\n--- Step 3: Downloading LXC Templates to 'local' storage ---")
     avail = run_cmd(ssh, "pveam available --section system")
     
@@ -65,7 +65,7 @@ def main():
             tmpl_name = parts[1]
             if "debian-12-standard" in tmpl_name and not debian_tmpl:
                 debian_tmpl = tmpl_name
-            if "alpine-3.20-default" in tmpl_name and not alpine_tmpl:
+            if "alpine-3.23-default" in tmpl_name and not alpine_tmpl:
                 alpine_tmpl = tmpl_name
 
     print(f"Target Debian Template: {debian_tmpl}")
