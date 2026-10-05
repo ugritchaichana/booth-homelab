@@ -47,6 +47,9 @@ jobs:
   ansible-quality-gate:
     name: Ansible Syntax & Schema Check
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: iac/ansible
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -64,11 +67,11 @@ jobs:
       - name: Validate Master Playbook Syntax
         run: |
           echo "==> Validating Ansible playbook syntax for site.yml..."
-          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/site.yml
+          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/site.yml
 
       - name: Validate Component Playbooks Syntax
         run: |
           echo "==> Validating individual playbook syntax..."
-          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/01-host-setup.yml
-          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/02-cache-storage.yml
-          ansible-playbook -i iac/ansible/inventory/hosts.ini.example --syntax-check iac/ansible/playbooks/03-runners.yml
+          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/01-host-setup.yml
+          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/02-cache-storage.yml
+          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/03-runners.yml
