@@ -1,5 +1,18 @@
 import { TestBed } from '@angular/core/testing';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { BillingService } from './billing.service';
+
+interface TaxRoundingRow {
+  amount: string;
+  rate: string;
+  expectedTax: string;
+  rejects: string;
+}
+
+const taxRoundingRows: TaxRoundingRow[] = JSON.parse(
+  readFileSync(join(__dirname, '../../../../fixtures/tax-rounding.json'), 'utf8')
+);
 
 describe('BillingService (Jest Unit Tests)', () => {
   let service: BillingService;
@@ -26,13 +39,8 @@ describe('BillingService (Jest Unit Tests)', () => {
       expect(tax).toBe(7.0);
     });
 
-    it.each([
-      [12.34, 0.86],
-      [12.36, 0.87],
-      [1.50, 0.11],
-      [99.95, 7.00],
-    ])('should round half-up away from zero: %s at 7%% -> %s', (amount, expectedTax) => {
-      expect(service.calculateTax(amount, 0.07)).toBe(expectedTax);
+    it.each(taxRoundingRows)('shared fixture: $amount at $rate -> $expectedTax', ({ amount, rate, expectedTax }) => {
+      expect(service.calculateTax(Number(amount), Number(rate))).toBe(Number(expectedTax));
     });
 
     it('should return 0 for negative amounts', () => {

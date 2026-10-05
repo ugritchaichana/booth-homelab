@@ -37,4 +37,12 @@ public class OrderControllerTests
         var total = controller.CheckoutWithVoucher(5m, 10m);
         Assert.Equal(0.00m, total.Amount);
     }
+
+    [Fact]
+    public void CheckoutWithVoucher_NegativeDiscount_IsClampedToZero()
+    {
+        var controller = new OrderController();
+        var total = controller.CheckoutWithVoucher(100m, -10m);
+        Assert.Equal(107.00m, total.Amount);
+    }
 }
