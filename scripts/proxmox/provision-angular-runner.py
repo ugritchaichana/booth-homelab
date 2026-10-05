@@ -81,6 +81,39 @@ def exec_ssh(ssh, cmd, timeout=300):
         raise RuntimeError(f"Command failed (code {code}): {cmd}")
     return out
 
+def build_runner_block(token):
+    if EPHEMERAL:
+        return """
+./svc.sh stop 2>/dev/null || true
+./svc.sh uninstall 2>/dev/null || true
+rm -f .runner .credentials .credentials_rsaparams
+"""
+    else:
+        return f"""
+# Configure runner if not already configured
+if [ ! -f ".runner" ]; then
+    echo "Registering Runner with GitHub Actions..."
+    sudo -u runner ./config.sh \\
+        --url "https://github.com/{GITHUB_REPO}" \\
+        --token "{token}" \\
+        --name "pve-runner-angular" \\
+        --labels "self-hosted,linux,x64,proxmox,angular" \\
+        --work "_work" \\
+        --unattended \\
+        --replace
+fi
+
+# Install and start systemd service
+if [ ! -f "/etc/systemd/system/actions.runner.{GITHUB_REPO.replace('/', '-')}.pve-runner-angular.service" ]; then
+    echo "Installing runner systemd service..."
+    ./svc.sh install runner || true
+fi
+
+echo "Starting runner systemd service..."
+./svc.sh start || true
+./svc.sh status || true
+"""
+
 def seal_and_install_supervisor(ssh):
     print(f"\n[*] Ephemeral mode: snapshotting CT {CT_ID} as 'clean' and installing the host supervisor...")
     exec_ssh(ssh, f"if pct status {CT_ID} | grep -q running; then pct shutdown {CT_ID} --forceStop 1 --timeout 60; fi")
@@ -162,37 +195,6 @@ def main():
 
     # 2. Update / Install Node.js LTS and dependencies inside CT 103
     print(f"\n[*] Ensuring Node.js LTS and Runner v{runner_ver} inside CT {CT_ID}...")
-    if EPHEMERAL:
-        runner_block = """
-./svc.sh stop 2>/dev/null || true
-./svc.sh uninstall 2>/dev/null || true
-rm -f .runner .credentials .credentials_rsaparams
-"""
-    else:
-        runner_block = f"""
-# Configure runner if not already configured
-if [ ! -f ".runner" ]; then
-    echo "Registering Runner with GitHub Actions..."
-    sudo -u runner ./config.sh \\
-        --url "https://github.com/{GITHUB_REPO}" \\
-        --token "{token}" \\
-        --name "pve-runner-angular" \\
-        --labels "self-hosted,linux,x64,proxmox,angular" \\
-        --work "_work" \\
-        --unattended \\
-        --replace
-fi
-
-# Install and start systemd service
-if [ ! -f "/etc/systemd/system/actions.runner.{GITHUB_REPO.replace('/', '-')}.pve-runner-angular.service" ]; then
-    echo "Installing runner systemd service..."
-    ./svc.sh install runner || true
-fi
-
-echo "Starting runner systemd service..."
-./svc.sh start || true
-./svc.sh status || true
-"""
     setup_script = f"""#!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
@@ -238,7 +240,7 @@ if [ ! -f "version_{runner_ver}.ok" ]; then
 fi
 
 chown -R runner:runner "$RUNNER_DIR"
-{runner_block}"""
+{build_runner_block(token)}"""
 
     # Write script to CT and execute
     print(f"[*] Writing and executing runner setup script inside CT {CT_ID}...")
