@@ -33,9 +33,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Make Scripts Executable
-        run: chmod +x ./scripts/apps/*.sh ./tests/*.sh 2>/dev/null || true
-
       - name: Run Bash Selector Test Harness (6 Scenarios)
         run: ./tests/verify-affected-graph.sh
 
