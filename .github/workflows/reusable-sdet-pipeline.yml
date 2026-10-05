@@ -244,7 +244,7 @@ jobs:
   summary:
     name: Report
     needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: >
       ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
           && fromJSON('["ubuntu-latest"]')
