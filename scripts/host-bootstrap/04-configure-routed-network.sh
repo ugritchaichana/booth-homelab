@@ -50,6 +50,11 @@ iface vmbr1 inet manual
     bridge-ports none
     bridge-stp off
     bridge-fd 0
+    # Port forward MinIO S3 API (9000) and Web Console (9001)
+    post-up iptables -t nat -A PREROUTING -p tcp --dport 9001 -j DNAT --to-destination 10.99.20.20:9001
+    post-up iptables -t nat -A PREROUTING -p tcp --dport 9000 -j DNAT --to-destination 10.99.20.20:9000
+    post-down iptables -t nat -D PREROUTING -p tcp --dport 9001 -j DNAT --to-destination 10.99.20.20:9001
+    post-down iptables -t nat -D PREROUTING -p tcp --dport 9000 -j DNAT --to-destination 10.99.20.20:9000
 EOF
 
 log_success "Routed NAT configuration written to ${INTERFACES_FILE}"
