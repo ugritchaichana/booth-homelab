@@ -9,10 +9,10 @@ source "${SCRIPT_DIR}/common.sh"
 assert_root
 log_step "Step 05: Applying Hardware Stability & Uptime Overrides..."
 
-# 1. Prevent Laptop Suspension on Lid Close
+# 1. Prevent Clamshell/Host Suspension on Lid Close
 log_info "Configuring systemd-logind to ignore lid close events..."
 mkdir -p /etc/systemd/logind.conf.d/
-cat <<EOF > /etc/systemd/logind.conf.d/pve-laptop.conf
+cat <<EOF > /etc/systemd/logind.conf.d/pve-clamshell.conf
 [Login]
 HandleLidSwitch=ignore
 HandleLidSwitchExternalPower=ignore

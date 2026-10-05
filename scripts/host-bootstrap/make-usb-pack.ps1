@@ -45,7 +45,7 @@ HOW TO RUN ON CLEAN DEBIAN 12 MINIMAL INSTALL:
 4. Run Stage 1 (Hardware check, Repos, PVE 6.8+ Kernel):
      sudo ./bootstrap.sh --stage=1
 
-5. Reboot the laptop when prompted:
+5. Reboot the host node when prompted:
      sudo reboot
 
 6. After reboot, log back in and run Stage 2 (PVE Core, Routed NAT, Tailscale):
@@ -76,5 +76,5 @@ if ($TargetUsbDrive) {
 }
 
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host "   PACKAGING COMPLETE: Ready to transfer to Laptop!       " -ForegroundColor Green
+Write-Host "   PACKAGING COMPLETE: Ready to transfer to Target Host!   " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green

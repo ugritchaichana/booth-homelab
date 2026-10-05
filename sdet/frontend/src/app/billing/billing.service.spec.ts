@@ -23,7 +23,6 @@ describe('BillingService (Jest Unit Tests)', () => {
 
     it('should round tax to two decimal places', () => {
       const tax = service.calculateTax(99.95, 0.07);
-      // 99.95 * 0.07 = 6.9965 -> rounded to 7.00
       expect(tax).toBe(7.0);
     });
 

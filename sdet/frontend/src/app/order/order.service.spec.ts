@@ -41,7 +41,6 @@ describe('OrderService (Jest Unit Tests)', () => {
 
     it('should apply fixed discount voucher (SAVE10) correctly', () => {
       const res = service.calculateCheckout(100.0, 'SAVE10');
-      // Subtotal: 100, Discount: 10 -> Taxable: 90 -> Tax (7%): 6.30 -> Grand: 96.30
       expect(res.discount).toBe(10);
       expect(res.taxableAmount).toBe(90.0);
       expect(res.tax).toBe(6.30);
@@ -51,7 +50,6 @@ describe('OrderService (Jest Unit Tests)', () => {
 
     it('should apply percentage discount voucher (VIP20) correctly', () => {
       const res = service.calculateCheckout(200.0, 'VIP20');
-      // 200 * 0.20 = 40 discount -> Taxable: 160 -> Tax: 11.20 -> Grand: 171.20
       expect(res.discount).toBe(40.0);
       expect(res.taxableAmount).toBe(160.0);
       expect(res.tax).toBe(11.20);

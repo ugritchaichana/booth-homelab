@@ -41,9 +41,7 @@ on:
         default: 'origin/master'
 
 jobs:
-  # ============================================================================
-  # Stage 1: Host & Hardware Sanity Check
-  # ============================================================================
+  # Stage 1: Runner Telemetry
   telemetry:
     name: Telemetry
     runs-on: [self-hosted, linux, proxmox, dotnet]
@@ -67,9 +65,7 @@ jobs:
           curl -s -I http://10.99.20.20:9000/minio/health/live | grep -E "HTTP/|Server" || true
           echo "=========================================================="
 
-  # ============================================================================
   # Stage 2: .NET Solution Build & Remote Cache Restore (CT 102)
-  # ============================================================================
   dotnet-build:
     name: Build (.NET)
     needs: [telemetry]
@@ -108,9 +104,7 @@ jobs:
           echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
           echo "=========================================================="
 
-  # ============================================================================
   # Stage 3: .NET Unit & Integration Tests (CT 102)
-  # ============================================================================
   dotnet-test:
     name: Test (.NET)
     needs: [dotnet-build]
@@ -144,9 +138,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # ============================================================================
-  # Stage 4: .NET Cache Update & Upload to MinIO S3 (CT 102)
-  # ============================================================================
+  # Stage 4: .NET Cache Update & MinIO Upload (CT 102)
   dotnet-cache-save:
     name: Cache (.NET)
     needs: [dotnet-build, dotnet-test]
@@ -169,9 +161,7 @@ jobs:
           branch: ${{ inputs.target_branch }}
           commit_sha: ${{ github.sha }}
 
-  # ============================================================================
-  # Stage 5: Angular Jest Unit Tests (CT 103 Dedicated Runner)
-  # ============================================================================
+  # Stage 5: Angular Jest Unit Tests (CT 103)
   angular-jest:
     name: Test (Angular)
     runs-on: [self-hosted, linux, proxmox, angular]
@@ -200,9 +190,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # ============================================================================
-  # Stage 6: Combined Performance & Quality Summary
-  # ============================================================================
+  # Stage 6: Performance & Quality Summary Report
   summary:
     name: Report
     needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]

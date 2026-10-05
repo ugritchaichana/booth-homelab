@@ -47,7 +47,7 @@
                │
                ▼ (Port 8006 / SSH)
    ┌────────────────────────────────────────────────────────┐
-   │ Proxmox VE Host (Hyper-V VM หรือ Laptop Baremetal)      │
+   │ Proxmox VE Host (Hyper-V VM หรือ Baremetal Node)       │
    │ Host IP: 100.121.209.85 (Tailscale) / 172.29.21.44     │
    ├────────────────────────────────────────────────────────┤
    │ Management Subnet: vmbr0 (10.99.10.1/24)               │
