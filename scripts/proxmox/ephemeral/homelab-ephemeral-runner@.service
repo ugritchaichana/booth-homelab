@@ -1,0 +1,13 @@
+[Unit]
+Description=Ephemeral GitHub runner supervisor for CT %i
+After=network-online.target pve-guests.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/homelab-ephemeral-runner.sh %i
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

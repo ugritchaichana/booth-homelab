@@ -73,6 +73,23 @@ pct exec 103 -- bash -c "
 "
 ```
 
+### Ephemeral mode (opt-in, unverified)
+
+Not exercised against the live host. Default provisioning is unchanged; `RUNNER_MODE` unset or `persistent` keeps the persistent runner (`config.sh` + `svc.sh install`).
+
+With `RUNNER_MODE=ephemeral` a provisioner skips `config.sh` and the runner service, snapshots the stopped CT as `clean`, and installs a PVE-host supervisor (`homelab-ephemeral-runner@<CT>.service`). The supervisor loops: roll back to `clean`, start the CT, mint a single-use JIT runner config, run one job, repeat. The admin token stays on the host and never enters the CT.
+
+Owner steps:
+
+1. Create a fine-grained token restricted to this repository with Administration read/write.
+2. On the PVE host as root, create `/etc/homelab/runner-supervisor.env` (mode 0600) holding `GITHUB_RUNNER_ADMIN_TOKEN='<token>'`. Never put the token on a command line or in the repo.
+3. Re-provision with the mode set (`RUNNER_MODE=ephemeral python scripts/proxmox/provision-runner.py`, likewise `provision-angular-runner.py`; Windows cmd: `set RUNNER_MODE=ephemeral` first). The provisioner enables the supervisor only if the env file already exists; otherwise it prints the remaining step.
+4. Delete the old persistent runner registrations under repository Settings > Actions > Runners.
+
+Stop: `systemctl disable --now homelab-ephemeral-runner@102` (or `@103`), then re-provision without `RUNNER_MODE` to return to persistent mode.
+
+Before enabling, note that `reusable-sdet-pipeline.yml` reuses the build job workspace in later jobs (`clean: false`), which a fresh-per-job runner does not keep.
+
 ---
 
 ## 3. Direct In-Container Test Execution (Offline Manual Debugging)
