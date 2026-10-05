@@ -47,7 +47,7 @@ def get_runner_registration_token():
     token = res.stdout.strip()
     if not token:
         raise RuntimeError("Failed to obtain registration token from gh CLI")
-    print(f"[+] Registration token obtained: {token[:6]}******")
+    print("[+] Registration token obtained.")
     return token
 
 def get_latest_runner_version():
@@ -61,9 +61,13 @@ def get_latest_runner_version():
     print(f"[+] Latest GitHub Actions Runner release: v{ver}")
     return ver
 
-def exec_ssh(ssh, cmd, timeout=300):
+def exec_ssh(ssh, cmd, timeout=300, stdin_data=None):
     print(f"\n[PVE EXEC] {cmd}")
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
+    if stdin_data is not None:
+        stdin.write(stdin_data)
+        stdin.flush()
+        stdin.channel.shutdown_write()
     out = stdout.read().decode('utf-8', errors='replace').strip()
     err = stderr.read().decode('utf-8', errors='replace').strip()
     code = stdout.channel.recv_exit_status()
@@ -242,13 +246,8 @@ fi
 chown -R runner:runner "$RUNNER_DIR"
 {build_runner_block(token)}"""
 
-    # Write script to CT and execute
-    print(f"[*] Writing and executing runner setup script inside CT {CT_ID}...")
-    exec_ssh(ssh, f"cat << 'EOF' > /tmp/setup_angular_runner.sh\n{setup_script}\nEOF")
-    exec_ssh(ssh, f"pct push {CT_ID} /tmp/setup_angular_runner.sh /tmp/setup_angular_runner.sh")
-    exec_ssh(ssh, f"pct exec {CT_ID} -- bash /tmp/setup_angular_runner.sh")
-    exec_ssh(ssh, f"pct exec {CT_ID} -- rm -f /tmp/setup_angular_runner.sh")
-    exec_ssh(ssh, "rm -f /tmp/setup_angular_runner.sh")
+    print(f"[*] Streaming runner setup script into CT {CT_ID} over stdin...")
+    exec_ssh(ssh, f"pct exec {CT_ID} -- bash -c 'eval \"$(cat)\"'", stdin_data=setup_script)
 
     if EPHEMERAL:
         seal_and_install_supervisor(ssh)

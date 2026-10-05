@@ -3,16 +3,35 @@
 # Node.js 22 LTS & Angular Jest Headless Runner Configuration (CT 103)
 # ==============================================================================
 
-- name: Download NodeSource Node.js 22.x setup script
-  get_url:
-    url: "https://deb.nodesource.com/setup_22.x"
-    dest: "/tmp/nodesource_setup.sh"
-    mode: "0755"
+- name: Check whether the NodeSource apt list exists
+  stat:
+    path: /etc/apt/sources.list.d/nodesource.list
+  register: nodesource_apt_list
 
-- name: Execute NodeSource repository setup
-  command: /tmp/nodesource_setup.sh
-  args:
-    creates: /etc/apt/sources.list.d/nodesource.list
+- name: Install the NodeSource Node.js 22.x repository
+  when: not nodesource_apt_list.stat.exists
+  block:
+    - name: Create a private temp file for the NodeSource setup script
+      ansible.builtin.tempfile:
+        state: file
+        suffix: nodesource
+      register: nodesource_setup_script
+
+    - name: Download NodeSource Node.js 22.x setup script
+      get_url:
+        url: "https://deb.nodesource.com/setup_22.x"
+        dest: "{{ nodesource_setup_script.path }}"
+        force: true
+        mode: "0700"
+
+    - name: Execute NodeSource repository setup
+      command: "{{ nodesource_setup_script.path }}"
+  always:
+    - name: Remove the NodeSource setup script
+      file:
+        path: "{{ nodesource_setup_script.path }}"
+        state: absent
+      when: nodesource_setup_script.path is defined
 
 - name: Install nodejs
   apt:
