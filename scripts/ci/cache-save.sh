@@ -72,15 +72,21 @@ echo "[PASS] Checksum: $(cat "$TARGET_SHA")"
 
 # 3. Upload archive and digest to MinIO S3 over Virtual Bus
 echo "==> Uploading to MinIO S3 over high-speed Proxmox Virtual Bus..."
-$MC_BIN cp "$TARGET_ARCHIVE" "minio/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst" || echo "[WARN] Branch cache upload skipped."
-$MC_BIN cp "$TARGET_SHA" "minio/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst.sha256" || echo "[WARN] Branch digest upload skipped."
-$MC_BIN cp "$TARGET_ARCHIVE" "minio/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst" || echo "[WARN] Latest cache upload skipped."
-$MC_BIN cp "$TARGET_SHA" "minio/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst.sha256" || echo "[WARN] Latest digest upload skipped."
+if $MC_BIN alias list minio-writer >/dev/null 2>&1; then
+    S3_ALIAS="minio-writer"
+else
+    S3_ALIAS="minio"
+fi
+
+$MC_BIN cp "$TARGET_ARCHIVE" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst" || echo "[WARN] Branch cache upload skipped."
+$MC_BIN cp "$TARGET_SHA" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/${CACHE_KEY}.tar.zst.sha256" || echo "[WARN] Branch digest upload skipped."
+$MC_BIN cp "$TARGET_ARCHIVE" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst" || echo "[WARN] Latest cache upload skipped."
+$MC_BIN cp "$TARGET_SHA" "${S3_ALIAS}/build-cache/branches/${SAFE_BRANCH}/latest.tar.zst.sha256" || echo "[WARN] Latest digest upload skipped."
 
 if [ "$SAFE_BRANCH" == "master" ] || [ "$SAFE_BRANCH" == "main" ]; then
     echo "==> Updating global baseline cache..."
-    $MC_BIN cp "$TARGET_ARCHIVE" "minio/build-cache/global/latest.tar.zst" || echo "[WARN] Global cache upload skipped."
-    $MC_BIN cp "$TARGET_SHA" "minio/build-cache/global/latest.tar.zst.sha256" || echo "[WARN] Global digest upload skipped."
+    $MC_BIN cp "$TARGET_ARCHIVE" "${S3_ALIAS}/build-cache/global/latest.tar.zst" || echo "[WARN] Global cache upload skipped."
+    $MC_BIN cp "$TARGET_SHA" "${S3_ALIAS}/build-cache/global/latest.tar.zst.sha256" || echo "[WARN] Global digest upload skipped."
 fi
 
 UPLOAD_END=$(date +%s%N)
