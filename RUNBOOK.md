@@ -10,7 +10,7 @@
 
 ---
 
-## สารบัญ (Table of Contents)
+## Table of Contents
 
 1. [Executive Architecture & Dual-Environment Matrix](#1-executive-architecture--dual-environment-matrix)
 2. [Environment A Operations: Live Workstation Hyper-V & Nested Proxmox](#2-environment-a-operations-live-workstation-hyper-v--nested-proxmox)
@@ -25,29 +25,29 @@
 
 ## 1. Executive Architecture & Dual-Environment Matrix
 
-ระบบ Homelab ถูกออกแบบให้ทำงานได้สองสภาพแวดล้อมอย่างราบรื่น โดยใช้ Container Configurations, CI/CD Pipeline และ Remote Cache เดียวกัน:
+The Homelab architecture is engineered for seamless operation across two complementary environments, sharing identical container configurations, CI/CD pipelines, and remote caching layers:
 
 ### Dual-Environment Comparison Matrix
 
-| มิติ (Dimension) | Environment A (Live Active Workstation) | Environment B (Target Baremetal Node) |
+| Dimension | Environment A (Live Active Workstation) | Environment B (Target Baremetal Node) |
 | :--- | :--- | :--- |
-| **บทบาทหลัก** | Active Dev/Test & Autonomous Verification Rig | Dedicated Standalone SDET Homelab Server |
-| **ฮาร์ดแวร์แม่ข่าย** | AMD Ryzen 5 5600X (6C/12T), 32 GB DDR4 | Modern Multi-Core x86_64 Node (14C/18T Hybrid), 16 GB+ RAM |
-| **ชั้น Hypervisor** | Windows 11 Pro Hyper-V (Gen 2 VM: `Proxmox-Lab`) | Proxmox VE 8.4 Baremetal on Debian 12 Minimal |
+| **Primary Role** | Active Dev/Test & Autonomous Verification Rig | Dedicated Standalone SDET Homelab Server |
+| **Host Hardware** | AMD Ryzen 5 5600X (6C/12T), 32 GB DDR4 | Modern Multi-Core x86_64 Node (14C/18T Hybrid), 16 GB+ RAM |
+| **Hypervisor Layer** | Windows 11 Pro Hyper-V (Gen 2 VM: `Proxmox-Lab`) | Proxmox VE 8.4 Baremetal on Debian 12 Minimal |
 | **Virtualization Mode** | Nested AMD-V Virtualization Passthrough | Baremetal KVM / Kernel 6.8+ Enterprise Stack |
-| **เครือข่าย Uplink** | Hyper-V Internal NAT Switch (`172.29.16.1/20`) | Wi-Fi / Ethernet Adapter ผ่าน Routed NAT |
+| **Network Uplink** | Hyper-V Internal NAT Switch (`172.29.16.1/20`) | Wi-Fi / Ethernet Adapter via Routed NAT |
 | **Mesh Access** | Tailscale Mesh IP: `100.121.209.85:8006` | Tailscale Mesh IP (Subnet Router `10.99.10.0/24`) |
 | **Internal Bridges** | `vmbr0` (`10.99.10.1`), `vmbr1` (`10.99.20.1`) | `vmbr0` (`10.99.10.1`), `vmbr1` (`10.99.20.1`) |
-| **Storage Subsystem** | 50 GB VHDX (Ext4 LVM-Thin) | 512 GB PCIe Gen4 NVMe (Ext4 LVM-Thin — แบน ZFS) |
+| **Storage Subsystem** | 50 GB VHDX (Ext4 LVM-Thin) | 512 GB PCIe Gen4 NVMe (Ext4 LVM-Thin — ZFS Banned) |
 
-### สถาปัตยกรรมเครือข่ายภายใน (Internal Network Topography)
+### Internal Network Topography
 
 ```
 [ Tailscale Mesh / LAN Clients ]
                │
-               ▼ (Port 8006 / SSH)
+               ▼ (Port 8006 / SSH / Port 9001 Console)
    ┌────────────────────────────────────────────────────────┐
-   │ Proxmox VE Host (Hyper-V VM หรือ Baremetal Node)       │
+   │ Proxmox VE Host (Hyper-V VM or Baremetal Node)         │
    │ Host IP: 100.121.209.85 (Tailscale) / 172.29.21.44     │
    ├────────────────────────────────────────────────────────┤
    │ Management Subnet: vmbr0 (10.99.10.1/24)               │
@@ -69,49 +69,52 @@
 
 ## 2. Environment A Operations: Live Workstation Hyper-V & Nested Proxmox
 
-ใช้สำหรับควบคุม จัดการ และกู้คืน Hypervisor Host บนเครื่อง Windows 11 Workstation ปัจจุบัน:
+Used for controlling, managing, and recovering the hypervisor host on the active Windows 11 workstation:
 
 ### 2.1 Hyper-V VM Lifecycle Commands (PowerShell Administrator)
 
 ```powershell
-# 1. ตรวจสอบสถานะ VM
+# 1. Check VM status
 Get-VM "Proxmox-Lab"
 
-# 2. เริ่มการทำงานของ Hypervisor VM
+# 2. Start hypervisor VM
 Start-VM "Proxmox-Lab"
 
-# 3. บันทึก State เมื่อต้องการปิดเครื่องแบบเร็ว
+# 3. Save VM state for fast suspension
 Save-VM "Proxmox-Lab"
 
-# 4. ปิดเครื่อง Proxmox แบบ Graceful Shutdown
+# 4. Stop Proxmox gracefully
 Stop-VM "Proxmox-Lab"
 
-# 5. ตรวจสอบ Nested AMD-V Virtualization (ต้องเป็น True เสมอ)
+# 5. Verify Nested AMD-V Virtualization (must always be True)
 Get-VMProcessor "Proxmox-Lab" | Select-Object VMName, ExposeVirtualizationExtensions
 
-# 6. เปิด Nested Virtualization หากถูกปิด
+# 6. Enable Nested Virtualization if disabled
 Set-VMProcessor -VMName "Proxmox-Lab" -ExposeVirtualizationExtensions $true
 
-# 7. ตรวจสอบและเปิด MAC Address Spoofing (จำเป็นสำหรับ Virtual Bridge vmbr0/vmbr1)
+# 7. Verify and enable MAC Address Spoofing (required for virtual bridges vmbr0/vmbr1)
 Get-VMNetworkAdapter "Proxmox-Lab" | Set-VMNetworkAdapter -MacAddressSpoofing On
 ```
 
-### 2.2 การเข้าใช้งาน Host Endpoints
+### 2.2 Host Endpoint Access
 
 - **Proxmox Web GUI:**
-  - ผ่าน Tailscale Mesh: `https://100.121.209.85:8006/`
-  - ผ่าน Hyper-V Internal NAT: `https://172.29.21.44:8006/`
+  - Via Tailscale Mesh: `https://100.121.209.85:8006/`
+  - Via Hyper-V Internal NAT: `https://172.29.21.44:8006/`
+- **MinIO Web Console:**
+  - Via Tailscale Mesh: `http://100.121.209.85:9001/`
+  - Via Hyper-V Internal NAT: `http://172.29.21.44:9001/`
 - **Host Credentials:**
   - Username: `root` (Realm: `root@pam`)
-  - Password: `[LOCAL_VAULT]` (`12345678` ในแล็บพัฒนา)
+  - Password: `[LOCAL_VAULT]` (`12345678` in development sandbox)
   - PVE AI API Token ID: `root@pam!ai_agent`
   - PVE AI API Token Secret: `d217551a-c823-4f09-a417-192304bd16cd`
 
-### 2.3 การรันคำสั่งบน Host ผ่าน Python Paramiko (Non-Interactive Pattern)
+### 2.3 Non-Interactive Host Execution via Python Paramiko
 
 > [!IMPORTANT]
-> **ห้ามรัน `ssh root@100.121.209.85` บน Windows PowerShell โดยตรง:** คำสั่งจะติด Interactive Password Prompt และค้างไม่สิ้นสุด  
-> ให้ใช้สคริปต์ Python Paramiko ในการส่งคำสั่งเสมอ:
+> **DO NOT run `ssh root@100.121.209.85` directly in Windows PowerShell:** The command hangs indefinitely on an interactive password prompt.  
+> Always use Python Paramiko for deterministic, non-interactive execution:
 
 ```python
 import paramiko
@@ -126,7 +129,7 @@ def exec_pve(cmd: str) -> str:
     ssh.close()
     return out if out else f"STDERR: {err}"
 
-# ตัวอย่างการใช้งาน:
+# Usage examples:
 # print(exec_pve("pct list"))
 # print(exec_pve("pct status 102"))
 ```
@@ -135,31 +138,31 @@ def exec_pve(cmd: str) -> str:
 
 ## 3. Environment B Operations: Baremetal Bootstrapping (Dedicated Node)
 
-ใช้เมื่อต้องการย้ายระบบขึ้นติดตั้งบนเครื่อง Baremetal Node จริง (เช่น Mini-PC หรือ Server Node x86_64 16GB+ RAM):
+Used when migrating and bootstrapping the infrastructure onto a dedicated baremetal host node (e.g. x86_64 Mini-PC or Server Node with 16GB+ RAM):
 
-### Step 3.1: การเตรียม Bootable USB & Bootstrap Bundle
+### Step 3.1: Prepare Bootable USB & Bootstrap Bundle
 
 ```powershell
-# 1. ทดสอบ .NET Transitive Dependency Graph Runner ก่อนแพ็กเกจ
+# 1. Run .NET Transitive Dependency Graph verification before packaging
 powershell -ExecutionPolicy Bypass -File tests/verify-affected-graph.ps1
 
-# 2. แพ็กชุดสคริปต์ลง USB Drive (แปลง Line Endings เป็น LF อัตโนมัติ)
+# 2. Package bootstrap bundle to USB drive (auto-converts line endings to LF)
 powershell -ExecutionPolicy Bypass -File scripts/host-bootstrap/make-usb-pack.ps1 -TargetUsbDrive "E:\"
 ```
-ไฟล์ที่ได้บน USB: `pve-bootstrap-bundle.tar.gz`
+Resulting archive on USB: `pve-bootstrap-bundle.tar.gz`
 
-### Step 3.2: ติดตั้ง Debian 12 Minimal บน Baremetal Node
+### Step 3.2: Install Debian 12 Minimal on Baremetal Node
 
-1. สร้าง Debian 12 Netinst USB ด้วย Rufus (เลือกโหมด **DD Image**).
-2. เข้า BIOS ของเครื่อง Node (กด `F2` หรือ `Del` ตอนเปิดเครื่อง):
-   - **Disable Secure Boot** (สำคัญมาก: ป้องกัน Kernel Proxmox เจอ `bad shim signature`).
-   - ตั้งค่า Function Key Behavior เป็น Standard.
-3. ดำเนินการติดตั้ง Debian 12:
-   - เชื่อมต่อ Wi-Fi หรือเสียบสาย LAN.
-   - **Partitioning:** เลือก **Guided LVM (Ext4)** (*ห้ามเลือก ZFS เป็นอันขาด เพื่อป้องกัน RAM ถูกแย่งไป 50%*).
-   - **Software Selection:** ติ๊กออกทั้งหมด เหลือเพียง **SSH server** และ **standard system utilities** (ห้ามลง Desktop GUI).
+1. Create a Debian 12 Netinst bootable USB using Rufus (select **DD Image** mode).
+2. Enter BIOS (press `F2` or `Del` at power-on):
+   - **Disable Secure Boot** (Critical: prevents Proxmox kernel `bad shim signature` boot halts).
+   - Set Function Key Behavior to Standard.
+3. Proceed with Debian 12 installation:
+   - Connect Wi-Fi or Ethernet cable.
+   - **Partitioning:** Select **Guided LVM (Ext4)** (*NEVER select ZFS to prevent ARC memory starvation on 16GB RAM*).
+   - **Software Selection:** Uncheck all desktop environments; select ONLY **SSH server** and **standard system utilities** (No Desktop GUI).
 
-### Step 3.3: การรัน Bootstrap Stage 1 (Pre-Reboot)
+### Step 3.3: Run Bootstrap Stage 1 (Pre-Reboot)
 
 ```bash
 sudo -i
@@ -168,42 +171,42 @@ mount /dev/sdb1 /mnt/usb
 cd /mnt/usb/host-bootstrap
 chmod +x *.sh
 
-# เริ่มรัน Stage 1
+# Execute Stage 1
 ./bootstrap.sh --stage=1
 ```
 
-**สิ่งที่สคริปต์ทำงานใน Stage 1:**
-- `00-preflight-check.sh`: ยืนยัน CPU Meteor Lake 18 threads, RAM $\ge 14\text{GB}$, Wi-Fi interface (`wlo1`), ยืนยันว่าไม่มี ZFS.
-- `01-setup-hosts-and-repos.sh`: กำหนด `/etc/hosts` ชี้ `10.99.10.1`, เพิ่ม PVE 8.x No-Subscription repo, ดึง GPG Key พร้อมตรวจสอบ Checksum `7da6fe34168...`, ติดตั้ง `firmware-iwlwifi`.
-- `02-install-pve-kernel.sh`: ติดตั้ง `proxmox-default-kernel` (Kernel 6.8+ เพื่อให้ Intel Thread Director ทำงานสมบูรณ์) และอัปเดต GRUB.
+**Stage 1 Execution Scope:**
+- `00-preflight-check.sh`: Verifies multi-core CPU threads, RAM $\ge 14\text{GB}$, Wi-Fi interface (`wlo1`), confirms non-ZFS filesystem.
+- `01-setup-hosts-and-repos.sh`: Configures `/etc/hosts` pointing to `10.99.10.1`, adds PVE 8.x No-Subscription repo, fetches GPG key with checksum verification (`7da6fe34168...`), installs `firmware-iwlwifi`.
+- `02-install-pve-kernel.sh`: Installs `proxmox-default-kernel` (Kernel 6.8+ for full hardware scheduler support) and updates GRUB.
 
-### Step 3.4: รีบูตและรัน Bootstrap Stage 2 (Post-Reboot)
+### Step 3.4: Reboot and Run Bootstrap Stage 2 (Post-Reboot)
 
 ```bash
-# รีบูตเข้าสู่ PVE Kernel
+# Reboot into PVE Kernel
 reboot
 
-# หลังบูต ยืนยันเวอร์ชัน Kernel:
+# After reboot, verify kernel version:
 uname -r # Expected: 6.8.x-pve
 
-# รัน Stage 2
+# Execute Stage 2
 cd /mnt/usb/host-bootstrap
 ./bootstrap.sh --stage=2
 ```
 
-**สิ่งที่สคริปต์ทำงานใน Stage 2:**
-- `03-install-pve-core.sh`: ตั้งค่า Postfix non-interactive, ติดตั้ง `proxmox-ve` และ `chrony`, ลบ Kernel 6.1 เดิมทิ้ง, ลบ `os-prober`.
-- `04-configure-routed-network.sh`: ตรวจหา Wi-Fi interface (`wlo1`), เขียนคอนฟิก Routed NAT ลง `/etc/network/interfaces`, ตั้ง Masquerade ออก Subnet `10.99.10.0/24` และ `10.99.20.0/24`.
-- `05-apply-hardware-stability.sh`: ปิดระบบ Sleep เมื่อพับฝา (`HandleLidSwitch=ignore`), ตั้ง Service ปิด Wi-Fi Power Save ถาวร (`wifi-powersave-off.service`), เปิด `net.ipv4.ip_forward = 1`.
-- `06-install-tailscale.sh`: ติดตั้ง Tailscale, เชื่อมต่อ Mesh พร้อม Advertise Subnet Routes และเปิด Tailscale SSH.
+**Stage 2 Execution Scope:**
+- `03-install-pve-core.sh`: Configures Postfix non-interactively, installs `proxmox-ve` and `chrony`, purges legacy Debian 6.1 kernel, removes `os-prober`.
+- `04-configure-routed-network.sh`: Detects network interface (`wlo1`), writes Routed NAT configuration to `/etc/network/interfaces`, sets up IP forwarding and masquerading for `10.99.10.0/24` and `10.99.20.0/24`, and adds PREROUTING port forwards for MinIO S3 API (9000) and Web Console (9001).
+- `05-apply-hardware-stability.sh`: Disables lid close suspension (`HandleLidSwitch=ignore`), installs persistent Wi-Fi power-save kill switch service (`wifi-powersave-off.service`), enables `net.ipv4.ip_forward = 1`.
+- `06-install-tailscale.sh`: Installs Tailscale, connects to mesh network with advertised subnet routes and Tailscale SSH enabled.
 
 ---
 
 ## 4. Container Fleet Architecture & Runner Lifecycle
 
-### 4.1 รายการ Container ประจำการ (Active Container Fleet)
+### 4.1 Active Container Fleet
 
-| VMID | Hostname | IP Address | Resource Limit | บทบาทและ Toolchain | Systemd Service Daemon |
+| VMID | Hostname | IP Address | Resource Limit | Role & Toolchain | Systemd Service Daemon |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **CT 102** | `gha-runner-01` | `10.99.20.101` | 3 vCPU / 4.0 GB RAM / 20 GB Disk | **.NET 8 CI Runner**<br>Labels: `[self-hosted, linux, proxmox, dotnet]`<br>Toolchain: .NET 8.0.425, Docker-in-LXC (`nesting=1,keyctl=1`), `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service` |
 | **CT 103** | `gha-runner-angular` | `10.99.20.103` | 2 vCPU / 1.5 GB RAM / 12 GB Disk | **Angular Jest Runner**<br>Labels: `[self-hosted, linux, proxmox, angular]`<br>Toolchain: Node.js 20.20.2 LTS, npm 10.8.2, Pure Headless jsdom, `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service` |
@@ -211,33 +214,33 @@ cd /mnt/usb/host-bootstrap
 
 ### 4.2 Runner Daemon Lifecycle Management
 
-รันคำสั่งเหล่านี้บน Proxmox Host ผ่าน Paramiko หรือ Console:
+Execute these commands on the Proxmox Host via Paramiko or terminal console:
 
 ```bash
-# 1. ตรวจสอบสถานะ Service ของ Runner ทั้งสองเครื่อง
+# 1. Check runner daemon service status
 pct exec 102 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service --no-pager
 pct exec 103 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service --no-pager
 
-# 2. Restart Runner เมื่อต้องการล้าง Process ค้าง
+# 2. Restart runner daemons to flush stuck worker processes
 pct exec 102 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
 pct exec 103 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service
 
-# 3. ดู Runner Logs สด
+# 3. Tail live runner logs
 pct exec 102 -- journalctl -u actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service -n 50 --no-pager
 ```
 
 ### 4.3 Runner Token Rotation & Re-enrollment SOP
 
 > [!NOTE]
-> GitHub Registration Token จะหมดอายุทุก 60 นาที หากต้อง Re-enroll หรือ Runner หลุดจาก GitHub:
+> GitHub Registration Tokens expire after 60 minutes. If re-enrolling or recovering an offline runner:
 
 ```bash
-# 1. ดึง Registration Token ใหม่ผ่าน GitHub CLI (บนเครื่อง Dev หรือ Host ที่มี gh CLI)
+# 1. Fetch fresh registration token via GitHub CLI
 RUNNER_TOKEN=$(gh api --method POST \
   -H "Accept: application/vnd.github+json" \
   /repos/ugritchaichana/booth-homelab/actions/runners/registration-token \
   --jq .token)
-echo "Token ที่ได้: $RUNNER_TOKEN"
+echo "Obtained token: $RUNNER_TOKEN"
 
 # 2. Re-enroll CT 102 (.NET Runner):
 pct exec 102 -- bash -c "
@@ -262,16 +265,16 @@ pct exec 103 -- bash -c "
 
 ### 4.4 Direct In-Container Test Execution (Offline Manual Debugging)
 
-สามารถสั่งรันเทสต์ตรงใน Container ได้ทันทีโดยไม่ต้องรันผ่าน GitHub Actions:
+Execute tests directly inside the containers without triggering GitHub Actions:
 
 ```bash
-# รัน .NET 8 Unit & Integration Tests ใน CT 102:
+# Run .NET 8 Unit & Integration Tests in CT 102:
 pct exec 102 -- su - runner -c "
   cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/backend
   dotnet test SdetTestingRig.sln --configuration Release --logger 'console;verbosity=normal'
 "
 
-# รัน Angular Jest Standalone Tests ใน CT 103 (19 Tests / 4 Suites):
+# Run Angular Jest Standalone Tests in CT 103 (19 Tests / 4 Suites):
 pct exec 103 -- su - runner -c "
   cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/frontend
   npx jest --ci --colors --coverage
@@ -282,14 +285,14 @@ pct exec 103 -- su - runner -c "
 
 ## 5. MinIO S3 Remote Cache Administration & Disaster Recovery (CT 104)
 
-### 5.1 ผังโครงสร้าง Bucket และ TTL Policies
+### 5.1 Bucket Hierarchy & TTL Policies
 
 ```
 minio/build-cache/
 ├── branches/
 │   └── master/
 │       ├── <commit_sha>.tar.zst   (.NET build cache - ~73 MiB)
-│       └── latest.tar.zst         (Pointer ล่าสุดสำหรับ Cache Restore)
+│       └── latest.tar.zst         (Latest pointer for cache restoration)
 └── npm/
     └── node_modules.tar.zst       (Angular dependencies cache - ~28 MiB)
 
@@ -300,24 +303,24 @@ minio/sdet-test-artifacts/
 
 ### 5.2 Disaster Recovery & Bucket Re-initialization SOP
 
-หาก CT 104 ถูกสร้างใหม่หรือข้อมูล Cache เสียหาย:
+If CT 104 is reprovisioned or cache data is purged:
 
 ```bash
-# 1. ตรวจสอบว่า MinIO Server กำลังทำงาน
-pct exec 104 -- systemctl status minio --no-pager
+# 1. Verify MinIO Server is running
+pct exec 104 -- rc-service minio status
 
-# 2. ตั้งค่า mc alias บน Host หรือ Runner (CT 102 / 103)
+# 2. Configure mc alias on host or runner (CT 102 / 103)
 pct exec 102 -- mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin
 
-# 3. สร้าง Buckets ที่จำเป็นทั้งหมด
+# 3. Create all required buckets
 pct exec 102 -- mc mb -p minio/build-cache
 pct exec 102 -- mc mb -p minio/sdet-test-artifacts
 
-# 4. ตั้งค่า Lifecycle Policy ลบไฟล์เก่าเกิน 7 วันโดยอัตโนมัติ (ป้องกัน Disk เต็ม)
+# 4. Set lifecycle policy to auto-expire files older than 7 days (prevents disk bloat)
 pct exec 102 -- mc ilm rule add --expire-days 7 minio/build-cache
 pct exec 102 -- mc ilm rule add --expire-days 7 minio/sdet-test-artifacts
 
-# 5. ทดสอบ Upload / Download ผ่าน vmbr1 Virtual Bus
+# 5. Verify upload/download over vmbr1 Virtual Bus
 pct exec 102 -- bash -c "
   echo 'healthcheck' > /tmp/hc.txt
   mc cp /tmp/hc.txt minio/build-cache/healthcheck.txt
@@ -327,14 +330,14 @@ pct exec 102 -- bash -c "
 "
 ```
 
-### 5.3 การล้างแคชเพื่อทดสอบ Cold Build (Cache Purge)
+### 5.3 Cache Purge for Cold Build Benchmarking
 
 ```bash
-# ล้างแคช .NET และ npm ทั้งหมด:
+# Purge all .NET and npm caches:
 pct exec 102 -- mc rm --recursive --force minio/build-cache/branches/master/
 pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
 
-# ตรวจสอบว่า Bucket ว่างเปล่า:
+# Verify bucket is empty:
 pct exec 102 -- mc ls minio/build-cache/
 ```
 
@@ -344,9 +347,9 @@ pct exec 102 -- mc ls minio/build-cache/
 
 ### 6.1 Workflow Architecture & Job Graph
 
-ไปป์ไลน์ CI/CD ถูกจัดโครงสร้างเป็น Modular DAG แบบ Reusable Dispatch Action:
-- `.github/workflows/sdet-ci.yml`: Entry point รับ event (`push`, `pull_request`, `workflow_dispatch`).
-- `.github/workflows/reusable-sdet-pipeline.yml`: Core execution DAG แบ่ง Job เป็นสัดส่วนและตั้งชื่อสั้นกระชับ:
+The CI/CD pipeline is structured as a modular DAG reusable dispatch action:
+- `.github/workflows/sdet-ci.yml`: Entry point listening for `push`, `pull_request`, and `workflow_dispatch` events.
+- `.github/workflows/reusable-sdet-pipeline.yml`: Core execution DAG structured into compact stages:
 
 ```mermaid
 flowchart TD
@@ -360,37 +363,37 @@ flowchart TD
     Report --> End([Workflow Success])
 ```
 
-### 6.2 การควบคุมและตรวจสอบ Pipeline ผ่าน GitHub CLI
+### 6.2 Pipeline Control via GitHub CLI
 
 ```bash
-# รัน Pipeline แบบ Manual (Workflow Dispatch):
+# Trigger manual pipeline execution (Workflow Dispatch):
 gh workflow run sdet-ci.yml --repo ugritchaichana/booth-homelab
 
-# ตรวจสอบสถานะการรัน 3 ครั้งล่าสุด:
+# List 3 most recent pipeline runs:
 gh run list --repo ugritchaichana/booth-homelab -L 3
 
-# ดูสรุปผลการรันครั้งล่าสุด:
+# View latest run summary:
 gh run view --repo ugritchaichana/booth-homelab
 
-# ดู Log ราย Job แบบละเอียด:
+# Inspect detailed job logs:
 gh run view <run_id> --job=<job_id> --log --repo ugritchaichana/booth-homelab
 ```
 
 ### 6.3 Automation Safeguards
 
-- **PR Labeler (`.github/workflows/pr-labeler.yml`):** ติด Labels (`backend`, `frontend`, `infrastructure`, `sdet`) ตามโฟลเดอร์ที่แก้ไขอัตโนมัติ.
-- **Reviewer Guard (`.github/workflows/pr-reviewer-guard.yml`):** ถอด Copilot reviewers ออกจาก PR โดยอัตโนมัติ.
-- **Wiki Auto-Sync (`.github/workflows/wiki-sync.yml`):** ซิงก์โฟลเดอร์ `wiki/` ขึ้นสู่ GitHub Wiki อัตโนมัติทุกครั้งที่มีการ Push ลงกิ่ง `master`.
+- **PR Labeler (`.github/workflows/pr-labeler.yml`):** Automatically attaches labels (`backend`, `frontend`, `infrastructure`, `sdet`) based on modified paths.
+- **Reviewer Guard (`.github/workflows/pr-reviewer-guard.yml`):** Automatically removes Copilot reviewers from PRs.
+- **Wiki Auto-Sync (`.github/workflows/wiki-sync.yml`):** Automatically synchronizes `wiki/` documentation to GitHub Wiki on pushes to `master`.
 
 ---
 
 ## 7. Ephemeral Runner Lifecycle & Zero-Trace Decommissioning (IaC)
 
-สำหรับโหมดการใช้งานแบบ Ephemeral Runners ใน Phase 3:
+For Phase 3 ephemeral runner provisioning:
 
 ### 7.1 Golden Template Creation (Packer)
 
-ก่อนเปลี่ยน Container เป็น Golden Template จะต้องรัน Sanitization Script:
+Run container sanitization before converting to a golden template:
 ```bash
 truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
@@ -398,7 +401,7 @@ rm -f /etc/ssh/ssh_host_*
 apt-get clean
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# แปลงเป็น Golden Template:
+# Convert to Golden Template:
 pct template 9001
 ```
 
@@ -409,29 +412,29 @@ cd iac/tofu
 tofu init
 tofu apply -auto-approve
 
-# รัน Test Suite จนเสร็จสิ้น...
+# Test suite execution runs here...
 
-# ทำลาย Runner ทันทีหลังเสร็จงาน:
+# Destroy ephemeral runner immediately after test execution:
 tofu destroy -auto-approve
 ```
 
-### 7.3 Zero-Trace Decommissioning (การล้างเครื่อง 100%)
+### 7.3 Zero-Trace Decommissioning (Complete Host Reclamation)
 
-เมื่อเสร็จสิ้นการใช้งาน SDET Rig และต้องการนำเครื่อง Host ไปรันระบบอื่น:
+When decommissioning the SDET rig to repurpose the host:
 
 ```bash
-# 1. สำรอง Template ออก External Drive (Zstandard Compressed)
+# 1. Backup Golden Template to external drive (Zstandard compressed)
 mkdir -p /mnt/external_backup
 mount /dev/sdX1 /mnt/external_backup
 vzdump 9001 --compress zstd --dumpdir /mnt/external_backup/
 
-# 2. ทำลาย Container และ Reclaim Storage ทั้งหมด
+# 2. Destroy containers and reclaim all storage
 pct stop 102 && pct destroy 102
 pct stop 103 && pct destroy 103
 pct stop 104 && pct destroy 104
 pct destroy 9001
 
-# 3. ยืนยันว่า Storage ว่างสะอาด 100%
+# 3. Confirm clean storage status
 pvesm status
 ```
 
@@ -439,36 +442,36 @@ pvesm status
 
 ## 8. Troubleshooting, Empirical Traps & Incident Decision Trees
 
-### 8.1 The 6 Empirical Traps (ข้อพึงระวังจากประสบการณ์จริง)
+### 8.1 The 6 Empirical Traps & Hard-Learned Solutions
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │ THE 6 EMPIRICAL TRAPS & HARD-LEARNED SOLUTIONS                                  │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │ 1. OPENSSH INTERACTIVE PROMPT HANG:                                              │
-│    Windows PowerShell รัน 'ssh root@...' จะค้างหน้า Password Prompt              │
-│    --> ใช้ Python Paramiko with explicit password เสมอ                            │
+│    Windows PowerShell running 'ssh root@...' hangs on the password prompt.       │
+│    --> Always use Python Paramiko with explicit credentials.                     │
 │                                                                                  │
 │ 2. COMPOSITE ACTION CHECKOUT ORDERING:                                           │
-│    ห้ามเรียก './.github/actions/...' ก่อน 'actions/checkout@v4'                  │
-│    เพราะ Runner ตัวใหม่ยังไม่มีไฟล์ action YAML อยู่บน Disk                       │
-│    --> Step แรกของทุก Job ต้องเป็น actions/checkout@v4 เสมอ                      │
+│    Do not invoke './.github/actions/...' before 'actions/checkout@v4'.           │
+│    New runners do not have action YAML files on disk before checkout.            │
+│    --> The first step of every job must always be actions/checkout@v4.           │
 │                                                                                  │
 │ 3. CONTAINER FILE INJECTION:                                                     │
-│    ไฟล์ใน /tmp บน Proxmox Host จะมองไม่เห็นใน LXC Container                      │
-│    --> ใช้คำสั่ง 'pct push <vmid> <host_path> <container_path>' เท่านั้น          │
+│    Files in /tmp on Proxmox Host are not visible inside LXC containers.          │
+│    --> Exclusively use 'pct push <vmid> <host_path> <container_path>'.           │
 │                                                                                  │
 │ 4. DEBIAN 12 USRMERGE BINARY PATH:                                               │
-│    MinIO Client อยู่ที่ /bin/mc ซึ่งเป็น Symlink ไป /usr/bin/mc                  │
-│    --> ใน Script ให้หา path ผ่าน: $(command -v mc || echo '/usr/bin/mc')        │
+│    MinIO Client is at /bin/mc, which is a symlink to /usr/bin/mc.                │
+│    --> Always resolve paths dynamically: $(command -v mc || echo '/usr/bin/mc') │
 │                                                                                  │
 │ 5. ANGULAR JEST PURE HEADLESS MEMORY CEILING:                                    │
-│    ห้ามติดตั้ง Chrome / Chromium / Playwright ลงใน CT 103 เด็ดขาด                │
-│    --> ใช้ pure jsdom + jest-preset-angular เพื่อรักษาระดับ RAM 1.5GB            │
+│    Never install Chrome, Chromium, or Playwright inside CT 103.                  │
+│    --> Use pure jsdom + jest-preset-angular to maintain a 1.5GB RAM ceiling.     │
 │                                                                                  │
 │ 6. .NET DOMAIN CURRENCY ASSERTION:                                               │
-│    ใน Core.Domain ค่าเริ่มต้นของ Money.Currency คือ "USD" ไม่ใช่ "THB"           │
-│    --> อย่าเขียน Test Assert "THB" เว้นแต่จะ Set ใน Constructor ชัดเจน           │
+│    In Core.Domain, Money.Currency defaults to "USD", not "THB".                  │
+│    --> Never assert "THB" unless explicitly passed to constructor.               │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -476,33 +479,33 @@ pvesm status
 
 ```mermaid
 flowchart TD
-    Issue["พบปัญหาในระบบ Homelab SDET Rig"] --> Triage{"อาการของปัญหาคืออะไร?"}
+    Issue["Issue Detected in SDET Rig"] --> Triage{"What is the symptom?"}
 
-    Triage -- "Runner แสดงสถานะ Offline บน GitHub" --> R1["ตรวจเช็คสถานะ Container & Daemon"]
-    R1 --> R2["รัน: pct list\nContainer 102/103 รันอยู่หรือไม่?"]
-    R2 -- "Stopped" --> R3["สั่ง: pct start 102 && pct start 103"]
-    R2 -- "Running" --> R4["เช็ค: systemctl status actions.runner..."]
-    R4 -- "Failed / Exited" --> R5["ดึง Token ใหม่ด้วย 'gh api .../registration-token'\nแล้วรัน Re-enroll SOP (หัวข้อ 4.3)"]
+    Triage -- "Runner Shows Offline on GitHub" --> R1["Check Container & Daemon Status"]
+    R1 --> R2["Run: pct list\nAre CT 102/103 running?"]
+    R2 -- "Stopped" --> R3["Run: pct start 102 && pct start 103"]
+    R2 -- "Running" --> R4["Check: systemctl status actions.runner..."]
+    R4 -- "Failed / Exited" --> R5["Fetch fresh token with 'gh api .../registration-token'\nRun Re-enroll SOP (Section 4.3)"]
 
-    Triage -- "CI/CD Cache Miss วนซ้ำ หรือ Connect Refused" --> C1["ตรวจสอบ MinIO (CT 104)"]
-    C1 --> C2["รัน: pct exec 104 -- systemctl status minio"]
-    C2 -- "Down" --> C3["สั่ง: pct exec 104 -- systemctl restart minio"]
-    C2 -- "Up" --> C4["ทดสอบ: pct exec 102 -- mc ls minio/build-cache/\nตรวจสอบว่า Alias และ Bucket ถูกสร้างครบหรือไม่ (หัวข้อ 5.2)"]
+    Triage -- "CI/CD Cache Miss Loop or Connection Refused" --> C1["Inspect MinIO (CT 104)"]
+    C1 --> C2["Run: pct exec 104 -- rc-service minio status"]
+    C2 -- "Down" --> C3["Run: pct exec 104 -- rc-service minio restart"]
+    C2 -- "Up" --> C4["Test: pct exec 102 -- mc ls minio/build-cache/\nVerify alias and buckets exist (Section 5.2)"]
 
-    Triage -- "เข้า Proxmox Web GUI :8006 ไม่ได้" --> N1["ตรวจสอบการเชื่อมต่อ Host"]
-    N1 --> N2{"ใช้งานบน Environment ใด?"}
-    N2 -- "Env A (Workstation)" --> N3["เช็ค Hyper-V: Get-VM 'Proxmox-Lab'\nหากปิดอยู่ให้รัน: Start-VM 'Proxmox-Lab'"]
-    N2 -- "Env B (Baremetal Node)" --> N4["เช็ค Wi-Fi Captive Portal & Sleep\nรัน: systemctl status wifi-powersave-off"]
-    N3 --> N5["เช็ค Tailscale:\ntailscale status (ดูว่า IP 100.121.209.85 ออนไลน์หรือไม่)"]
+    Triage -- "Cannot Access Proxmox Web GUI :8006" --> N1["Verify Host Connectivity"]
+    N1 --> N2{"Which Environment?"}`
+    N2 -- "Env A (Workstation)" --> N3["Check Hyper-V: Get-VM 'Proxmox-Lab'\nIf stopped: Start-VM 'Proxmox-Lab'"]
+    N2 -- "Env B (Baremetal Node)" --> N4["Check Wi-Fi Captive Portal & Sleep\nRun: systemctl status wifi-powersave-off"]
+    N3 --> N5["Check Tailscale:\ntailscale status (Verify 100.121.209.85 is online)"]
     N4 --> N5
 
-    Triage -- "ระบบหน่วง / Linux OOM Killer เตือน" --> M1["ตรวจสอบ RAM Headroom"]
-    M1 --> M2["รัน: free -h บน Host"]
-    M2 --> M3{"มีการใช้ ZFS หรือไม่?"}
-    M3 -- "ใช่" --> M4["จำกัด ZFS ARC:\necho 2147483648 > /sys/module/zfs/parameters/zfs_arc_max"]
-    M3 -- "ไม่ใช่" --> M5["ปรับแคป RAM ของ CT 102 หรือปิด Container ที่ไม่ได้ใช้งาน"]
+    Triage -- "System Sluggish / Linux OOM Warning" --> M1["Inspect RAM Headroom"]
+    M1 --> M2["Run: free -h on Host"]
+    M2 --> M3{"Is ZFS in Use?"}
+    M3 -- "Yes" --> M4["Cap ZFS ARC:\necho 2147483648 > /sys/module/zfs/parameters/zfs_arc_max"]
+    M3 -- "No" --> M5["Reduce CT 102 RAM cap or stop idle containers"]
 ```
 
 ---
 
-*RunBook ฉบับนี้ผ่านการตรวจสอบและทดสอบความถูกต้องตามมาตรฐาน Master Craftsman พร้อมสำหรับการปฏิบัติการทั้งโดยมนุษย์และระบบ AI แบบอัตโนมัติ 100%*
+*This RunBook has been verified and validated under Master Craftsman engineering standards, fully optimized for autonomous operations by both human operators and AI agents.*

@@ -6,7 +6,7 @@ Welcome to the central knowledge repository for **Booth Homelab** — an enterpr
 
 ## 🧭 Navigation & Table of Contents
 
-| หมวดหมู่ (Section) | คำอธิบาย (Description) | ลิงก์เอกสาร (Direct Link) |
+| Section | Description | Direct Link |
 | :--- | :--- | :--- |
 | **01. Architecture & Design** | Hypervisor topology, DMZ network bridges, LXC container specifications | [📖 01-Architecture-and-Design](https://github.com/ugritchaichana/booth-homelab/wiki/01-Architecture-and-Design) |
 | **02. GitHub Actions Runners** | CT 102 (.NET 8) & CT 103 (Angular Jest) runner provisioning & Docker-in-LXC | [📖 02-GitHub-Actions-Runner-LXC](https://github.com/ugritchaichana/booth-homelab/wiki/02-GitHub-Actions-Runner-LXC) |
