@@ -32,6 +32,10 @@ Container **CT 104 (`minio-s3`)** serves as our distributed S3-compatible remote
 
 The 7-day retention policy ensures that homelab virtual disk storage is never exhausted by stale PR build archives.
 
+### Access Policy: Public Read & Authenticated Write
+- **Public Read (Anonymous Download):** Both `build-cache` and `test-artifacts` enforce the `download` policy (`mc anonymous set download minio/<bucket>`). Anyone (developers, external pull requests, dashboards) can read and download cache archives and test reports without credentials.
+- **Strictly Authenticated Write/Edit:** Modifying, overwriting, or deleting objects (`s3:PutObject`, `s3:DeleteObject`) strictly requires authenticated credentials (`minioadmin` or a designated IAM service account). Unauthenticated write requests are rejected with `HTTP 403 Forbidden` (mitigating CVE-2025-36852 / CREEP cache poisoning attacks).
+
 ---
 
 ## 3. High-Throughput Virtual Bus Benchmarks

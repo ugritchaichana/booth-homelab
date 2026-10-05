@@ -325,11 +325,15 @@ pct exec 102 -- mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin
 pct exec 102 -- mc mb -p minio/build-cache
 pct exec 102 -- mc mb -p minio/sdet-test-artifacts
 
-# 4. Set lifecycle policy to auto-expire files older than 7 days (prevents disk bloat)
+# 4. Set anonymous download access (Public Read / Authenticated Write)
+pct exec 102 -- mc anonymous set download minio/build-cache
+pct exec 102 -- mc anonymous set download minio/sdet-test-artifacts
+
+# 5. Set lifecycle policy to auto-expire files older than 7 days (prevents disk bloat)
 pct exec 102 -- mc ilm rule add --expire-days 7 minio/build-cache
 pct exec 102 -- mc ilm rule add --expire-days 7 minio/sdet-test-artifacts
 
-# 5. Verify upload/download over vmbr1 Virtual Bus
+# 6. Verify upload/download over vmbr1 Virtual Bus
 pct exec 102 -- bash -c "
   echo 'healthcheck' > /tmp/hc.txt
   mc cp /tmp/hc.txt minio/build-cache/healthcheck.txt

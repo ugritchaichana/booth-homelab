@@ -64,9 +64,9 @@ graph TD
   - Bridge port isolation (`isolated on`) prevents East-West frame switching between test runners (`CT 102` and `CT 103`).
   - Kernel netfilter (`HOMELAB-FORWARD`) strictly blocks East-West runner traffic, rejects runner access to the MinIO web console (`:9001`), and restricts runner access to the MinIO S3 API (`:9000`).
   - Runner outbound internet traffic is constrained to essential ports: DNS (`53`), HTTPS (`443`), HTTP (`80`), and NTP (`123`).
-- **Hardened Against Remote Cache Poisoning (CVE-2025-36852 / CREEP):**
-  - Pull Request workflows execute with Read-Only cache credentials.
-  - Only verified pushes to `master` are authorized to save updated cache payloads.
+- **Public Read & Scoped Write Access (CVE-2025-36852 / CREEP Mitigation):**
+  - S3 cache buckets enforce anonymous `download` policy, allowing unauthenticated read access for any pull request or developer to restore dependencies rapidly.
+  - Object creation, modification, and deletion (`s3:PutObject`, `s3:DeleteObject`) strictly require authenticated credentials; only verified pushes to `master` possess write authorization.
 - **Zero Public WAN Exposure:**
   - Hypervisor management and containers reside behind Tailscale WireGuard Mesh with Subnet Routing (`10.99.10.0/24`, `10.99.20.0/24`).
 
