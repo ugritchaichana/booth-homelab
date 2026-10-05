@@ -8,7 +8,7 @@ The **Booth-homelab** infrastructure is managed entirely through industry-standa
    - Uses the modern `bpg/proxmox` provider (`~> 0.68.0`) to provision compute (LXC containers), network bridges, and storage volumes.
    - Features a **Multi-Cloud Instance Flavor Catalog** (`flavors.json`) that abstracts hardware sizing to popular cloud VM tiers (AWS, GCP, Azure, Hetzner, DigitalOcean).
 2. **Ansible (`iac/ansible/`):**
-   - Manages idempotent OS configuration, software runtimes (.NET 8 SDK, Node.js 20 LTS, Docker), MinIO S3 caching daemon, and netfilter zero-trust firewalling.
+   - Manages idempotent OS configuration, software runtimes (.NET 8 SDK, Node.js 22 LTS, Docker), MinIO S3 caching daemon, and netfilter zero-trust firewalling.
 3. **Baremetal Bootstrapping (`iac/bootstrap/`):**
    - Host transformation scripts converting minimal Debian 12 Bookworm into Proxmox VE 8.4 with kernel `6.8.12-9-pve` and Tailscale mesh.
 

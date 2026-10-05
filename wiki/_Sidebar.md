@@ -10,6 +10,7 @@
 - [05. Performance Benchmarks](https://github.com/ugritchaichana/booth-homelab/wiki/05-Performance-Benchmark-Results)
 - [06. Runbooks & Troubleshooting](https://github.com/ugritchaichana/booth-homelab/wiki/06-Operational-Runbooks-and-Troubleshooting)
 - [07. Infrastructure as Code (IaC)](https://github.com/ugritchaichana/booth-homelab/wiki/07-Infrastructure-as-Code-OpenTofu-Ansible)
+- [08. Runtime Support & Upgrade Plan](https://github.com/ugritchaichana/booth-homelab/wiki/08-Runtime-Support-and-Upgrade-Plan)
 
 ---
 

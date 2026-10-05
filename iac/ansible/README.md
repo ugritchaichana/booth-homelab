@@ -28,7 +28,7 @@ iac/ansible/
     │   └── templates/         # minio.env.j2, minio.initd.j2
     ├── proxmox_host/          # LXC appliance template manager (pveam download)
     ├── runner_dotnet/         # CT 102 (.NET 8 SDK, Docker-in-LXC)
-    └── runner_angular/        # CT 103 (Node.js 20 LTS, Jest headless jsdom)
+    └── runner_angular/        # CT 103 (Node.js 22 LTS, Jest headless jsdom)
 ```
 
 ---
