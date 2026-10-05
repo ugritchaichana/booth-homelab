@@ -36,8 +36,53 @@ jobs:
       - name: Restore Backend Dependencies
         run: dotnet restore apps/backend/SdetTestingRig.sln
 
-      - name: Run Bash Selector Test Harness (6 Scenarios)
+      - name: Run Bash Selector Test Harness (7 Scenarios)
         run: ./tests/verify-affected-graph.sh
 
-      - name: Run PowerShell Selector Test Harness (5 Scenarios)
+      - name: Run PowerShell Selector Test Harness (6 Scenarios)
         run: pwsh -File ./tests/verify-affected-graph.ps1
+
+      - name: Mutation Check (Each Fail-Closed Mutant Must Fail Its Scenario)
+        run: |
+          src=scripts/apps/dotnet-affected-test.sh
+          src_lines=$(wc -l < "$src")
+          status=0
+          attempted=0
+          while IFS='|' read -r name expr scenario delta; do
+            attempted=$((attempted + 1))
+            mutant="$RUNNER_TEMP/mutant-$name.sh"
+            log="$RUNNER_TEMP/mutant-$name.log"
+            sed "$expr" "$src" > "$mutant"
+            if cmp -s "$src" "$mutant"; then
+              echo "::error::$name did not mutate the selector"
+              status=1
+              continue
+            fi
+            if [ "$delta" != "*" ] && [ $((src_lines - $(wc -l < "$mutant"))) -ne "$delta" ]; then
+              echo "::error::$name removed an unexpected number of lines"
+              status=1
+              continue
+            fi
+            if SELECTOR_SH="$mutant" ./tests/verify-affected-graph.sh < /dev/null > "$log" 2>&1; then
+              cat "$log"
+              echo "::error::$name survived: harness passed against the mutant"
+              status=1
+              continue
+            fi
+            if ! grep -q "\[FAIL\] $scenario" "$log"; then
+              tail -n 6 "$log"
+              echo "::error::$name was not killed by $scenario"
+              status=1
+              continue
+            fi
+            echo "$name killed by $scenario"
+          done <<'MUTANTS'
+          M1|/^# 2\.2 Unmappable Change Resolution/,/^fi[[:space:]]*$/d|SCENARIO 3|*
+          M2|/^# 2\.2 Unmappable Change Resolution/,/^fi[[:space:]]*$/{/mapfile -t UNIQUE_DIRECT/d}|SCENARIO 4|1
+          M3|/^# 2\.1 Shared Build Configuration/,/^fi[[:space:]]*$/{/mapfile -t UNIQUE_DIRECT/d}|SCENARIO 7|1
+          MUTANTS
+          if [ "$attempted" -ne 3 ]; then
+            echo "::error::Expected 3 mutants to be attempted, got $attempted"
+            status=1
+          fi
+          exit "$status"

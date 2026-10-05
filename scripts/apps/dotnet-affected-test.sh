@@ -8,7 +8,7 @@ BASE_REF="${1:-HEAD~1}"
 HEAD_REF="${2:-HEAD}"
 ROOT_DIR="${3:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../apps/backend" && pwd)}"
 RESULTS_DIR="${ROOT_DIR}/TestResults"
-DRY_RUN="${4:-${DRY_RUN:-false}}"
+DRY_RUN="${4:-false}"
 
 echo "=========================================================="
 echo "   .NET Transitive Dependency Graph Affected Test Runner   "
@@ -138,7 +138,6 @@ for t in "${AFFECTED_TESTS[@]}"; do
     echo "  Executing Suite: $pname"
     echo "----------------------------------------------------------"
     dotnet test "$t" \
-        --no-restore \
         --configuration Release \
         -p:Deterministic=true \
         --logger "trx;LogFileName=${pname}.trx" \
