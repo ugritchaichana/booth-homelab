@@ -1,0 +1,8 @@
+[Unit]
+Description=Homelab runner CT watchdog
+After=pve-guests.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/homelab-runner-watchdog
+ExecStart=/usr/local/sbin/homelab-runner-watchdog.sh

@@ -1,0 +1,8 @@
+[Unit]
+Description=Homelab runner CT disk guard
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/homelab-disk-guard
+ExecStart=/opt/homelab/disk-guard.sh
+Nice=10

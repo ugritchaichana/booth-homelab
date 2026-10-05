@@ -9,6 +9,14 @@ resource "proxmox_virtual_environment_container" "this" {
   tags         = ["s3-cache", "storage", "minio"]
   unprivileged = true
 
+  start_on_boot = true
+
+  startup {
+    order      = 1
+    up_delay   = 30
+    down_delay = 15
+  }
+
   cpu {
     cores = var.cores
   }

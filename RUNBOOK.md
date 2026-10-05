@@ -594,6 +594,13 @@ flowchart TD
     M3 -- "No" --> M5["Reduce CT 102 RAM cap or stop idle containers"]
 ```
 
+## 9. Runner Self-Healing
+
+Runner CTs prune their own disk before each job, the PVE host restarts stopped CTs and dead runner services every 5 minutes, and CTs boot with the host. Status: UNVERIFIED, not yet run on the live host.
+
+- Install and verify: [wiki/10-Runner-Self-Healing.md](wiki/10-Runner-Self-Healing.md)
+- Owner order: free CT 103's disk, run `scripts/hyperv/ensure-proxmox-autostart.ps1 -Apply` on the Windows PC, then `scripts/proxmox/install-runner-maintenance.sh --dry-run` and a real run on the PVE host.
+
 ---
 
 *This RunBook is verified and maintained for deterministic operations across automated and manual workflows.*

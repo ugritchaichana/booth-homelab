@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily homelab runner CT disk guard
+
+[Timer]
+OnBootSec=5min
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

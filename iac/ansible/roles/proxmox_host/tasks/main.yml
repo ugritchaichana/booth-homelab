@@ -18,3 +18,34 @@
   register: alpine_dl_res
   failed_when: false
   changed_when: "'already exists' not in alpine_dl_res.stderr and alpine_dl_res.rc == 0"
+
+# Self-healing: host watchdog
+
+- name: Install runner watchdog script
+  copy:
+    src: "{{ role_path }}/../../../../scripts/proxmox/watchdog/homelab-runner-watchdog.sh"
+    dest: /usr/local/sbin/homelab-runner-watchdog.sh
+    mode: "0755"
+
+- name: Install runner watchdog systemd units
+  copy:
+    src: "{{ role_path }}/../../../../scripts/proxmox/watchdog/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - homelab-runner-watchdog.service
+    - homelab-runner-watchdog.timer
+
+- name: Create watchdog config when absent
+  copy:
+    dest: /etc/default/homelab-runner-watchdog
+    content: "WATCHDOG_CTS=\"102 103 104\"\n"
+    force: no
+    mode: "0644"
+
+- name: Enable and start the runner watchdog timer
+  systemd:
+    name: homelab-runner-watchdog.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes

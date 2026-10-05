@@ -63,3 +63,86 @@
   command: /usr/local/bin/mc alias remove minio-writer
   changed_when: false
   failed_when: false
+
+# Self-healing: job hook, disk guard, runner restart policy
+
+- name: Create /opt/homelab
+  file:
+    path: /opt/homelab
+    state: directory
+    mode: "0755"
+
+- name: Install disk guard, job hook and restart drop-in source
+  copy:
+    src: "{{ role_path }}/../../../../scripts/runner-maintenance/{{ item.name }}"
+    dest: "/opt/homelab/{{ item.name }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: disk-guard.sh, mode: "0755" }
+    - { name: job-started-hook.sh, mode: "0755" }
+    - { name: runner-restart.conf, mode: "0644" }
+
+- name: Install disk guard systemd units
+  copy:
+    src: "{{ role_path }}/../../../../scripts/runner-maintenance/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - homelab-disk-guard.service
+    - homelab-disk-guard.timer
+
+- name: Enable and start the disk guard timer
+  systemd:
+    name: homelab-disk-guard.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Find runner service units
+  shell: systemctl list-unit-files 'actions.runner.*.service' --no-legend | awk 'NF {print $1}'
+  register: runner_units
+  changed_when: false
+
+- name: Create runner unit drop-in directories
+  file:
+    path: "/etc/systemd/system/{{ item }}.d"
+    state: directory
+    mode: "0755"
+  loop: "{{ runner_units.stdout_lines }}"
+
+- name: Install runner restart drop-in
+  copy:
+    src: /opt/homelab/runner-restart.conf
+    dest: "/etc/systemd/system/{{ item }}.d/restart.conf"
+    remote_src: yes
+    mode: "0644"
+  loop: "{{ runner_units.stdout_lines }}"
+  register: runner_dropin
+
+- name: Check the runner directory
+  stat:
+    path: "/home/{{ runner_user }}/actions-runner"
+  register: runner_dir
+
+- name: Point the runner at the job-started hook
+  lineinfile:
+    path: "/home/{{ runner_user }}/actions-runner/.env"
+    regexp: '^ACTIONS_RUNNER_HOOK_JOB_STARTED='
+    line: "ACTIONS_RUNNER_HOOK_JOB_STARTED=/opt/homelab/job-started-hook.sh"
+    create: yes
+    owner: "{{ runner_user }}"
+    group: "{{ runner_user }}"
+  when: runner_dir.stat.isdir | default(false)
+  register: runner_hook_env
+
+- name: Reload systemd after a drop-in change
+  systemd:
+    daemon_reload: yes
+  when: runner_dropin is changed
+
+- name: Restart runner services after a hook line change
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop: "{{ runner_units.stdout_lines }}"
+  when: runner_hook_env is changed

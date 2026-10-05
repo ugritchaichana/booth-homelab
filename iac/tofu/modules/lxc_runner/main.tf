@@ -9,6 +9,14 @@ resource "proxmox_virtual_environment_container" "this" {
   tags         = var.tags
   unprivileged = true
 
+  start_on_boot = true
+
+  startup {
+    order      = 2
+    up_delay   = 15
+    down_delay = 15
+  }
+
   cpu {
     cores = var.cores
   }

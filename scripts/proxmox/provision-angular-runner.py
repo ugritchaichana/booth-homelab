@@ -185,6 +185,7 @@ def main():
                 f"--ostype debian "
                 f"--unprivileged 0 "
                 f"--features nesting=1,keyctl=1 "
+                f"--onboot 1 --startup order=2,up=15 "
                 f"--net0 name=eth0,bridge=vmbr1,ip=10.99.20.103/24,gw=10.99.20.1 "
                 f"--nameserver '1.1.1.1 8.8.8.8' "
                 f"--start 1"
