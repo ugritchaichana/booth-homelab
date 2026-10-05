@@ -40,7 +40,7 @@ npm test --prefix apps/frontend -- --silent
 # 3. Verify .NET AST Transitive Dependency Graph Diff Runner (4 scenarios):
 pwsh -File ./tests/verify-affected-graph.ps1
 
-# 4. Verify Enterprise Zero-Trust Firewall (10/10 assertions):
+# 4. Verify Enterprise Zero-Trust Firewall (13/13 assertions):
 python scripts/proxmox/verify-enterprise-firewall.py
 
 # 5. Verify Language Compliance (Must return 0 Thai characters across repo):

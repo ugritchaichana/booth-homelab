@@ -121,7 +121,32 @@ def main():
     )
     results.append(("CT 102 -> Outbound High Port :8888 (Dropped by Default Deny)", t9))
 
-    # 4. External Access Check: User PC still accesses MinIO Console (:9001)
+    # 4. Req 4: Host Ingress Protection (HOMELAB-INPUT)
+    t11 = run_test(
+        ssh,
+        "Req 4: CT 102 BLOCKED from Host Proxmox API (:8006)",
+        "pct exec 102 -- curl -k -s -m 2 https://10.99.20.1:8006/",
+        expect_success=False
+    )
+    results.append(("CT 102 -> Host API :8006 (Blocked)", t11))
+
+    t12 = run_test(
+        ssh,
+        "Req 4: CT 102 BLOCKED from Host SSH (:22)",
+        "pct exec 102 -- curl -s -m 2 telnet://10.99.20.1:22",
+        expect_success=False
+    )
+    results.append(("CT 102 -> Host SSH :22 (Blocked)", t12))
+
+    t13 = run_test(
+        ssh,
+        "Req 3: CT 102 BLOCKED on arbitrary external IP on HTTPS :443 (Scoped Egress)",
+        "pct exec 102 -- curl -k -s -m 2 --connect-timeout 2 https://1.1.1.1/",
+        expect_success=False
+    )
+    results.append(("CT 102 -> Arbitrary IP :443 (Dropped by Scoped Egress)", t13))
+
+    # 5. External Access Check: User PC still accesses MinIO Console (:9001)
     import urllib.request
     try:
         req = urllib.request.urlopen("http://100.121.209.85:9001", timeout=3)
@@ -146,7 +171,7 @@ def main():
 
     print("==========================================================")
     if all_passed:
-        print(" [SUCCESS] All 10 Enterprise Zero-Trust Assertions PASSED!")
+        print(f" [SUCCESS] All {len(results)} Enterprise Zero-Trust Assertions PASSED!")
         sys.exit(0)
     else:
         print(" [ERROR] One or more assertions failed!")

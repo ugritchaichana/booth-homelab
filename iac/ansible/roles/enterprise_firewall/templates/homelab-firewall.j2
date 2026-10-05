@@ -5,33 +5,50 @@
 # ==============================================================================
 set -euo pipefail
 
-# 1. Flush or Create HOMELAB-FORWARD chain
+# 1. Host Ingress Protection (HOMELAB-INPUT)
+iptables -N HOMELAB-INPUT 2>/dev/null || iptables -F HOMELAB-INPUT
+if ! iptables -C INPUT -j HOMELAB-INPUT 2>/dev/null; then
+    iptables -I INPUT 1 -j HOMELAB-INPUT
+fi
+iptables -A HOMELAB-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A HOMELAB-INPUT -s {{ isolated_subnet }} -p tcp -m multiport --dports 22,8006 -j REJECT --reject-with icmp-port-unreachable
+
+# 2. Setup Scoped Egress IPSet
+ipset create ci-allowed-egress hash:ip 2>/dev/null || ipset flush ci-allowed-egress
+DOMAINS="api.github.com github.com registry.npmjs.org api.nuget.org deb.debian.org security.debian.org"
+for d in $DOMAINS; do
+    for ip in $(getent ahostsv4 "$d" 2>/dev/null | awk '{print $1}' | sort -u); do
+        ipset add ci-allowed-egress "$ip" 2>/dev/null || true
+    done
+done
+
+# 3. Flush or Create HOMELAB-FORWARD chain
 iptables -N HOMELAB-FORWARD 2>/dev/null || iptables -F HOMELAB-FORWARD
 
-# 2. Ensure hook into standard FORWARD chain
+# 4. Ensure hook into standard FORWARD chain
 if ! iptables -C FORWARD -j HOMELAB-FORWARD 2>/dev/null; then
     iptables -I FORWARD 1 -j HOMELAB-FORWARD
 fi
 
-# 3. Allow Established and Related Connections
+# 5. Allow Established and Related Connections
 iptables -A HOMELAB-FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-# 4. Block East-West Runner-to-Runner Traffic (Port & IP Isolation)
-iptables -A HOMELAB-FORWARD -s {{ hostvars['gha-runner-01'].ansible_host | default('10.99.20.101') }} -d {{ hostvars['gha-runner-angular'].ansible_host | default('10.99.20.103') }} -j DROP
-iptables -A HOMELAB-FORWARD -s {{ hostvars['gha-runner-angular'].ansible_host | default('10.99.20.103') }} -d {{ hostvars['gha-runner-01'].ansible_host | default('10.99.20.101') }} -j DROP
+# 6. Block East-West Runner-to-Runner Traffic (Port & IP Isolation)
+iptables -A HOMELAB-FORWARD -s {{ hostvars['gha-runner-01'].ansible_host | default('10.99.20.101') }} -d {{ hostvars['gha-runner-angular'].ansible_host | default('10.99.20.103') }} -j REJECT --reject-with icmp-host-prohibited
+iptables -A HOMELAB-FORWARD -s {{ hostvars['gha-runner-angular'].ansible_host | default('10.99.20.103') }} -d {{ hostvars['gha-runner-01'].ansible_host | default('10.99.20.101') }} -j REJECT --reject-with icmp-host-prohibited
 
-# 5. Allow Runners to Access MinIO S3 API (:{{ minio_api_port | default(9000) }})
+# 7. Allow Runners to Access MinIO S3 API (:{{ minio_api_port | default(9000) }})
 iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -d {{ hostvars['minio-s3'].ansible_host | default('10.99.20.20') }} -p tcp --dport {{ minio_api_port | default(9000) }} -j ACCEPT
 
-# 6. Block Runners from Accessing MinIO Web Console (:{{ minio_console_port | default(9001) }})
-iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -d {{ hostvars['minio-s3'].ansible_host | default('10.99.20.20') }} -p tcp --dport {{ minio_console_port | default(9001) }} -j DROP
+# 8. Block Runners from Accessing MinIO Web Console (:{{ minio_console_port | default(9001) }})
+iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -d {{ hostvars['minio-s3'].ansible_host | default('10.99.20.20') }} -p tcp --dport {{ minio_console_port | default(9001) }} -j REJECT --reject-with icmp-port-unreachable
 
-# 7. Whitelist Internet Egress (DNS 53, HTTP 80, HTTPS 443, NTP 123)
+# 9. Whitelist Internet Egress (DNS 53, NTP 123, and Scoped Egress 80/443)
 iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p udp --dport 53 -j ACCEPT
 iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p tcp --dport 53 -j ACCEPT
-iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p tcp --dport 80 -j ACCEPT
-iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p tcp --dport 443 -j ACCEPT
 iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p udp --dport 123 -j ACCEPT
+iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -p tcp -m multiport --dports 80,443 -m set --match-set ci-allowed-egress dst -j ACCEPT
 
-# 8. Default Deny Egress
+# 10. Default Deny Egress
 iptables -A HOMELAB-FORWARD -s {{ isolated_subnet }} -j DROP

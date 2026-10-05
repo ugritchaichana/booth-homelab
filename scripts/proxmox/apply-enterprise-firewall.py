@@ -44,7 +44,24 @@ if ip link show "veth104i0" >/dev/null 2>&1; then
     bridge link set dev "veth104i0" isolated off
 fi
 
-# 3. Layer 3/4 Stateful Zero-Trust Chain
+# 3. Host Ingress Protection (Block runners from accessing host SSH :22 and PVE API :8006)
+iptables -N HOMELAB-INPUT 2>/dev/null || iptables -F HOMELAB-INPUT
+iptables -D INPUT -j HOMELAB-INPUT 2>/dev/null || true
+iptables -I INPUT 1 -j HOMELAB-INPUT
+iptables -A HOMELAB-INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A HOMELAB-INPUT -s "$RUNNER_NET" -p tcp -m multiport --dports 22,8006 \
+    -j REJECT --reject-with icmp-port-unreachable
+
+# 4. Setup Scoped Egress IPSet for Allowed Package/API Registries
+ipset create ci-allowed-egress hash:ip 2>/dev/null || ipset flush ci-allowed-egress
+DOMAINS="api.github.com github.com registry.npmjs.org api.nuget.org deb.debian.org security.debian.org"
+for d in $DOMAINS; do
+    for ip in $(getent ahostsv4 "$d" 2>/dev/null | awk '{print $1}' | sort -u); do
+        ipset add ci-allowed-egress "$ip" 2>/dev/null || true
+    done
+done
+
+# 5. Layer 3/4 Stateful Zero-Trust Chain
 iptables -N HOMELAB-FORWARD 2>/dev/null || iptables -F HOMELAB-FORWARD
 
 iptables -D FORWARD -j HOMELAB-FORWARD 2>/dev/null || true
@@ -68,13 +85,14 @@ iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -d "$MINIO_IP" -p icmp -j ACCEPT
 # Block runners from accessing MinIO Console (:9001)
 iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -d "$MINIO_IP" -p tcp --dport 9001 -j REJECT --reject-with icmp-port-unreachable
 
-# Internet Egress Whitelist (Strict Least Privilege)
+# Internet Egress: DNS, NTP, and Scoped Package/API Repos (Strict Least Privilege)
 iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p udp --dport 53 -j ACCEPT
 iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p tcp --dport 53 -j ACCEPT
-iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p tcp --dport 443 -j ACCEPT
-iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p tcp --dport 80 -j ACCEPT
 iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p udp --dport 123 -j ACCEPT
 iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p icmp --icmp-type echo-request -j ACCEPT
+
+# Scoped 80/443 egress via ci-allowed-egress ipset
+iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -p tcp -m multiport --dports 80,443 -m set --match-set ci-allowed-egress dst -j ACCEPT
 
 # Default Deny: Drop all unauthorized egress traffic (SSH 22, Telnet, C2, high ports)
 iptables -A HOMELAB-FORWARD -s "$RUNNER_NET" -j DROP
