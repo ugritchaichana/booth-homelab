@@ -1,101 +1,172 @@
 # 06. Operational Runbooks and Troubleshooting
 
+**Standard:** Big Tech SaaS Continuous Testing Standard  
+**Lead Architects:** Booth (`ugritchaichana`) & Antigravity (Lead AI Co-Architect)  
+**Revision:** Phase 2 Complete (Dual-Runner .NET 8 + Angular Jest Rig Live)  
+
+---
+
 ## 1. Proxmox Container Lifecycle Commands
 
-All containers on Proxmox VE can be inspected and managed from the host shell (`root@100.121.209.85`):
+All containers on Proxmox VE can be inspected and managed from the host shell (`root@100.121.209.85` via Python Paramiko or console):
 
 ```bash
 # List all containers and status
 pct list
 
-# Start / Stop / Restart container
-pct start 102
-pct stop 102
-pct reboot 102
+# Start / Stop / Restart containers
+pct start 102; pct start 103; pct start 104
+pct stop 102; pct stop 103; pct stop 104
 
-# Enter container interactive bash/sh
-pct enter 102
+# Execute commands inside container directly from PVE Host:
+# CT 102 (.NET 8 Runner):
+pct exec 102 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service --no-pager
 
-# Execute command inside container directly from PVE
-pct exec 102 -- systemctl status actions.runner.*
-pct exec 104 -- service minio status
+# CT 103 (Angular Jest Runner):
+pct exec 103 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service --no-pager
+
+# CT 104 (MinIO S3 Cache):
+pct exec 104 -- systemctl status minio --no-pager
 ```
 
 ---
 
-## 2. GitHub Actions Runner Maintenance
+## 2. GitHub Actions Runner Maintenance & Token Rotation
 
-### Restarting the Runner Daemon
-If the runner shows offline in GitHub:
+### 2.1 Restarting Runner Daemons
+If a runner shows offline in GitHub Actions:
 ```bash
-# Inside CT 102 or via pct exec 102:
-systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
-systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service --no-pager
+# CT 102 (.NET Runner):
+pct exec 102 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
+
+# CT 103 (Angular Jest Runner):
+pct exec 103 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service
 ```
 
-### Rotating Runner Registration Token
-Runner tokens expire after 1 hour. If re-registering:
+### 2.2 Rotating Runner Registration Token (60-Minute Expiry SOP)
+Runner tokens expire after 1 hour. If re-enrolling or re-installing:
 ```bash
-# Generate registration token via GitHub CLI on host:
-gh api -X POST repos/ugritchaichana/booth-homelab/actions/runners/registration-token --jq .token
+# 1. Generate registration token via GitHub CLI on host:
+RUNNER_TOKEN=$(gh api --method POST \
+  -H "Accept: application/vnd.github+json" \
+  /repos/ugritchaichana/booth-homelab/actions/runners/registration-token \
+  --jq .token)
 
-# On CT 102:
-cd /home/runner/actions-runner
-./config.sh remove --token <TOKEN>
-./config.sh --url https://github.com/ugritchaichana/booth-homelab --token <NEW_TOKEN> --name pve-runner-01 --labels proxmox,linux,x64 --unattended
+# 2. Re-enroll CT 102 (.NET Runner):
+pct exec 102 -- bash -c "
+  cd /home/runner/actions-runner
+  sudo ./svc.sh stop || true
+  sudo ./svc.sh uninstall || true
+  su - runner -c 'cd /home/runner/actions-runner && ./config.sh --url https://github.com/ugritchaichana/booth-homelab --token $RUNNER_TOKEN --name gha-runner-01 --labels self-hosted,linux,proxmox,dotnet --unattended --replace'
+  sudo ./svc.sh install runner
+  sudo ./svc.sh start
+"
+
+# 3. Re-enroll CT 103 (Angular Jest Runner):
+pct exec 103 -- bash -c "
+  cd /home/runner/actions-runner
+  sudo ./svc.sh stop || true
+  sudo ./svc.sh uninstall || true
+  su - runner -c 'cd /home/runner/actions-runner && ./config.sh --url https://github.com/ugritchaichana/booth-homelab --token $RUNNER_TOKEN --name gha-runner-angular --labels self-hosted,linux,proxmox,angular --unattended --replace'
+  sudo ./svc.sh install runner
+  sudo ./svc.sh start
+"
 ```
 
 ---
 
-## 3. MinIO S3 Operations & Troubleshooting
+## 3. Direct In-Container Test Execution (Offline Manual Debugging)
 
-### Inspecting Buckets and Objects
-```bash
-# On CT 102:
-mc ls minio/build-cache
-mc ls minio/build-cache/branches/master/
-mc ls minio/test-artifacts
-```
+To execute test suites directly inside LXC containers without triggering GitHub Actions:
 
-### Checking OpenRC Service Logs
 ```bash
-# Inside CT 104 (Alpine):
-service minio status
-cat /var/log/minio.log
+# CT 102 (.NET 8 Unit & Integration Tests):
+pct exec 102 -- su - runner -c "
+  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/backend
+  dotnet test SdetTestingRig.sln --configuration Release --logger 'console;verbosity=normal'
+"
+
+# CT 103 (Angular 18/19 Jest Standalone Tests - 19 Tests / 4 Suites):
+pct exec 103 -- su - runner -c "
+  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/sdet/frontend
+  npx jest --ci --colors --coverage
+"
 ```
 
 ---
 
-## 4. Hyper-V & Windows Host Network Rescue
+## 4. MinIO S3 Operations & Disaster Recovery (CT 104)
 
-If the Proxmox VM loses network connectivity following a Windows reboot or Hyper-V Default Switch subnet change:
+### 4.1 Inspecting Buckets and Cache Payloads
+```bash
+# On CT 102 (.NET runner with mc installed):
+pct exec 102 -- mc ls minio/build-cache
+pct exec 102 -- mc ls minio/build-cache/branches/master/
+pct exec 102 -- mc ls minio/build-cache/npm/
+pct exec 102 -- mc ls minio/sdet-test-artifacts
+```
 
-1. **Verify Hyper-V Default Switch Subnet:**
-   ```powershell
-   Get-NetIPAddress -InterfaceAlias "vEthernet (Default Switch)"
-   ```
-2. **Renew Proxmox DHCP Lease on `vmbr0`:**
-   ```bash
-   dhclient -r vmbr0
-   dhclient vmbr0
-   ip addr show vmbr0
-   ```
-3. **Verify NAT Masquerade on Proxmox:**
-   ```bash
-   iptables -t nat -L POSTROUTING -n -v
-   # If missing, re-apply:
-   iptables -t nat -A POSTROUTING -s 10.99.20.0/24 -o vmbr0 -j MASQUERADE
-   ```
+### 4.2 Disaster Recovery & Bucket Re-initialization
+If CT 104 is wiped, rebuilt, or cache corrupted:
+```bash
+# 1. Register mc alias:
+pct exec 102 -- mc alias set minio http://10.99.20.20:9000 minioadmin minioadmin
+
+# 2. Re-create required buckets:
+pct exec 102 -- mc mb -p minio/build-cache
+pct exec 102 -- mc mb -p minio/sdet-test-artifacts
+
+# 3. Apply 7-day automatic TTL expiration:
+pct exec 102 -- mc ilm rule add --expire-days 7 minio/build-cache
+pct exec 102 -- mc ilm rule add --expire-days 7 minio/sdet-test-artifacts
+```
+
+### 4.3 Cache Purge (Testing Cold Builds)
+```bash
+pct exec 102 -- mc rm --recursive --force minio/build-cache/branches/master/
+pct exec 102 -- mc rm --recursive --force minio/build-cache/npm/
+```
 
 ---
 
-## 5. Disabling Automatic Copilot Pull Request Reviewer
+## 5. Hyper-V & Host Lifecycle Operations (Environment A)
+
+PowerShell commands for host control (run as Administrator on Windows 11 host):
+
+```powershell
+# Check Proxmox-Lab VM Status
+Get-VM "Proxmox-Lab"
+
+# Start Hypervisor VM
+Start-VM "Proxmox-Lab"
+
+# Verify Nested AMD-V Virtualization (Must be True)
+Get-VMProcessor "Proxmox-Lab" | Select-Object VMName, ExposeVirtualizationExtensions
+
+# Enable MAC Address Spoofing for nested bridge network
+Get-VMNetworkAdapter "Proxmox-Lab" | Set-VMNetworkAdapter -MacAddressSpoofing On
+```
+
+---
+
+## 6. The 6 Empirical Traps & Runtime Mitigations
+
+1. **OpenSSH Interactive Prompt Hang:** Never execute raw `ssh root@100.121.209.85` via Windows PowerShell; use Python Paramiko with explicit password.
+2. **GitHub Actions Composite Action Order:** Always place `actions/checkout@v4` as the first step before calling local composite actions (`./.github/actions/...`).
+3. **Container File Injection:** Host `/tmp` files are invisible in LXC; use `pct push <vmid> <host_path> <container_path>`.
+4. **Debian 12 UsrMerge Path:** MinIO Client `mc` resides in `/bin/mc`; resolve dynamically via `$(command -v mc || echo '/usr/bin/mc')`.
+5. **Pure Headless Angular JSdom Ceiling:** Never install Chrome/Chromium in CT 103; keep it headless with `jest-preset-angular` to respect the 1.5GB RAM ceiling.
+6. **.NET Money Entity Default:** In `Core.Domain`, `Money.Currency` defaults to `"USD"` (not `"THB"`).
+
+---
+
+## 7. Disabling Automatic Copilot Pull Request Reviewer
 
 If GitHub automatically attaches `copilot-pull-request-reviewer` to new pull requests:
-1. Open your GitHub account settings: [GitHub Copilot Settings](https://github.com/settings/copilot).
+1. Open account settings: [GitHub Copilot Settings](https://github.com/settings/copilot).
 2. Click **Code review** in the sidebar.
 3. Toggle off **Automatic Copilot code review**.
-4. To remove Copilot from existing or active pull requests:
+4. To remove Copilot from active pull requests:
    ```bash
    gh api --method DELETE repos/ugritchaichana/booth-homelab/pulls/<PR_NUMBER>/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer"
    ```
