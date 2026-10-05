@@ -9,7 +9,9 @@ SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's#[^a-zA-Z0-9._-]#_#g')
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMPROOT="${RUNNER_TEMP:-/tmp}"
 TARGET_FILE="$(mktemp -p "$TMPROOT" cache-restore.XXXXXX.tar.zst)"
-trap 'rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"' EXIT INT TERM
+trap 'rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 echo "=========================================================="
 echo "      ENTERPRISE DEEP CACHE RESTORE (MINIO S3)           "
@@ -80,9 +82,9 @@ if ! $MC_BIN cp "${FOUND_TARGET}.sha256" "${TARGET_FILE}.sha256" 2>/dev/null; th
 fi
 
 # Verify SHA256 checksum
-EXPECTED_SHA=$(awk '{print $1}' "${TARGET_FILE}.sha256")
+EXPECTED_SHA=$(awk 'NR==1{print $1}' "${TARGET_FILE}.sha256")
 ACTUAL_SHA=$(sha256sum "$TARGET_FILE" | awk '{print $1}')
-if [ -z "$EXPECTED_SHA" ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+if ! [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
     echo "[ABORT] Cache integrity verification failed! Expected: '$EXPECTED_SHA', Actual: '$ACTUAL_SHA'"
     rm -f "$TARGET_FILE" "${TARGET_FILE}.sha256"
     echo "cache_hit=false" >> "${GITHUB_OUTPUT:-/dev/null}"
