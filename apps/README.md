@@ -48,3 +48,11 @@ npm test --prefix apps/frontend -- --silent
 ```powershell
 pwsh -File ./tests/verify-affected-graph.ps1
 ```
+
+---
+
+## Flaky tests
+
+- A test that fails and then passes on the same commit, with no code change, is flaky.
+- Within 24 hours it is quarantined (skipped with a reason that links its tracking issue) and an issue is opened.
+- It returns only after 20 consecutive green repeat runs, recorded in the issue.

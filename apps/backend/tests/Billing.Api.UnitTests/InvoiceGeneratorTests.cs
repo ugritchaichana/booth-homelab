@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Billing.Api;
 using Xunit;
 
@@ -20,14 +23,38 @@ public class InvoiceGeneratorTests
         Assert.Equal(7.0m, generator.CalculateTax(100.0m, 0.07m));
     }
 
+    public static IEnumerable<object[]> SharedTaxRoundingRows()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "fixtures/tax-rounding.json");
+        var rows = JsonSerializer.Deserialize<List<TaxRoundingRow>>(File.ReadAllText(path))!;
+        foreach (var row in rows)
+        {
+            yield return new object[]
+            {
+                decimal.Parse(row.Amount, CultureInfo.InvariantCulture),
+                decimal.Parse(row.Rate, CultureInfo.InvariantCulture),
+                decimal.Parse(row.ExpectedTax, CultureInfo.InvariantCulture),
+            };
+        }
+    }
+
     [Theory]
-    [InlineData(12.34, 0.86)]
-    [InlineData(12.36, 0.87)]
-    [InlineData(1.50, 0.11)]
-    [InlineData(99.95, 7.00)]
-    public void CalculateTax_RoundsHalfUpAwayFromZero(decimal amount, decimal expectedTax)
+    [MemberData(nameof(SharedTaxRoundingRows))]
+    public void CalculateTax_MatchesSharedFixture(decimal amount, decimal rate, decimal expectedTax)
     {
         var generator = new InvoiceGenerator();
-        Assert.Equal(expectedTax, generator.CalculateTax(amount, 0.07m));
+        Assert.Equal(expectedTax, generator.CalculateTax(amount, rate));
     }
+
+    [Fact]
+    public void CalculateTax_NegativeAmount_ReturnsZero()
+    {
+        var generator = new InvoiceGenerator();
+        Assert.Equal(0m, generator.CalculateTax(-50m, 0.07m));
+    }
+
+    private sealed record TaxRoundingRow(
+        [property: JsonPropertyName("amount")] string Amount,
+        [property: JsonPropertyName("rate")] string Rate,
+        [property: JsonPropertyName("expectedTax")] string ExpectedTax);
 }

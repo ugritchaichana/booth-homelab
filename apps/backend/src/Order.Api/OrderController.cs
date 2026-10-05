@@ -15,7 +15,7 @@ public class OrderController
 
     public Money CheckoutWithVoucher(decimal subtotal, decimal discount)
     {
-        var clampedDiscount = Math.Min(discount, subtotal);
+        var clampedDiscount = Math.Max(0m, Math.Min(discount, subtotal));
         var baseAmount = Math.Max(0m, subtotal - clampedDiscount);
         return _service.CalculateTotal(baseAmount, 0.07m);
     }
