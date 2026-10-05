@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup .NET 8 SDK
-        uses: actions/setup-dotnet@3951f0000cca386034d60c63863412a84687593e # v4.3.0
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: '8.0.x'
 
