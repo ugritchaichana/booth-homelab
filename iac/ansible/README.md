@@ -35,7 +35,7 @@ bash scripts/iac/ansible.sh bootstrap.yml -e ansible_user=root
 bash scripts/iac/ansible.sh site.yml
 ```
 
-The inventory `ansible_user` must be `automation` before `site.yml` runs. `bootstrap.yml` is the only play that connects as `root`.
+The inventory `ansible_user` is `automation`; `bootstrap.yml` is the only play that connects as `root`, hence its `-e ansible_user=root`. Host keys come from `iac/inventory/host_vars/<host>.yml`, which reads them from `iac/secrets/hosts/<host>-access.sops.yaml`.
 
 ## Role `base`
 

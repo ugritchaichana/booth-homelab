@@ -8,6 +8,7 @@ Recipient (public): `age1n0vn2cctfh4acum3pygfgc2qn5889es6pnllc6q9m0a52e6gc90q7mr
 |---|---|---|
 | `hosts/pve01.sops.yaml` | `root_password` of the `pve01` host (hashed into the install answer file at build time) | operator, at install |
 | `hosts/pve01-ssh.sops.yaml` | `ssh_host_ed25519_public`, the host key that `scripts/iac/render-ssh-config.sh` pins in the rendered `known_hosts` | operator, captured once over an already-trusted path |
+| `hosts/pve01-access.sops.yaml` | `root_authorized_keys`, `root_authorized_keys_revoked`, `automation_authorized_keys`: operator public keys for the base role, read by `iac/inventory/host_vars/pve01.yml` | operator |
 
 Each file has one writer. A host named `<name>` in `iac/inventory/hosts.yml` needs `hosts/<name>-ssh.sops.yaml` before the SSH config can be rendered.
 
