@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Start', 'Stop', 'Status', 'Refresh')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Start', 'Stop', 'Status', 'Refresh', 'Checkpoint')][string]$Action,
     [string]$ConfigPath,
+    [string]$Name,
     [switch]$Force,
     [switch]$TurnOff,
     [switch]$ShowPrefixes
@@ -162,8 +163,91 @@ function Invoke-StopAction {
     1
 }
 
+function Test-DvdLoaded {
+    param($Drive)
+    [bool]($Drive.Path -or ($null -ne $Drive.DvdMediaType -and [string]$Drive.DvdMediaType -ne 'None'))
+}
+
+function Get-DiskChainSize {
+    param([string]$VmName, $Snapshot)
+    $seen = @{}
+    $heads = @(@(Get-VMHardDiskDrive -VMName $VmName).Path)
+    foreach ($snap in $Snapshot) { $heads += @(Get-VMHardDiskDrive -VMSnapshot $snap).Path }
+    foreach ($path in $heads) {
+        for ($depth = 0; $path -and $depth -lt 64 -and -not $seen.ContainsKey($path); $depth++) {
+            $vhd = Get-VHD -Path $path
+            $seen[$path] = [int64]$vhd.FileSize
+            $path = $vhd.ParentPath
+        }
+    }
+    [int64]($seen.Values | Measure-Object -Sum).Sum
+}
+
+function Invoke-CheckpointAction {
+    param($Cfg, $Vm, [string]$SnapshotName)
+    if (-not $SnapshotName -or $SnapshotName -cnotmatch '\A[a-z0-9][a-z0-9-]{0,62}\z') {
+        Write-HomelabLog -Level Fail -Message 'checkpoint needs -Name: 1 to 63 characters, lowercase letters, digits and hyphens, starting with a letter or digit.'
+        return 1
+    }
+    if ($Vm.State -ne 'Off') {
+        Write-HomelabLog -Level Fail -Message ('VM is {0}; a checkpoint is taken only while the VM is Off (a running VM keeps memory state in the checkpoint). Run -Action Stop first.' -f $Vm.State)
+        return 1
+    }
+    $existing = @(Get-VMSnapshot -VMName $Cfg.VmName)
+    if (@($existing | Where-Object { $_.Name -eq $SnapshotName }).Count -gt 0) {
+        Write-HomelabLog -Level Fail -Message ('checkpoint "{0}" already exists; pick another name.' -f $SnapshotName)
+        return 1
+    }
+    $media = @(Get-VMDvdDrive -VMName $Cfg.VmName | Where-Object { Test-DvdLoaded -Drive $_ })
+    if ($media.Count -gt 0) {
+        Write-HomelabLog -Level Fail -Message ('{0} DVD drive(s) still hold media (controller {1}); eject before taking a checkpoint.' -f $media.Count, (($media | ForEach-Object { '{0}/{1}' -f $_.ControllerNumber, $_.ControllerLocation }) -join ', '))
+        return 1
+    }
+    $diskPath = @(Get-VMHardDiskDrive -VMName $Cfg.VmName)[0].Path
+    $driveRoot = [IO.Path]::GetPathRoot($diskPath)
+    $free = [int64](Get-PSDrive -Name $driveRoot.Substring(0, 1)).Free
+    $worst = $free - [int64]$Cfg.DiskBytes
+    $floor = [int64]$Cfg.MinFreeDiskAfterGrowthGiB * 1GB
+    $chain = Format-HomelabGiB -Bytes (Get-DiskChainSize -VmName $Cfg.VmName -Snapshot $existing)
+    $diskText = '{0} free {1}; worst case after the new layer grows to {2} GiB: {3}; floor {4} GiB; {5} checkpoint(s), disk chain {6}' -f $driveRoot, (Format-HomelabGiB -Bytes $free), $Cfg.DiskGiB, (Format-HomelabGiB -Bytes $worst), $Cfg.MinFreeDiskAfterGrowthGiB, $existing.Count, $chain
+    if ($free -lt $floor) {
+        Write-HomelabLog -Level Fail -Message ('not enough free disk for a checkpoint: ' + $diskText + '. Remove a checkpoint with Remove-VMSnapshot once the step it protects is verified.')
+        return 1
+    }
+    if ($worst -lt $floor) { Write-HomelabLog -Level Warn -Message ('the worst case is below the floor: ' + $diskText) }
+    if ((Get-VM -Name $Cfg.VmName).State -ne 'Off') {
+        Write-HomelabLog -Level Fail -Message 'VM left Off before the checkpoint; nothing taken.'
+        return 1
+    }
+    $created = Checkpoint-VM -Name $Cfg.VmName -SnapshotName $SnapshotName -Passthru
+    $snap = @()
+    for ($try = 0; ; $try++) {
+        $snap = @(Get-VMSnapshot -VMName $Cfg.VmName | Where-Object { if ($created.Id) { $_.Id -eq $created.Id } else { $_.Name -eq $SnapshotName } })
+        if ($snap.Count -gt 0 -or $try -ge 30) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    if ($snap.Count -ne 1) {
+        Write-HomelabLog -Level Fail -Message ('checkpoint "{0}" is listed {1} times 15 s after Checkpoint-VM returned; check Get-VMSnapshot before retrying.' -f $SnapshotName, $snap.Count)
+        return 1
+    }
+    $recorded = @(Get-VMDvdDrive -VMSnapshot $snap[0] | Where-Object { Test-DvdLoaded -Drive $_ })
+    if ($snap[0].State -ne 'Off' -or $recorded.Count -gt 0) {
+        $badText = 'checkpoint "{0}" recorded state {1} and {2} DVD medium(s)' -f $SnapshotName, $snap[0].State, $recorded.Count
+        try {
+            Remove-VMSnapshot -VMSnapshot $snap[0]
+        } catch {
+            Write-HomelabLog -Level Fail -Message ('{0}; removing it failed ({1}). Remove it by hand with Remove-VMSnapshot.' -f $badText, $_.Exception.Message)
+            return 1
+        }
+        Write-HomelabLog -Level Fail -Message ($badText + '; removed it.')
+        return 1
+    }
+    Write-HomelabLog -Level Pass -Message ('checkpoint "{0}" taken while Off' -f $SnapshotName)
+    0
+}
+
 function Invoke-Main {
-    param([string]$Do, [bool]$Override, [bool]$HardOff)
+    param([string]$Do, [bool]$Override, [bool]$HardOff, [string]$SnapshotName)
     $cfg = Import-PveConfig -Path $ConfigPath
     $rights = Get-HomelabHyperVRight
     if (-not $rights.HasRights) {
@@ -181,12 +265,13 @@ function Invoke-Main {
         'Start' { return (Invoke-StartAction -Cfg $cfg -Vm $vm -Override $Override) }
         'Refresh' { return (Invoke-RefreshAction -Cfg $cfg -Vm $vm) }
         'Stop' { return (Invoke-StopAction -Cfg $cfg -Vm $vm -HardOff $HardOff -Confirmed $Override) }
+        'Checkpoint' { return (Invoke-CheckpointAction -Cfg $cfg -Vm $vm -SnapshotName $SnapshotName) }
     }
 }
 
 $exitCode = 1
 try {
-    $exitCode = @(Invoke-Main -Do $Action -Override $Force.IsPresent -HardOff $TurnOff.IsPresent)[-1]
+    $exitCode = @(Invoke-Main -Do $Action -Override $Force.IsPresent -HardOff $TurnOff.IsPresent -SnapshotName $Name)[-1]
 } catch {
     Write-HomelabLog -Level Fail -Message $_.Exception.Message
 }
