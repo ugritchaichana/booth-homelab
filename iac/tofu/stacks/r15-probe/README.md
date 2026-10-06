@@ -12,6 +12,7 @@ A throwaway unprivileged container and a VM on the guest vnet, created only to p
 | Rules | tcp/22 inbound from the guest gateway only, and the security group `guest-egress` |
 | VM source filter | `ipfilter-net0` holding the VM's own address |
 | Image | Debian 13 genericcloud from a dated directory with its SHA512 (`image_directory`, `image_sha512`), never `latest` |
+| Tags | none: Proxmox checks tag permission on `/vms/<id>` without the pool, so a pool-scoped token cannot set tags when it creates a guest |
 | Start | created stopped, `start_on_boot` on; `r15-verify.yml` starts them |
 
 The security group is created by the `pve_firewall` role (ADR 0025), so run `site.yml` first. The token needs the privileges guest creation checks beyond `VM.Config.Network`, and `Datastore.AllocateTemplate` plus `Sys.AccessNetwork` for the two downloads; ADR 0026 does not list all of them, so the first apply on the host is the check.
