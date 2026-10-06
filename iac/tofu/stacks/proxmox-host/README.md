@@ -1,6 +1,6 @@
 # proxmox-host stack
 
-One root module for every Proxmox host in `iac/inventory/hosts.yml`. `var.host` selects the entry, so a new host is an inventory row, not new code. Only data sources live here until the guest network module lands.
+One root module for every Proxmox host in `iac/inventory/hosts.yml`. `var.host` selects the entry, so a new host is an inventory row, not new code. The guest network comes from `modules/proxmox/sdn` (ADR 0030).
 
 ## Run
 
@@ -36,5 +36,6 @@ The provider endpoint is `https://127.0.0.1:18006/`, the local end of an SSH for
 ```sh
 tofu fmt -check -recursive iac/tofu
 (cd iac/tofu/stacks && tflint --recursive --config "$PWD/../../../.tflint.hcl")
-tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false && tofu -chdir=iac/tofu/stacks/proxmox-host validate
+export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123   # needed by test only
+tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false && tofu -chdir=iac/tofu/stacks/proxmox-host validate && tofu -chdir=iac/tofu/stacks/proxmox-host test
 ```

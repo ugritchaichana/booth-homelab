@@ -9,3 +9,12 @@ output "node_name" {
 output "pve_version" {
   value = data.proxmox_version.this.version
 }
+
+output "guest_network" {
+  value = {
+    zone    = module.guest_network.zone
+    vnet    = module.guest_network.vnet
+    cidr    = module.guest_network.cidr
+    gateway = module.guest_network.gateway
+  }
+}
