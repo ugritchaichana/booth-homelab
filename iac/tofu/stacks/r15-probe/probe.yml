@@ -1,0 +1,21 @@
+---
+r15_guests:
+  lxc:
+    kind: lxc
+    vm_id: 9101
+    address: 10.99.16.21
+    login_user: root
+  vm:
+    kind: qemu
+    vm_id: 9102
+    address: 10.99.16.22
+    login_user: debian
+r15_firewall_options:
+  enable: 1
+  policy_in: DROP
+  policy_out: DROP
+  ipfilter: 1
+  log_level_out: info
+r15_security_group: guest-egress
+r15_control_port: 22
+r15_control_key: /root/.ssh/r15_probe_ed25519

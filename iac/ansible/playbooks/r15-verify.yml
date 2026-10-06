@@ -1,0 +1,371 @@
+---
+- name: Create the control key the probe guests trust
+  hosts: pve_hosts
+  gather_facts: false
+  become: true
+  tags: [r15_keygen, never]
+  vars_files:
+    - ../../tofu/stacks/r15-probe/probe.yml
+  tasks:
+    - name: Generate the throwaway control key on the host
+      ansible.builtin.command:
+        argv: [ssh-keygen, -q, -t, ed25519, -N, "", -C, r15-probe, -f, "{{ r15_control_key }}"]
+        creates: "{{ r15_control_key }}"
+
+    - name: Read the public key
+      ansible.builtin.command:
+        argv: [cat, "{{ r15_control_key }}.pub"]
+      register: r15_public_key
+      changed_when: false
+
+    - name: Show the public key to pass to the r15-probe stack
+      ansible.builtin.debug:
+        msg: "TF_VAR_probe_ssh_public_key='{{ r15_public_key.stdout }}'"
+
+- name: Verify the R15 isolation controls from inside the probe guests
+  hosts: pve_hosts
+  gather_facts: false
+  become: true
+  vars_files:
+    - ../../tofu/stacks/r15-probe/probe.yml
+  vars:
+    r15_phases: [baseline, after-pct-reboot, after-pve-reboot, after-host-reboot, red-first]
+    r15_probe_script: "{{ playbook_dir }}/../../../tests/isolation/r15-probe.sh"
+    r15_targets_file: "{{ playbook_dir }}/../../../tests/isolation/targets.env"
+    r15_work_dir: /var/lib/homelab/r15
+    r15_guest_dir: /tmp/r15
+    r15_ssh_base:
+      - ssh
+      - -i
+      - "{{ r15_control_key }}"
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - BatchMode=yes
+      - -o
+      - ConnectTimeout=10
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - -o
+      - "UserKnownHostsFile={{ r15_work_dir }}/known_hosts"
+  tasks:
+    - name: Require one host, a known phase and an output directory
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - r15_phase is defined
+          - r15_phase in r15_phases
+          - r15_output_dir is defined
+          - r15_output_dir | length > 0
+        fail_msg: >-
+          Run with --limit <host> -e r15_phase=<baseline|after-pct-reboot|after-pve-reboot|after-host-reboot|red-first>
+          -e r15_output_dir=<directory on this machine>
+
+    - name: Find the uncommitted targets file
+      ansible.builtin.stat:
+        path: "{{ r15_targets_file }}"
+      delegate_to: localhost
+      become: false
+      register: r15_targets_stat
+
+    - name: Require the targets file
+      ansible.builtin.assert:
+        that: r15_targets_stat.stat.exists
+        fail_msg: Copy tests/isolation/targets.example.env to targets.env and fill in the real targets
+
+    - name: Create the working directory on the host
+      ansible.builtin.file:
+        path: "{{ r15_work_dir }}"
+        state: directory
+        mode: "0700"
+        owner: root
+        group: root
+
+    - name: Forget guest host keys left by an earlier apply
+      ansible.builtin.file:
+        path: "{{ r15_work_dir }}/known_hosts"
+        state: absent
+      when: r15_phase == 'baseline'
+
+    - name: Read the state of each probe guest
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - get
+          - "/nodes/{{ pve_node_name }}/{{ r15_guest.value.kind }}/{{ r15_guest.value.vm_id }}/status/current"
+          - --output-format
+          - json
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      register: r15_status
+      changed_when: false
+
+    - name: Start every stopped probe guest
+      ansible.builtin.command:
+        argv:
+          - "{{ 'pct' if r15_status_item.r15_guest.value.kind == 'lxc' else 'qm' }}"
+          - start
+          - "{{ r15_status_item.r15_guest.value.vm_id }}"
+      loop: "{{ r15_status.results }}"
+      loop_control:
+        loop_var: r15_status_item
+        label: "{{ r15_status_item.r15_guest.key }}"
+      when: (r15_status_item.stdout | from_json).status == 'stopped'
+      changed_when: true
+
+    - name: Wait until each guest accepts the control channel
+      ansible.builtin.wait_for:
+        host: "{{ r15_guest.value.address }}"
+        port: "{{ r15_control_port }}"
+        delay: 2
+        timeout: 240
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+
+    - name: Read the firewall options of each guest
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - get
+          - "/nodes/{{ pve_node_name }}/{{ r15_guest.value.kind }}/{{ r15_guest.value.vm_id }}/firewall/options"
+          - --output-format
+          - json
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      register: r15_live_options
+      changed_when: false
+
+    - name: Read the firewall rules of each guest
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - get
+          - "/nodes/{{ pve_node_name }}/{{ r15_guest.value.kind }}/{{ r15_guest.value.vm_id }}/firewall/rules"
+          - --output-format
+          - json
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      register: r15_live_rules
+      changed_when: false
+
+    - name: Read the configuration of each guest
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - get
+          - "/nodes/{{ pve_node_name }}/{{ r15_guest.value.kind }}/{{ r15_guest.value.vm_id }}/config"
+          - --output-format
+          - json
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      register: r15_live_config
+      changed_when: false
+
+    - name: Read the source-address filter of the VM
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - get
+          - "/nodes/{{ pve_node_name }}/qemu/{{ r15_guests.vm.vm_id }}/firewall/ipset/ipfilter-net0"
+          - --output-format
+          - json
+      register: r15_live_ipfilter
+      changed_when: false
+
+    - name: Assert each firewall option matches the declared policy
+      ansible.builtin.assert:
+        that:
+          - (r15_option_check.0.stdout | from_json)[r15_option_check.1.key] | default('unset') | string == r15_option_check.1.value | string
+        fail_msg: >-
+          Drift on {{ r15_option_check.0.r15_guest.key }}: option {{ r15_option_check.1.key }}
+          should be {{ r15_option_check.1.value }}
+        quiet: true
+      loop: "{{ r15_live_options.results | product(r15_firewall_options | dict2items) | list }}"
+      loop_control:
+        loop_var: r15_option_check
+        label: "{{ r15_option_check.0.r15_guest.key }} {{ r15_option_check.1.key }}"
+
+    - name: Assert each guest holds exactly the group rule and the control rule
+      ansible.builtin.assert:
+        that:
+          - (r15_rule_check.stdout | from_json) | length == 2
+          - (r15_rule_check.stdout | from_json) | selectattr('type', 'eq', 'group') | selectattr('action', 'eq', r15_security_group) | list | length == 1
+          - >-
+            (r15_rule_check.stdout | from_json) | selectattr('type', 'eq', 'in') | selectattr('action', 'eq', 'ACCEPT')
+            | selectattr('proto', 'eq', 'tcp') | selectattr('dport', 'eq', r15_control_port | string)
+            | selectattr('source', 'eq', guest_network.gateway) | list | length == 1
+        fail_msg: "Drift on {{ r15_rule_check.r15_guest.key }}: the rules are not the group rule plus the control rule from the gateway only"
+        quiet: true
+      loop: "{{ r15_live_rules.results }}"
+      loop_control:
+        loop_var: r15_rule_check
+        label: "{{ r15_rule_check.r15_guest.key }}"
+
+    - name: Assert each guest starts on boot with the firewall flag on its NIC
+      ansible.builtin.assert:
+        that:
+          - (r15_config_check.stdout | from_json).onboot | default(0) | int == 1
+          - "'firewall=1' in (r15_config_check.stdout | from_json).net0"
+          - "('bridge=' ~ guest_network.vnet) in (r15_config_check.stdout | from_json).net0"
+        fail_msg: "Drift on {{ r15_config_check.r15_guest.key }}: onboot, the NIC firewall flag or the bridge differs"
+        quiet: true
+      loop: "{{ r15_live_config.results }}"
+      loop_control:
+        loop_var: r15_config_check
+        label: "{{ r15_config_check.r15_guest.key }}"
+
+    - name: Assert the VM source filter holds only its own address
+      ansible.builtin.assert:
+        that:
+          - (r15_live_ipfilter.stdout | from_json) | map(attribute='cidr') | map('regex_replace', '/32$', '') | list == [r15_guests.vm.address]
+        fail_msg: "Drift on the VM: ipfilter-net0 does not hold exactly {{ r15_guests.vm.address }}"
+        quiet: true
+
+    - name: Check which probe tools each guest has
+      ansible.builtin.command:
+        argv: "{{ r15_ssh_base + [r15_guest.value.login_user ~ '@' ~ r15_guest.value.address, 'command -v nc && command -v curl'] }}"
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      register: r15_tools
+      until: r15_tools.rc != 255
+      retries: 12
+      delay: 5
+      failed_when: r15_tools.rc == 255
+      changed_when: false
+
+    - name: Install the probe tools where missing
+      ansible.builtin.command:
+        argv: >-
+          {{ r15_ssh_base + [r15_tool_check.r15_guest.value.login_user ~ '@' ~ r15_tool_check.r15_guest.value.address,
+          ('' if r15_tool_check.r15_guest.value.login_user == 'root' else 'sudo -n ')
+          ~ 'sh -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y netcat-openbsd curl ca-certificates"'] }}
+      loop: "{{ r15_tools.results }}"
+      loop_control:
+        loop_var: r15_tool_check
+        label: "{{ r15_tool_check.r15_guest.key }}"
+      when: r15_tool_check.rc != 0
+      changed_when: true
+
+    - name: Copy the probe into each guest
+      ansible.builtin.command:
+        argv: >-
+          {{ r15_ssh_base + [r15_guest.value.login_user ~ '@' ~ r15_guest.value.address,
+          'mkdir -p ' ~ r15_guest_dir ~ ' && cat > ' ~ r15_guest_dir ~ '/r15-probe.sh && chmod 0755 ' ~ r15_guest_dir ~ '/r15-probe.sh'] }}
+        stdin: "{{ lookup('ansible.builtin.file', r15_probe_script) }}"
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      changed_when: false
+
+    - name: Copy the targets into each guest
+      ansible.builtin.command:
+        argv: "{{ r15_ssh_base + [r15_guest.value.login_user ~ '@' ~ r15_guest.value.address, 'cat > ' ~ r15_guest_dir ~ '/targets.env'] }}"
+        stdin: "{{ lookup('ansible.builtin.file', r15_targets_file) }}"
+      loop: "{{ r15_guests | dict2items }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
+      changed_when: false
+
+    - name: Run the probe, with the host firewall stopped for the red-first phase only
+      block:
+        - name: Stop the host firewall
+          ansible.builtin.command:
+            argv: [pve-firewall, stop]
+          when: r15_phase == 'red-first'
+          changed_when: true
+
+        - name: Run the probe in each guest
+          ansible.builtin.command:
+            argv: >-
+              {{ r15_ssh_base + [r15_guest.value.login_user ~ '@' ~ r15_guest.value.address,
+              'bash ' ~ r15_guest_dir ~ '/r15-probe.sh --guest ' ~ r15_guest.key ~ ' --phase ' ~ r15_phase
+              ~ ' --targets ' ~ r15_guest_dir ~ '/targets.env'] }}
+          loop: "{{ r15_guests | dict2items }}"
+          loop_control:
+            loop_var: r15_guest
+            label: "{{ r15_guest.key }}"
+          register: r15_runs
+          failed_when: false
+          changed_when: false
+
+        - name: Keep each probe output on the host
+          ansible.builtin.copy:
+            content: "{{ r15_run.stdout }}\n{{ r15_run.stderr }}\nEXIT {{ r15_run.rc }}\n"
+            dest: "{{ r15_work_dir }}/r15-{{ r15_phase }}-{{ r15_run.r15_guest.key }}.txt"
+            mode: "0600"
+            owner: root
+            group: root
+          loop: "{{ r15_runs.results }}"
+          loop_control:
+            loop_var: r15_run
+            label: "{{ r15_run.r15_guest.key }}"
+      always:
+        - name: Start the host firewall again
+          ansible.builtin.command:
+            argv: [pve-firewall, start]
+          when: r15_phase == 'red-first'
+          changed_when: true
+
+        - name: Wait until the firewall reports enabled and running
+          ansible.builtin.command:
+            argv: [pve-firewall, status]
+          register: r15_firewall_status
+          until: "r15_firewall_status.stdout == 'Status: enabled/running'"
+          retries: 12
+          delay: 5
+          when: r15_phase == 'red-first'
+          changed_when: false
+
+    - name: Record the control channel as the positive control of the guest-to-guest rows
+      ansible.builtin.copy:
+        content: |
+          {% for guest in r15_guests | dict2items %}
+          CONTROL control_channel_{{ guest.key }} {{ guest.value.address }}:{{ r15_control_port }} True
+          {% endfor %}
+        dest: "{{ r15_work_dir }}/r15-{{ r15_phase }}-control.txt"
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Fetch every output to this machine
+      ansible.builtin.fetch:
+        src: "{{ r15_work_dir }}/r15-{{ r15_phase }}-{{ r15_name }}.txt"
+        dest: "{{ r15_output_dir }}/"
+        flat: true
+      loop: "{{ (r15_guests.keys() | list) + ['control'] }}"
+      loop_control:
+        loop_var: r15_name
+
+    - name: Show each summary line
+      ansible.builtin.debug:
+        msg: "{{ r15_summary.r15_guest.key }}: {{ r15_summary.stdout_lines | select('match', '^SUMMARY') | list }}"
+      loop: "{{ r15_runs.results }}"
+      loop_control:
+        loop_var: r15_summary
+        label: "{{ r15_summary.r15_guest.key }}"
+
+    - name: Fail unless every probe exited 0
+      ansible.builtin.assert:
+        that: r15_run_check.rc == 0
+        fail_msg: >-
+          The {{ r15_run_check.r15_guest.key }} probe exited {{ r15_run_check.rc }};
+          read {{ r15_output_dir }}/r15-{{ r15_phase }}-{{ r15_run_check.r15_guest.key }}.txt
+        quiet: true
+      loop: "{{ r15_runs.results }}"
+      loop_control:
+        loop_var: r15_run_check
+        label: "{{ r15_run_check.r15_guest.key }}"
