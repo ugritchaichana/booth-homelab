@@ -2,7 +2,7 @@
 
 Files here are encrypted with [sops](https://github.com/getsops/sops) for one age recipient, selected by the rule in the repository-root `.sops.yaml` (`^iac/secrets/.*\.sops\.ya?ml$`).
 
-Recipient (public): `age1rjnrfsz0ep4f92g9huvr3wzqt3gs4wvzglta3sfuaa0t780cqu2q9dyp0n`
+Recipient (public): `age1n0vn2cctfh4acum3pygfgc2qn5889es6pnllc6q9m0a52e6gc90q7mr2sc`
 
 | File | Holds |
 |---|---|
