@@ -196,12 +196,12 @@ pct exec 102 -- mc ls minio/build-cache/npm/
 
 ### 5. AI-Native Implementation & Agent Onboarding
 
-This repository is optimized for autonomous AI coding assistants (Antigravity, Claude Code, Cursor, Copilot Workspace, Gemini CLI). The guides below give an agent the commands, topology and constraints it needs:
+The guides below give any AI coding agent the commands, topology and constraints it needs:
 
 - **Universal Agent Guide:** [`AGENTS.md`](AGENTS.md) — Authoritative machine-readable operational guide covering commands, empirical traps, and topology.
 - **Agent Handover Prompt:** [`HANDOFF.md`](HANDOFF.md) — Turnkey prompt to paste directly into any new AI session to resume immediately.
 - **Deep Technical Context:** [`AI_CONTEXT.md`](AI_CONTEXT.md) — Architectural invariants, security policies, and debugging heuristics.
-- **Engineering Standards:** [`GEMINI.md`](GEMINI.md) — The 8 Core Engineering Pillars governing clean code, deterministic verification, and security.
+- **Engineering Standards:** [`AGENTS.md`](AGENTS.md#4-the-8-core-engineering-pillars-operating-standards) — The 8 Core Engineering Pillars governing clean code, deterministic verification, and security.
 - **Hardware-Free Local Sandbox:** Launch the complete local S3 cache sandbox with:
   ```powershell
   docker compose -f sandbox/docker-compose.sandbox.yml up -d
