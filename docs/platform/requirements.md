@@ -371,6 +371,8 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | 29 | C: 159.7 GiB free; a VHDX grown to 140 GiB would leave 19.7 GiB, below the Q1 floor | `CONFIRMED` | `Get-Volume C` 2026-10-06 (Phase 1 discussion) |
 | 30 | Proxmox Bugzilla 8027 "Cannot be installed in nested Hyper-V": status NEW, last change 2026-09-10, no fix | `CONFIRMED` | bugzilla.proxmox.com/show_bug.cgi?id=8027, read 2026-10-06 |
 | 31 | `10.99.0.0/16` overlaps no route or address on the host (the occupied private ranges are the VPN prefixes of row 22, the WSL `/20`, the home LAN and tailnet `/32`s); no NAT object exists | `CONFIRMED` | `Get-NetRoute`, `Get-NetIPAddress`, `Get-NetNat` 2026-10-06 |
+| 32 | The laptop is the owner's personal machine (owner, G1). Not joined to Azure AD, a domain or a workplace; no external MDM enrollment (only Windows' built-in provisioning authorities); no DeviceGuard or Hyper-V policy | `CONFIRMED` | `dsregcmd /status`, `HKLM:\SOFTWARE\Microsoft\Enrollments`, `PolicyManager\current\device` 2026-10-06 |
+| 33 | Elevation works: a no-op `Start-Process -Verb RunAs` returned `elevated=True`, High integrity, exit 0 in 3 s after the owner accepted UAC. Hyper-V Administrators has 0 members; UAC `ConsentPromptBehaviorAdmin=5`; Memory Integrity running and not UEFI-locked; Windows `sshd` installed but Stopped/Manual, nothing listens on :22 | `CONFIRMED` | UAC test and `Get-LocalGroupMember`, `Win32_DeviceGuard`, `Get-Service sshd` 2026-10-06 |
 
 ---
 
@@ -430,6 +432,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
   - Set up SSH keys and tailnet access.
   - Create a restore point per R13.
   - Detail decisions from the Phase 1 discussion (2026-10-06): D19–D23. Phase 1 is still not a go.
+  - Grill of the remaining Phase 1 details (2026-10-06): rows 32–33, D24–D32. Phase 1 is still not a go.
 - **DONE WHEN:**
   - `pveversion` shows 9.x.
   - The nested KVM result is recorded, pass or fail; on fail, D9 applies.
@@ -558,6 +561,15 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | D21 | VM start policy | autostart with Windows / start on demand | start on demand; while stopped, jobs overflow to hosted (D14) | owner, Phase 1 discussion: RAM stays free when the pool is not needed | `DECIDED (2026-10-06)` | The router treats a stopped VM as pool-not-ready. Q7 / D18 targets are measured with the VM running |
 | D22 | Hyper-V NAT subnet | any free private range | `10.99.0.0/24` (host `10.99.0.1`, PVE `10.99.0.2`); PVE-internal bridges inside `10.99.0.0/16` | operator: row 31 shows the range is free | `DECIDED (2026-10-06)` | Re-check routes before the Phase 1 script runs |
 | D23 | Phase 1 mechanics | — | • one VM; the nested-KVM smoke test runs on it<br>• the age key is created in Phase 1, before the install, so the PVE root password is stored per Q6 from the first boot<br>• the auto-install ISO is prepared with `proxmox-auto-install-assistant` in WSL Debian (`HYPOTHESIS` until it runs)<br>• first restore point: a checkpoint with the VM stopped | operator; offered to the owner in the Phase 1 discussion | `DECIDED (2026-10-06)` | The owner's off-machine age-key backup moves to Phase 1 |
+| D24 | Remote access in Phase 1 (refines D20) | none / Windows `sshd` + `ssh -J` / tailnet subnet route | none: the operator and the owner use this laptop only; no new listener on Windows. D20's jump host is built only when remote access is needed | owner, G2 | `DECIDED (2026-10-06)` | — |
+| D25 | VM start mechanism (refines D21) | manual / scheduled / queue watcher | a manual start/stop script now; the automatic mechanism is chosen in Phase 5 with the measured cold-start time | owner, G3 | `DECIDED (2026-10-06)` | Measure VM cold start in Phase 1 |
+| D26 | Rights for VM start/stop | UAC every time / owner account in Hyper-V Administrators | Hyper-V Administrators | owner, G4: accepts that any process running as the owner can control the VM and mount its VHDX without UAC | `DECIDED (2026-10-06)` | Added by the elevated Phase 1 script; effective after the next sign-in |
+| D27 | Nested KVM fails | D9 directly / one Memory Integrity off test / Memory Integrity off permanently | one diagnostic test with Memory Integrity off, then back on; D9 if KVM still fails | owner, G5 | `DECIDED (2026-10-06)` | The owner picks the restart time |
+| D28 | Reboots | scripts reboot / scripts never reboot | Phase 1 scripts never reboot; they stop and say a reboot is needed | owner, G5 ("restart later") | `DECIDED (2026-10-06)` | — |
+| D29 | Off-machine backup of the age key and the PVE root password | password manager / offline media / both | the owner's password manager (secure note), copied by the owner before the PVE install | owner, G6 | `DECIDED (2026-10-06)` | Refines the Phase 1 owner action (D23) |
+| D30 | Check of elevated scripts before UAC | owner reads the PR first / merge then run / no owner review | no owner review; the operator runs them. Compensating controls: an independent `security-engineer` review before the run; the scripts still land through a PR (R11) carrying the real run output | owner, G7 | `DECIDED (2026-10-06)` | — |
+| D31 | PVE package repository | enterprise (paid subscription) / no-subscription | `pve-no-subscription`; enterprise repo disabled | owner, G8 | `DECIDED (2026-10-06)` | — |
+| D32 | Reach of the owner's go | Phase 1 only / Phases 1–2 / Phases 1–5 | Phases 1–2 continuously; stop on a red DoD, an owner-only step (UAC, reboot, key backup) and to report the nested-KVM result; Phase 3 needs a new go | owner, G9 | `DECIDED (2026-10-06)` | — |
 
 ### Rejected options and why
 
@@ -579,7 +591,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | Question | Answer | If yes, what else |
 |---|---|---|
 | Touches secrets / credentials / tokens? | `yes`:<br>• PVE root password<br>• PVE API tokens (provisioner / controller / backup)<br>• GitHub fine-grained tokens: Administration RW for JIT minting, Administration read for the router<br>• cache root and reader/writer keys<br>• SOPS age key<br>• SSH keys | • Generate locally; never print.<br>• Store per Q6.<br>• By-value scans of every PR body, log and commit.<br>• gitleaks in CI.<br>• Never reuse the five old values. |
-| Touches IAM / permissions / roles? | `yes`:<br>• Windows admin (UAC for Hyper-V)<br>• PVE roles/ACLs per token<br>• token scopes<br>• bucket policies | • Each token gets only the paths and privileges its role needs, with the reason in an ADR.<br>• Tokens are fine-grained, scoped to the Q3 repo, with only the Administration level needed. |
+| Touches IAM / permissions / roles? | `yes`:<br>• Windows admin (UAC for Hyper-V)<br>• PVE roles/ACLs per token<br>• token scopes<br>• bucket policies | • Each token gets only the paths and privileges its role needs, with the reason in an ADR.<br>• Tokens are fine-grained, scoped to the Q3 repo, with only the Administration level needed.<br>• 2026-10-06 (D26): the owner's account joins Hyper-V Administrators, owner-accepted |
 | Real customer data into logs / artifacts / reports? | `no` — sample apps with synthetic fixtures | N/A |
 | Gives untrusted code a path into private networks? | `yes` — runners execute public-repo code on a host that routes 7 VPN prefixes, tailnet peers and a home LAN | • R15: two isolation layers (PVE firewall + Windows firewall).<br>• Proven by negative tests before the first runner registers.<br>• D17. |
 
@@ -658,6 +670,7 @@ Before Phase 6, which touches shared CI, run a risk assessment and summarize its
 | 2026-10-06 | Owner answers, second session: (1) add a one-line pointer file importing `AGENTS.md`; (2) the fork PR approval setting waits — focus first on finishing the neutral repo, which is not integrated with any organization; (3) Phase 1 is not a go — the owner wants to settle Phase 1 details first | Owner direction; the row-27 fork-PR risk stays open until the owner sets the approval or Phase 6 routes forks to hosted |
 | 2026-10-06 | Phase 1 discussion: rows 28–31 measured; D13 SUPERSEDED by D19 (12 vCPU / 20 GiB / 128 GiB); D20 PVE off the tailnet; D21 VM starts on demand; D22 NAT subnet; D23 Phase 1 mechanics; age-key backup moves to Phase 1. Phase 1 is still not a go | Measured RAM and disk contradicted the Q1 budget; the owner chose the options |
 | 2026-10-06 | Published in the repository as `docs/platform/requirements.md`, sanitized for a public repo: host names, network prefixes, operator-local paths and vendor names removed (R16) | The repo copy becomes canonical (Phase 2) |
+| 2026-10-06 | Phase 1 grill G1–G9: rows 32–33 measured (personal unmanaged laptop; elevation works); D24–D32 decided (no remote access yet, manual VM start, Hyper-V Administrators, one Memory Integrity test, scripts never reboot, key backup in a password manager, no owner review of scripts with compensating controls, no-subscription repo, one go for Phases 1–2). Phase 1 is still not a go | Owner asked to be grilled one question at a time |
 
 ### Owner actions (besides merging)
 
