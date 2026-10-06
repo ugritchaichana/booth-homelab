@@ -23,22 +23,30 @@ python3 -I - "$work/cluster.fw" <<'PY'
 import ipaddress
 import sys
 
-# Special-purpose IPv4 blocks a guest must never reach, written from the RFCs, not from the role.
+# Special-purpose IPv4 blocks a guest must never reach, taken from the IANA IPv4 Special-Purpose
+# Address Registry (RFC 6890) and the RFCs behind its entries, not from the role.
 RFC_DENY = [
     ("0.0.0.0/8", "RFC 1122 section 3.2.1.3, this network"),
     ("10.0.0.0/8", "RFC 1918, private use"),
     ("100.64.0.0/10", "RFC 6598, shared address space"),
+    ("127.0.0.0/8", "RFC 1122 section 3.2.1.3, loopback"),
     ("169.254.0.0/16", "RFC 3927, link local"),
     ("172.16.0.0/12", "RFC 1918, private use"),
+    ("192.0.0.0/24", "RFC 6890, IETF protocol assignments"),
+    ("192.0.2.0/24", "RFC 5737, documentation TEST-NET-1"),
     ("192.168.0.0/16", "RFC 1918, private use"),
+    ("198.18.0.0/15", "RFC 2544, benchmarking"),
+    ("198.51.100.0/24", "RFC 5737, documentation TEST-NET-2"),
+    ("203.0.113.0/24", "RFC 5737, documentation TEST-NET-3"),
     ("224.0.0.0/4", "RFC 5771, multicast"),
     ("240.0.0.0/4", "RFC 1112 section 4, reserved"),
 ]
 PUBLIC_SAMPLES = [
     "1.1.1.1", "8.8.8.8", "9.9.9.9", "93.184.216.34", "9.255.255.255", "11.0.0.0",
     "99.255.255.255", "100.63.255.255", "100.128.0.0", "126.255.255.255", "128.0.0.1",
-    "169.253.255.255", "169.255.0.0", "172.15.255.255", "172.32.0.0", "192.167.255.255",
-    "192.169.0.0", "223.255.255.254",
+    "169.253.255.255", "169.255.0.0", "172.15.255.255", "172.32.0.0", "192.0.1.1", "192.0.3.0",
+    "192.167.255.255", "192.169.0.0", "198.17.255.255", "198.20.0.0", "198.51.99.255",
+    "198.51.101.0", "203.0.112.255", "203.0.114.0", "223.255.255.254",
 ]
 MANAGEMENT = {"10.99.0.1"}
 HOST_ROUTED = {"198.51.100.0/24", "203.0.113.0/24"}

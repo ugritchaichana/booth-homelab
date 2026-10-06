@@ -43,6 +43,10 @@
       ansible.builtin.include_role:
         name: pve_host
 
+    - name: Check the Hyper-V guest block again after the possible reboot
+      ansible.builtin.include_role:
+        name: hyperv_guest
+
     - name: Apply the OpenTofu API identity role
       ansible.builtin.include_role:
         name: pve_api_identity

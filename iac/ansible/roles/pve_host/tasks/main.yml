@@ -16,18 +16,46 @@
     path: /var/run/reboot-required
   register: pve_host_reboot_marker
 
-- name: Find the newest installed kernel image
-  ansible.builtin.shell: set -o pipefail; ls /boot/vmlinuz-* | sed 's|/boot/vmlinuz-||' | sort -V | tail -1
-  args:
-    executable: /bin/bash
-  register: pve_host_newest_kernel
+- name: Read the running kernel
+  ansible.builtin.command: uname -r
+  register: pve_host_running_kernel
   changed_when: false
 
-- name: Reboot into the newest kernel
+- name: Find the kernel that boots by default
+  ansible.builtin.shell: |
+    set -eu
+    set -o pipefail
+    list=$(proxmox-boot-tool kernel list)
+    pin=$(printf '%s\n' "$list" | awk '/^Pinned kernel:/{f=1;next} NF==0{f=0} f{print $1; exit}')
+    top=$(printf '%s\n' "$list" | awk '/selected kernels:/{f=1;next} NF==0{f=0} f && $1!="None."{print $1}' | sort -V | tail -1)
+    printf '%s\n' "${pin:-$top}"
+  args:
+    executable: /bin/bash
+  register: pve_host_boot_kernel
+  changed_when: false
+
+- name: Assert a boot default kernel was found
+  ansible.builtin.assert:
+    that:
+      - pve_host_boot_kernel.stdout | length > 0
+    fail_msg: proxmox-boot-tool lists no kernel to boot
+
+- name: Reboot when the running kernel is not the boot default
   ansible.builtin.reboot:
     reboot_timeout: "{{ pve_host_reboot_timeout }}"
     test_command: pveversion
-  when: pve_host_reboot_marker.stat.exists or pve_host_newest_kernel.stdout != ansible_facts.kernel
+  when: pve_host_reboot_marker.stat.exists or pve_host_boot_kernel.stdout != pve_host_running_kernel.stdout
+
+- name: Read the kernel the host runs after any reboot
+  ansible.builtin.command: uname -r
+  register: pve_host_booted_kernel
+  changed_when: false
+
+- name: Assert the host runs its boot default kernel
+  ansible.builtin.assert:
+    that:
+      - pve_host_booted_kernel.stdout == pve_host_boot_kernel.stdout
+    fail_msg: The boot default differs from the running kernel after the reboot step
 
 - name: Read the nested virtualisation parameter
   ansible.builtin.slurp:

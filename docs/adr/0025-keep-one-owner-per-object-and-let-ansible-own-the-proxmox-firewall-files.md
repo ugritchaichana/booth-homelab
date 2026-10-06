@@ -23,7 +23,7 @@ Option 2.
 
 - Ansible owns: operating-system configuration, its own SSH identity (ADR 0023), OpenTofu's API identity (ADR 0026), and `/etc/pve/firewall/cluster.fw` and `/etc/pve/nodes/<node>/host.fw` (ADR 0027).
 - OpenTofu owns: SDN, guests, the firewall attachment on each guest NIC, each guest's own firewall options and rules (policy, ipfilter, logging, the rules that reference the security group), and template downloads.
-- A guest option such as `policy_out DROP` is a per-guest file, not a cluster default, so it belongs to the guest definition in OpenTofu, not to the firewall role.
+- A guest option such as `policy_out DROP` is a per-guest file, not a cluster default, so it belongs to the guest definition in OpenTofu, not to the firewall role. The guest network and R15 probe pull requests own the per-guest options and the check that detects their drift; this change checks only the cluster and host files.
 
 ## Rationale and trade-offs
 
