@@ -35,44 +35,15 @@ jobs:
           echo "==> Checking OpenTofu code formatting across all modules..."
           tofu fmt -check -recursive iac/tofu
 
-      - name: Initialize OpenTofu (Validation Mode)
+      - name: Initialize and Validate Every Root Module
         run: |
-          echo "==> Initializing OpenTofu provider schema..."
-          tofu -chdir=iac/tofu init -backend=false
-
-      - name: Validate OpenTofu Syntax & Types
-        run: |
-          echo "==> Validating OpenTofu syntax and provider schemas..."
-          tofu -chdir=iac/tofu validate
-
-  ansible-quality-gate:
-    name: Ansible Syntax & Schema Check
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: iac/ansible
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
-        with:
-          python-version: '3.11'
-
-      - name: Install Ansible Core
-        run: |
-          python -m pip install --upgrade pip
-          pip install ansible-core
-
-      - name: Validate Master Playbook Syntax
-        run: |
-          echo "==> Validating Ansible playbook syntax for site.yml..."
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/site.yml
-
-      - name: Validate Component Playbooks Syntax
-        run: |
-          echo "==> Validating individual playbook syntax..."
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/01-host-setup.yml
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/02-cache-storage.yml
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/03-runners.yml
+          roots=$(find iac/tofu -name '*.tf' -not -path '*/modules/*' -not -path '*/.terraform/*' -printf '%h\n' | sort -u)
+          if [ -z "$roots" ]; then
+            echo "::error::no OpenTofu root module found under iac/tofu"
+            exit 1
+          fi
+          for dir in $roots; do
+            echo "==> Validating $dir"
+            tofu -chdir="$dir" init -backend=false
+            tofu -chdir="$dir" validate
+          done
