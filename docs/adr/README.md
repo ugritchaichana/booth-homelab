@@ -69,3 +69,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0026 | [Bootstrap the OpenTofu API identity with Ansible and keep its token in SOPS](0026-bootstrap-the-opentofu-api-identity-with-ansible-and-keep-its-token-in-sops.md) | Accepted |
 | 0027 | [Use the classic Proxmox firewall with a security group for guest egress](0027-use-the-classic-proxmox-firewall-with-a-security-group-for-guest-egress.md) | Accepted |
 | 0028 | [Block the Hyper-V socket transport in the PVE guest](0028-block-the-hyper-v-socket-transport-in-the-pve-guest.md) | Accepted |
+| 0029 | [Reach the Proxmox API through an SSH forward and skip TLS verification inside it](0029-reach-the-proxmox-api-through-an-ssh-forward-and-skip-tls-verification-inside-it.md) | Accepted |

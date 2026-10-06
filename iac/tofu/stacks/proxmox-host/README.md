@@ -1,0 +1,40 @@
+# proxmox-host stack
+
+One root module for every Proxmox host in `iac/inventory/hosts.yml`. `var.host` selects the entry, so a new host is an inventory row, not new code. Only data sources live here until the guest network module lands.
+
+## Run
+
+Always through the wrapper, which opens the SSH forward, decrypts the secrets into the `tofu` process only, and keeps state on the WSL ext4 filesystem:
+
+```sh
+bash scripts/iac/tofu.sh proxmox-host pve01 init-passphrase     # once; --rotate replaces it
+bash scripts/iac/tofu.sh proxmox-host pve01 init
+bash scripts/iac/tofu.sh proxmox-host pve01 plan
+bash scripts/iac/tofu.sh proxmox-host pve01 apply
+```
+
+One-time setup of the state root: `sudo install -d -o "$USER" -m 0700 /var/lib/homelab/tofu`.
+
+## Where things live
+
+| Item | Location |
+|---|---|
+| State | `/var/lib/homelab/tofu/proxmox-host/<host>.tfstate`, encrypted (AES-GCM, key from a PBKDF2 passphrase) |
+| Plugin and module data | `/var/lib/homelab/tofu/proxmox-host/<host>.data` (`TF_DATA_DIR`) |
+| State passphrase | `iac/secrets/tofu/<host>-state.sops.yaml`, written by `init-passphrase` |
+| API token | `iac/secrets/tofu/<host>-api.sops.yaml`, written by the `pve_api_identity` role |
+| State copy before `apply`, `destroy`, `import` | `%LOCALAPPDATA%\homelab\tofu-state\` |
+
+Plan and state encryption are both `enforced`: OpenTofu refuses to write plaintext. Losing the passphrase loses the state (ADR 0013).
+
+## API path
+
+The provider endpoint is `https://127.0.0.1:18006/`, the local end of an SSH forward to the host's `127.0.0.1:8006` that `tofu.sh` opens with the pinned host key (ADR 0029). The API token reaches the provider through `PROXMOX_VE_API_TOKEN` only. Plan and apply dial the API even for data sources, so they need the forward; `init`, `validate` and `fmt` do not.
+
+## Checks without a host
+
+```sh
+tofu fmt -check -recursive iac/tofu
+(cd iac/tofu/stacks && tflint --recursive --config "$PWD/../../../.tflint.hcl")
+tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false && tofu -chdir=iac/tofu/stacks/proxmox-host validate
+```

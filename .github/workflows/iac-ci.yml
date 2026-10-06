@@ -37,7 +37,18 @@ jobs:
           echo "==> Checking OpenTofu code formatting across all modules..."
           tofu fmt -check -recursive iac/tofu
 
-      - name: Initialize and Validate Every Root Module
+      - name: Install tflint v0.64.0
+        run: |
+          curl -fsSL --retry 3 -o tflint_linux_amd64.zip https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip
+          echo "cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537  tflint_linux_amd64.zip" | sha256sum -c -
+          unzip -q tflint_linux_amd64.zip tflint -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/tflint" --version
+
+      - name: Lint Every Stack (tflint)
+        working-directory: iac/tofu/stacks
+        run: '"$RUNNER_TEMP/tflint" --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"'
+
+      - name: Initialize, Validate and Test Every Root Module
         run: |
           roots=$(find iac/tofu -name '*.tf' -not -path '*/modules/*' -not -path '*/.terraform/*' -printf '%h\n' | sort -u)
           if [ -z "$roots" ]; then
@@ -48,6 +59,7 @@ jobs:
             echo "==> Validating $dir"
             tofu -chdir="$dir" init -backend=false
             tofu -chdir="$dir" validate
+            tofu -chdir="$dir" test
           done
 
   ansible-quality-gate:
