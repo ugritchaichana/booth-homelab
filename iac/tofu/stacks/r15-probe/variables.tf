@@ -59,15 +59,26 @@ variable "vm_datastore_id" {
 }
 
 variable "import_datastore_id" {
-  description = "Datastore with the import content type that receives the cloud image."
+  description = "Datastore with the import and vztmpl content types: receives the cloud image and the container template."
   type        = string
   default     = "local"
 }
 
-variable "lxc_template_file_id" {
-  description = "Container template already present on the host."
+variable "lxc_template_name" {
+  description = "Container template downloaded from the official Proxmox template mirror."
   type        = string
-  default     = "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
+  default     = "debian-13-standard_13.6-1_amd64.tar.zst"
+}
+
+variable "lxc_template_sha512" {
+  description = "SHA512 of the template, from the mirror's aplinfo index and confirmed by hashing the file."
+  type        = string
+  default     = "4c0c27ca6ceab5ef0b84db57825a00f26157ef1854bafe97297813e1cbe8ecb8cc9c453cab6b3b0efe1ba193a50c47ece1e41d950e411b8730b835b71e9e754b"
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{128}$", var.lxc_template_sha512))
+    error_message = "lxc_template_sha512 must be 128 lowercase hexadecimal characters."
+  }
 }
 
 variable "dns_server" {

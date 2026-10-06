@@ -20,13 +20,13 @@ The probe runs inside guests whose own policy drops every inbound connection and
 Option 3.
 
 - `r15-verify.yml --tags r15_keygen` creates the key pair on the host. Only the public half is passed to the stack as `probe_ssh_public_key` and injected through `initialization.user_account.keys`; the private half stays in the host's root account (`probe.yml`, `r15_control_key`).
-- Each guest has one inbound rule: tcp/22 from the guest gateway, where host-originated connections come from (`main.tf`, rule with `source = local.guest_network.gateway`). `tests/policy.tftest.hcl` asserts the rule count, port and source.
-- The playbook runs `ssh` as tasks on the host with `BatchMode` and `IdentitiesOnly`, and deletes the host-key file at the start of each `baseline` run so a re-created guest is not rejected for its new key.
-- The probe script and the targets travel over the same connection on standard input; no guest file is written outside `/tmp/r15`.
+- Each guest has one inbound rule: tcp/22 from the guest gateway, where host-originated connections come from (`main.tf`, rule with `source = local.guest_network.gateway`). `tests/policy.tftest.hcl` asserts the rule count, port and source, and the playbook's drift check asserts that both rules are enabled.
+- The playbook runs `ssh` as tasks on the host with `BatchMode`, `IdentitiesOnly` and keepalives, and deletes the host-key file at the start of each `baseline` run so a re-created guest is not rejected for its new key.
+- The probe script and the targets travel over the same connection on standard input; no guest file is written outside `/tmp/r15`. The probe needs only `bash`, `timeout` and `curl`, which the playbook installs through the egress rule when missing.
 
 ## Rationale and trade-offs
 
-- Every negative is guest-originated egress, so an inbound allow from the gateway does not change what is tested. The guest-to-guest rows are different: the playbook records the host's own successful connection to each guest's port 22 as their positive control (`r15-<phase>-control.txt`).
+- Every negative is guest-originated egress, so an inbound allow from the gateway does not change what is tested. For the guest-to-guest rows the host's own connection to the peer's port 22, made in the same run, is the positive control.
 - Accepted: a private key without a passphrase sits on the host between apply and destroy; it is deleted by hand after destroy.
-- Accepted: the VM login user has passwordless sudo (the image default) and uses it to install `netcat-openbsd` and `curl` when missing.
+- Accepted: the VM login user has passwordless sudo (the image default) and uses it to install packages and to run the probe as root, which the via-gateway rows need to add a route.
 - HYPOTHESIS, proven only by the host run: the host's source address for guest-bound traffic is the gateway address, so the one rule admits it.

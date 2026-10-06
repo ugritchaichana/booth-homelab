@@ -3,7 +3,7 @@
 | Path | Purpose |
 |---|---|
 | `stacks/proxmox-host/` | The host root module; `var.host` selects an inventory entry, so another host is data, not code. Run it through the wrapper `scripts/iac/tofu.sh` (see its README). |
-| `stacks/r15-probe/` | Throwaway container and VM that carry the guest firewall policy for the R15 isolation proof; applied only during the proof and destroyed after it (ADR 0031). |
+| `stacks/r15-probe/` | Throwaway container and VM that carry the guest firewall policy for the R15 isolation proof; applied only during the proof and destroyed after it (ADR 0031). Its firewall policy comes from `iac/policy/runner-class.yml`. |
 | `modules/proxmox/sdn/` | The guest network: a simple SDN zone, a vnet with `isolate_ports`, and a subnet with SNAT, static addressing and no DHCP (ADR 0030). |
 | `flavors.json` | Instance flavor catalog kept for the runner work of Phase 3; nothing reads it yet. |
 

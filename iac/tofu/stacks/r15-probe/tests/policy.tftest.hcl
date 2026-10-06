@@ -1,6 +1,13 @@
 mock_provider "proxmox" {}
 
 override_resource {
+  target = proxmox_download_file.lxc_template
+  values = {
+    id = "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
+  }
+}
+
+override_resource {
   target = proxmox_download_file.image
   values = {
     id = "local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2"
@@ -26,9 +33,13 @@ run "both_guests_carry_the_runner_class_firewall_options" {
         && options.output_policy == "DROP"
         && options.ipfilter == true
         && options.log_level_out == "info"
+        && options.macfilter == true
+        && options.dhcp == false
+        && options.radv == false
+        && options.ndp == true
       )
     ])
-    error_message = "Each probe guest must run the firewall with policy_in DROP, policy_out DROP, ipfilter on and log_level_out info."
+    error_message = "Each probe guest must run the firewall with policy_in DROP, policy_out DROP, ipfilter on, log_level_out info, macfilter on, and dhcp, radv off."
   }
 
   assert {
@@ -105,6 +116,25 @@ run "addresses_dns_and_ipfilter_follow_the_guest_subnet" {
   assert {
     condition     = one([for c in proxmox_virtual_environment_firewall_ipset.vm_ipfilter.cidr : c.name]) == "10.99.16.22" && proxmox_virtual_environment_firewall_ipset.vm_ipfilter.name == "ipfilter-net0"
     error_message = "ipfilter on a VM blocks everything unless ipfilter-net0 holds the VM's own address."
+  }
+}
+
+run "container_template_comes_from_the_official_mirror_with_its_checksum" {
+  command = plan
+
+  assert {
+    condition     = proxmox_download_file.lxc_template.url == "http://download.proxmox.com/images/system/debian-13-standard_13.6-1_amd64.tar.zst" && proxmox_download_file.lxc_template.content_type == "vztmpl"
+    error_message = "The container template must be downloaded as vztmpl from the official template mirror."
+  }
+
+  assert {
+    condition     = proxmox_download_file.lxc_template.checksum_algorithm == "sha512" && proxmox_download_file.lxc_template.checksum == "4c0c27ca6ceab5ef0b84db57825a00f26157ef1854bafe97297813e1cbe8ecb8cc9c453cab6b3b0efe1ba193a50c47ece1e41d950e411b8730b835b71e9e754b"
+    error_message = "The template download must carry the pinned SHA512."
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_container.probe.operating_system[0].template_file_id == "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
+    error_message = "The container must use the downloaded template."
   }
 }
 

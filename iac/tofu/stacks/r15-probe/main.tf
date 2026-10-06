@@ -8,6 +8,16 @@ resource "proxmox_download_file" "image" {
   checksum_algorithm = "sha512"
 }
 
+resource "proxmox_download_file" "lxc_template" {
+  node_name          = local.node_name
+  datastore_id       = var.import_datastore_id
+  content_type       = "vztmpl"
+  url                = "http://download.proxmox.com/images/system/${local.template_file}"
+  file_name          = local.template_file
+  checksum           = var.lxc_template_sha512
+  checksum_algorithm = "sha512"
+}
+
 resource "proxmox_virtual_environment_container" "probe" {
   node_name     = local.node_name
   vm_id         = local.guests.lxc.vm_id
@@ -33,14 +43,14 @@ resource "proxmox_virtual_environment_container" "probe" {
   }
 
   operating_system {
-    template_file_id = var.lxc_template_file_id
+    template_file_id = proxmox_download_file.lxc_template.id
     type             = "debian"
   }
 
   network_interface {
     name     = "eth0"
     bridge   = local.guest_network.vnet
-    firewall = true
+    firewall = local.nic_firewall
   }
 
   initialization {
@@ -107,7 +117,7 @@ resource "proxmox_virtual_environment_vm" "probe" {
   network_device {
     bridge   = local.guest_network.vnet
     model    = "virtio"
-    firewall = true
+    firewall = local.nic_firewall
   }
 
   operating_system {
@@ -163,6 +173,10 @@ resource "proxmox_virtual_environment_firewall_options" "lxc" {
   output_policy = local.options.policy_out
   ipfilter      = local.options.ipfilter == 1
   log_level_out = local.options.log_level_out
+  macfilter     = local.options.macfilter == 1
+  dhcp          = local.options.dhcp == 1
+  radv          = local.options.radv == 1
+  ndp           = local.options.ndp == 1
 }
 
 resource "proxmox_virtual_environment_firewall_options" "vm" {
@@ -173,6 +187,10 @@ resource "proxmox_virtual_environment_firewall_options" "vm" {
   output_policy = local.options.policy_out
   ipfilter      = local.options.ipfilter == 1
   log_level_out = local.options.log_level_out
+  macfilter     = local.options.macfilter == 1
+  dhcp          = local.options.dhcp == 1
+  radv          = local.options.radv == 1
+  ndp           = local.options.ndp == 1
 
   depends_on = [proxmox_virtual_environment_firewall_ipset.vm_ipfilter]
 }
@@ -192,7 +210,7 @@ resource "proxmox_virtual_environment_firewall_rules" "lxc" {
   }
 
   rule {
-    security_group = local.probe.r15_security_group
+    security_group = local.policy.runner_class_security_group
     comment        = "Egress policy"
     enabled        = true
   }
@@ -213,7 +231,7 @@ resource "proxmox_virtual_environment_firewall_rules" "vm" {
   }
 
   rule {
-    security_group = local.probe.r15_security_group
+    security_group = local.policy.runner_class_security_group
     comment        = "Egress policy"
     enabled        = true
   }
