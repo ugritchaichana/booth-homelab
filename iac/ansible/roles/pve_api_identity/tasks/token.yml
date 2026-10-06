@@ -49,6 +49,15 @@
           - pve_api_identity_stored_secret.stdout | int >= pve_api_identity_secret_min_length
         fail_msg: The token exists but its secret is not in the SOPS file; rotate it with pve_api_identity_rotate=true
 
+- name: Create the directory of the secret file before any token exists
+  ansible.builtin.file:
+    path: "{{ pve_api_identity_repo_root }}/{{ pve_api_identity_secret_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  when: pve_api_identity_token_current | length == 0 or pve_api_identity_rotate | bool
+
 - name: Create the token and store its secret
   when: pve_api_identity_token_current | length == 0 or pve_api_identity_rotate | bool
   block:
