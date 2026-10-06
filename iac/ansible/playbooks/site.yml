@@ -1,0 +1,8 @@
+---
+- name: Apply the baseline to every host
+  hosts: all
+  become: true
+  tasks:
+    - name: Apply the base role
+      ansible.builtin.include_role:
+        name: base

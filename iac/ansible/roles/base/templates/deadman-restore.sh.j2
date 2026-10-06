@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+{% if base_dropin_stat.stat.exists %}
+cp -p {{ base_deadman_dir }}/sshd-dropin.bak {{ base_sshd_dropin_path }}
+{% else %}
+rm -f {{ base_sshd_dropin_path }}
+{% endif %}
+{% if base_keys_stat.stat.exists %}
+cat {{ base_deadman_dir }}/root-authorized_keys.bak > {{ base_root_authorized_keys_path }}
+{% endif %}
+/usr/sbin/sshd -t
+/usr/bin/systemctl reload {{ base_sshd_service }}

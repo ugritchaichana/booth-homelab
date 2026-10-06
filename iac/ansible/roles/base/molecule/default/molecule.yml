@@ -1,0 +1,28 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: debian13
+    image: debian:trixie
+    dockerfile: Dockerfile.j2
+    pre_build_image: false
+    privileged: true
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        base_container_test_mode: true
+        base_root_key_from: 10.99.0.1
+        base_root_authorized_keys:
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIvXhBH8jmym/9pfWSb54Q5IEh8aCV8b/EfGVAo8t1Bk molecule-root-test
+        base_root_authorized_keys_revoked:
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKTn90MNHypbVWLLHzf96BYTGVp/fFUjM3OZpVW3/B8y molecule-stale-test
+        base_automation_authorized_keys:
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJwACdmHvgKKyU91a9qnW9KqwV8EMl6NlUJ5v8gNKZsq molecule-automation-test
+verifier:
+  name: ansible

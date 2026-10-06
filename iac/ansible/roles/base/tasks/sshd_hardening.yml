@@ -1,0 +1,206 @@
+---
+- name: Assert the SSH hardening inputs
+  ansible.builtin.assert:
+    that:
+      - base_root_authorized_keys | length > 0
+      - base_root_key_from | length > 0
+      - base_automation_authorized_keys | length > 0
+      - base_deadman_minutes | int > 0
+    fail_msg: Set base_root_authorized_keys, base_root_key_from and base_automation_authorized_keys
+
+- name: Install the SSH server
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Keep the SSH server enabled and running
+  ansible.builtin.service:
+    name: "{{ base_sshd_service }}"
+    enabled: true
+    state: started
+
+- name: Read the current SSH drop-in
+  ansible.builtin.stat:
+    path: "{{ base_sshd_dropin_path }}"
+  register: base_dropin_stat
+
+- name: Read the current root authorized keys
+  ansible.builtin.stat:
+    path: "{{ base_root_authorized_keys_path }}"
+    follow: true
+  register: base_keys_stat
+
+- name: Preview the SSH drop-in change
+  ansible.builtin.template:
+    src: sshd-hardening.conf.j2
+    dest: "{{ base_sshd_dropin_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  check_mode: true
+  register: base_dropin_preview
+
+- name: Preview the root key restriction
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ item }}"
+    key_options: 'from="{{ base_root_key_from }}"'
+    follow: true
+    state: present
+  loop: "{{ base_root_authorized_keys }}"
+  check_mode: true
+  register: base_rootkeys_preview
+
+- name: Preview the root key revocation
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ item }}"
+    follow: true
+    state: absent
+  loop: "{{ base_root_authorized_keys_revoked }}"
+  check_mode: true
+  register: base_revoke_preview
+
+- name: Record whether an SSH change is pending
+  ansible.builtin.set_fact:
+    base_ssh_change_pending: >-
+      {{ base_dropin_preview.changed
+      or base_rootkeys_preview.changed
+      or base_revoke_preview.changed }}
+
+- name: Apply the SSH change behind the dead-man
+  when: base_ssh_change_pending | bool
+  block:
+    - name: Require a fresh automation session with sudo before any change
+      ansible.builtin.shell: printf '%s %s' "$(id -un)" "$(sudo -n id -un)"
+      become: false
+      vars:
+        ansible_user: "{{ base_automation_user }}"
+        ansible_ssh_args: "{{ base_fresh_session_ssh_args }}"
+      register: base_precheck_session
+      changed_when: false
+      failed_when: base_precheck_session.stdout != (base_automation_user ~ ' root')
+      when: not base_container_test_mode
+
+    - name: Create the dead-man state directory
+      ansible.builtin.file:
+        path: "{{ base_deadman_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      when: not base_container_test_mode
+
+    - name: Back up the current SSH drop-in
+      ansible.builtin.copy:
+        src: "{{ base_sshd_dropin_path }}"
+        dest: "{{ base_deadman_dir }}/sshd-dropin.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: not base_container_test_mode and base_dropin_stat.stat.exists
+
+    - name: Back up the current root authorized keys
+      ansible.builtin.copy:
+        src: "{{ base_root_authorized_keys_path }}"
+        dest: "{{ base_deadman_dir }}/root-authorized_keys.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: not base_container_test_mode and base_keys_stat.stat.exists
+
+    - name: Write the dead-man restore script
+      ansible.builtin.template:
+        src: deadman-restore.sh.j2
+        dest: "{{ base_deadman_dir }}/restore.sh"
+        owner: root
+        group: root
+        mode: "0700"
+      when: not base_container_test_mode
+
+    - name: Stop any earlier dead-man unit
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - "{{ base_deadman_unit }}.timer"
+        - "{{ base_deadman_unit }}.service"
+      failed_when: false
+      when: not base_container_test_mode
+
+    - name: Clear any failed dead-man unit
+      ansible.builtin.command: systemctl reset-failed {{ base_deadman_unit }}.service
+      changed_when: false
+      failed_when: false
+      when: not base_container_test_mode
+
+    - name: Arm the dead-man
+      ansible.builtin.command: >-
+        systemd-run --on-active={{ base_deadman_minutes }}min
+        --unit={{ base_deadman_unit }} {{ base_deadman_dir }}/restore.sh
+      changed_when: true
+      when: not base_container_test_mode
+
+    - name: Restrict the break-glass root keys to the management source
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ item }}"
+        key_options: 'from="{{ base_root_key_from }}"'
+        follow: true
+        state: present
+      loop: "{{ base_root_authorized_keys }}"
+
+    - name: Revoke the retired root keys
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ item }}"
+        follow: true
+        state: absent
+      loop: "{{ base_root_authorized_keys_revoked }}"
+
+    - name: Install the SSH hardening drop-in
+      ansible.builtin.template:
+        src: sshd-hardening.conf.j2
+        dest: "{{ base_sshd_dropin_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        validate: /usr/sbin/sshd -t -f %s
+
+    - name: Reload the SSH server
+      ansible.builtin.service:
+        name: "{{ base_sshd_service }}"
+        state: reloaded
+
+    - name: Require a fresh automation session with sudo after the change
+      ansible.builtin.shell: printf '%s %s' "$(id -un)" "$(sudo -n id -un)"
+      become: false
+      vars:
+        ansible_user: "{{ base_automation_user }}"
+        ansible_ssh_args: "{{ base_fresh_session_ssh_args }}"
+      register: base_postcheck_session
+      changed_when: false
+      failed_when: base_postcheck_session.stdout != (base_automation_user ~ ' root')
+      when: not base_container_test_mode
+
+    - name: Cancel the dead-man
+      ansible.builtin.systemd:
+        name: "{{ base_deadman_unit }}.timer"
+        state: stopped
+      become: true
+      vars:
+        ansible_user: "{{ base_automation_user }}"
+      when: not base_container_test_mode
+
+    - name: Remove the dead-man state
+      ansible.builtin.file:
+        path: "{{ base_deadman_dir }}"
+        state: absent
+      become: true
+      vars:
+        ansible_user: "{{ base_automation_user }}"
+      when: not base_container_test_mode

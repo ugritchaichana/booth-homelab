@@ -1,0 +1,19 @@
+---
+- name: Create the journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Cap the persistent and volatile journal
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/90-homelab.conf
+    content: |
+      [Journal]
+      SystemMaxUse={{ base_journald_system_max_use }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart journald

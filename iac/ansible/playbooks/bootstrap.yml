@@ -1,0 +1,8 @@
+---
+- name: Create the automation identity on first contact
+  hosts: all
+  tasks:
+    - name: Create the automation user with key-only login and sudo
+      ansible.builtin.include_role:
+        name: base
+        tasks_from: automation_user

@@ -1,0 +1,15 @@
+---
+- name: Create the automation identity
+  ansible.builtin.import_tasks: automation_user.yml
+
+- name: Configure time synchronisation
+  ansible.builtin.import_tasks: chrony.yml
+
+- name: Cap the journal size
+  ansible.builtin.import_tasks: journald.yml
+
+- name: Apply pending handlers before the SSH change
+  ansible.builtin.meta: flush_handlers
+
+- name: Harden the SSH server
+  ansible.builtin.import_tasks: sshd_hardening.yml

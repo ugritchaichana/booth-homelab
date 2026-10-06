@@ -1,0 +1,100 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Read the effective sshd settings
+      ansible.builtin.command: /usr/sbin/sshd -T
+      register: base_verify_sshd
+      changed_when: false
+
+    - name: Assert the effective sshd settings
+      ansible.builtin.assert:
+        that:
+          - base_verify_sshd.stdout_lines | select('match', '^permitrootlogin (without|prohibit)-password$') | list | length == 1
+          - "'passwordauthentication no' in base_verify_sshd.stdout_lines"
+          - "'kbdinteractiveauthentication no' in base_verify_sshd.stdout_lines"
+          - "'pubkeyauthentication yes' in base_verify_sshd.stdout_lines"
+          - "'allowtcpforwarding yes' in base_verify_sshd.stdout_lines"
+
+    - name: Read the SSH service state
+      ansible.builtin.systemd_service:
+        name: ssh
+      register: base_verify_ssh_unit
+
+    - name: Validate the sudoers drop-in
+      ansible.builtin.command: /usr/sbin/visudo -cf /etc/sudoers.d/90-homelab-automation
+      changed_when: false
+
+    - name: Stat the sudoers drop-in
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/90-homelab-automation
+      register: base_verify_sudoers
+
+    - name: List the automation sudo rights
+      ansible.builtin.command: sudo -l -U automation
+      register: base_verify_sudo_list
+      changed_when: false
+
+    - name: Read the automation account state
+      ansible.builtin.command: passwd -S automation
+      register: base_verify_passwd
+      changed_when: false
+
+    - name: Read the automation user entry
+      ansible.builtin.getent:
+        database: passwd
+        key: automation
+
+    - name: Read the automation keys
+      ansible.builtin.slurp:
+        src: /home/automation/.ssh/authorized_keys
+      register: base_verify_automation_keys
+
+    - name: Read the root keys
+      ansible.builtin.slurp:
+        src: /root/.ssh/authorized_keys
+      register: base_verify_root_keys
+
+    - name: Assert the automation identity and the root key restriction
+      ansible.builtin.assert:
+        that:
+          - base_verify_ssh_unit.status.ActiveState == 'active'
+          - base_verify_sudoers.stat.mode == '0440'
+          - "'NOPASSWD: ALL' in base_verify_sudo_list.stdout"
+          - base_verify_passwd.stdout.split()[1] == 'L'
+          - ansible_facts.getent_passwd.automation[4] == '/home/automation'
+          - ansible_facts.getent_passwd.automation[5] == '/bin/bash'
+          - base_automation_authorized_keys[0] in (base_verify_automation_keys.content | b64decode)
+          - ('from="10.99.0.1" ' ~ base_root_authorized_keys[0]) in (base_verify_root_keys.content | b64decode)
+          - base_root_authorized_keys_revoked[0].split()[1] not in (base_verify_root_keys.content | b64decode)
+
+    - name: Check the chrony package
+      ansible.builtin.command: dpkg-query -W chrony
+      changed_when: false
+
+    - name: Read the chrony unit state
+      ansible.builtin.systemd_service:
+        name: chrony
+      register: base_verify_chrony_unit
+
+    - name: Read the chrony sources
+      ansible.builtin.slurp:
+        src: /etc/chrony/sources.d/homelab.sources
+      register: base_verify_chrony_sources
+
+    - name: Assert the chrony unit and sources
+      ansible.builtin.assert:
+        that:
+          - base_verify_chrony_unit.status.UnitFileState == 'enabled'
+          - "'server 0.debian.pool.ntp.org iburst' in (base_verify_chrony_sources.content | b64decode)"
+
+    - name: Read the effective journald configuration
+      ansible.builtin.command: systemd-analyze cat-config systemd/journald.conf
+      register: base_verify_journald
+      changed_when: false
+
+    - name: Assert the journal size cap
+      ansible.builtin.assert:
+        that:
+          - "'SystemMaxUse=200M' in base_verify_journald.stdout_lines"
