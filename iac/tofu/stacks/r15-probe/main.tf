@@ -23,7 +23,6 @@ resource "proxmox_virtual_environment_container" "probe" {
   vm_id         = local.guests.lxc.vm_id
   pool_id       = var.pool_id
   description   = "Throwaway R15 isolation probe"
-  tags          = ["r15-probe"]
   unprivileged  = true
   start_on_boot = true
   started       = false
@@ -88,7 +87,6 @@ resource "proxmox_virtual_environment_vm" "probe" {
   vm_id           = local.guests.vm.vm_id
   pool_id         = var.pool_id
   description     = "Throwaway R15 isolation probe"
-  tags            = ["r15-probe"]
   on_boot         = true
   started         = false
   stop_on_destroy = true
