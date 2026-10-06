@@ -2,7 +2,7 @@
 
 **Applies to:** `ugritchaichana/booth-homelab` and any homelab built from it.
 **Frame:** a baseline another team could clone and depend on. **100 = every criterion shown working, sustained.**
-**Version:** 1.0 · 2026-10-05 · Author: Test Framework Team.
+**Version:** 1.0 · 2026-10-05 · Author: maintainers.
 
 ---
 
@@ -350,7 +350,7 @@ port it to the `.sh` that CI runs first).
 - **Raw output** is pasted unedited, one block per command, with the exact command above it so it can be re-run and
   diffed. Credential values are masked before pasting; secret scans record counts only. Stripping ANSI colour codes
   from a job log is allowed when the stripping command is part of the recorded command.
-- **Measured by** is a job run link, or "Test Framework Team agent, read at <sha>" for a property of the code.
+- **Measured by** is a job run link, or "maintainers, read at <sha>" for a property of the code.
 - **A score of 1 names the missing requirement** (section 2, condition 6).
 - **Acknowledging a drop.** `standard/evidence/<criterion>/<YYYY-MM-DD>-ack.md`, dated on or after the record it
   covers, stating why the drop is accepted. Without it the ratchet fails.
