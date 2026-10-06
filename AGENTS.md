@@ -1,6 +1,10 @@
 # AGENTS.md: Universal AI Agent Operating Guide
 
-This document is the authoritative, machine-readable operational guide for AI coding assistants (Antigravity, Claude Code, Cursor, Copilot, Windsurf, etc.) operating on the `Booth-homelab` repository.
+This document is the operating guide for any AI coding agent working on the `booth-homelab` repository.
+
+> **Status (2026-10-06):** The host described in sections 1, 5 and 6 was retired on 2026-10-06.
+> Those sections are kept for reference only; do not connect to it.
+> The requirements for the replacement platform are being published in `docs/platform/requirements.md` (pending pull request).
 
 ---
 
@@ -88,7 +92,7 @@ pwsh -File sandbox/teardown.ps1
 | **LXC File Injection** | Files placed in `/tmp` on Proxmox host are invisible inside containers | Use `pct push <vmid> <host_path> <container_path>` |
 | **Debian 12 UsrMerge** | `mc` binary path resolution errors | Resolve dynamically: `$(command -v mc || echo '/usr/bin/mc')` |
 | **Angular Memory Spike** | Container OOM kills Jest process | Never install Chrome/Playwright in CT 103; use headless `jsdom` + `jest-preset-angular` |
-| **Git Identity Mismatch** | Commits rejected by identity guard | Enforce `ugritchaichana` (`ugritchaichana@users.noreply.github.com`); never use corporate identity |
+| **Git Identity Mismatch** | Commits rejected by identity guard | Commit only with the owner's personal identity configured in this clone; never use a work identity |
 
 ---
 
@@ -116,3 +120,35 @@ The project documentation is mirrored live to the GitHub Wiki. Whenever editing 
 ```bash
 python scripts/ci/sync_wiki.py
 ```
+
+---
+
+## 8. Operating Model
+
+- **Pull requests only:** Every change lands through a pull request. The owner reviews and merges.
+- **`master`:** No direct push to `master`. No force-push.
+- **Credentials:** Generate them locally. Store them encrypted or as CI secrets. Never print them in output or logs. Never commit them.
+- **Owner-only actions:** Merging, purging history, repository or account settings other than CI secrets, creating access tokens, deregistering runners and accepting elevation prompts or reboots belong to the owner. Propose them; do not execute them.
+
+---
+
+## 9. Identity, Neutrality and Language
+
+- **Identity:** Use only the owner's personal identity (see `AI_CONTEXT.md`, section 1). Never use a work identity.
+- **Neutrality:** Artifacts name no employer, organization or team. Attribution is "owner" or "maintainers".
+- **Language:** Every repository artifact (code, comments, commits, pull requests, issues, docs, wiki) is English only. Chat language is the owner's choice.
+
+---
+
+## 10. Working Process
+
+- **Design first:** For a non-trivial change, get the design approved before writing code.
+- **Verify upstream:** Check claims against primary sources (official documentation, source code, issue trackers), not memory. Mark anything unverified `HYPOTHESIS`.
+- **Red, green, refactor:** Write the failing test, make it pass, then clean up. Show the exact command output as evidence.
+- **Circuit breaker:** After more than two consecutive failing runs, or any drift from the approved design, halt and report:
+  - expected versus actual behavior, with exact output
+  - hypotheses ruled out
+  - suspected cause
+- **Hardware headroom:** Cap parallel workers at total cores minus two. Respect memory ceilings.
+- **Disposable sandboxes:** Run stateful dependencies in throwaway environments (compose files, git worktrees) with a one-command teardown.
+- **Communication:** Answer first, no filler. Anchor every claim to evidence: `path:line`, or the exact command and its output.

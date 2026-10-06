@@ -10,10 +10,10 @@
 
 Before executing ANY `git commit`, `git push`, or infrastructure change, verify Git identity:
 - **Workspace Scope:** Personal Homelab / Open-Source.
-- **Git User Name:** `ugritchaichana`
-- **Git User Email:** `ugritchaichana@users.noreply.github.com`
+- **Git Identity:** The repository owner's personal GitHub identity, set in this clone's local git config.
+- **Commit Check:** Before every commit, confirm `git config user.name` and `git config user.email` show that identity.
 - **Target Remote:** `https://github.com/ugritchaichana/booth-homelab.git`
-- **HARD SAFETY RULE:** NEVER commit using corporate credentials (`Ugrit C` / `ugrit_c@flowaccount.com`). Mismatch is a fatal violation.
+- **HARD SAFETY RULE:** NEVER commit with a work identity. Mismatch is a fatal violation.
 
 ---
 

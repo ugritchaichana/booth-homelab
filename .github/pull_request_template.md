@@ -19,6 +19,6 @@
 - [ ] `Language Compliance`: 0 Thai characters in repository code and documentation
 
 ## Checklist
-- [ ] My code adheres to the 8 Core Engineering Pillars (GEMINI.md / AGENTS.md).
+- [ ] My code adheres to the 8 Core Engineering Pillars (AGENTS.md).
 - [ ] No plaintext secrets or private VPN IPs committed.
 - [ ] Documentation and wiki mirrored if relevant.

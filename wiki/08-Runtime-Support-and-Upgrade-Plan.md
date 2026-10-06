@@ -1,6 +1,6 @@
 # 08. Runtime Support and Upgrade Plan
 
-Purpose: record every pinned runtime that is past, or within 30 days of, its vendor's end of security support, with a dated upgrade plan. The standard treats "a component within 30 days of its end date with no dated upgrade plan in the repo" as unsupported, and check 2.7 compares the repo's pins with `endoflife.date`. Dates below are proposed by the Test Framework Team; merging this page accepts them.
+Purpose: record every pinned runtime that is past, or within 30 days of, its vendor's end of security support, with a dated upgrade plan. The standard treats "a component within 30 days of its end date with no dated upgrade plan in the repo" as unsupported, and check 2.7 compares the repo's pins with `endoflife.date`. Dates below are proposed by the owner; merging this page accepts them.
 
 Pin locations are given at commit `8cc8abc` (the base of the PR that introduced this page). End-of-support dates were read from endoflife.date on 2026-10-05.
 
