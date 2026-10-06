@@ -5,11 +5,13 @@ on:
     branches: [ master, main ]
     paths:
       - 'iac/**'
+      - 'tests/isolation/**'
       - '.github/workflows/iac-ci.yml'
   pull_request:
     branches: [ master, main ]
     paths:
       - 'iac/**'
+      - 'tests/isolation/**'
       - '.github/workflows/iac-ci.yml'
   workflow_dispatch:
 
@@ -80,6 +82,20 @@ jobs:
           done
           if [ "$count" -eq 0 ]; then
             echo "::error::no playbook found under iac/ansible/playbooks"
+            exit 1
+          fi
+
+      - name: Run the Isolation Render Tests
+        run: |
+          count=0
+          for test in tests/isolation/test-*.sh; do
+            [ -e "$test" ] || continue
+            echo "==> Running $test"
+            bash "$test"
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no isolation test found under tests/isolation"
             exit 1
           fi
 

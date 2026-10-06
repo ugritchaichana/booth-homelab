@@ -1,0 +1,29 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[ALIASES]
+local_network {{ pve_firewall_management_sources | first }}
+
+[IPSET management]
+{% for source in pve_firewall_management_sources | unique | sort %}
+{{ source }}
+{% endfor %}
+
+[IPSET {{ pve_firewall_ipset_host_routed }}]
+{% for prefix in pve_firewall_host_routed_prefixes | unique | sort %}
+{{ prefix }}
+{% endfor %}
+
+[IPSET {{ pve_firewall_ipset_public }}]
+{% for prefix in pve_firewall_public_halves %}
+{{ prefix }}
+{% endfor %}
+{% for prefix in pve_firewall_non_public_v4 | unique | sort %}
+!{{ prefix }}
+{% endfor %}
+
+[group {{ pve_firewall_group }}]
+OUT DROP -dest +dc/{{ pve_firewall_ipset_host_routed }} -log info
+OUT ACCEPT -dest +dc/{{ pve_firewall_ipset_public }}

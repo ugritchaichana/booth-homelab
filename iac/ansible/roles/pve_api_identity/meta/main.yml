@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  author: homelab
+  description: Privilege-separated Proxmox API identity for OpenTofu with its token secret stored in SOPS
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions:
+        - trixie
+  galaxy_tags:
+    - proxmox
+    - secrets
+dependencies: []

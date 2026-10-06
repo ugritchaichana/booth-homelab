@@ -1,0 +1,35 @@
+---
+pve_api_identity_user: tofu@pve
+pve_api_identity_comment: OpenTofu provisioning identity
+pve_api_identity_role: HomelabProvisioner
+pve_api_identity_pool: homelab
+pve_api_identity_token: provisioner
+pve_api_identity_rotate: false
+
+pve_api_identity_privileges:
+  - Datastore.AllocateSpace
+  - Datastore.AllocateTemplate
+  - SDN.Allocate
+  - SDN.Audit
+  - SDN.Use
+  - Sys.AccessNetwork
+  - VM.Allocate
+  - VM.Audit
+  - VM.Config.Network
+pve_api_identity_forbidden_privileges:
+  - Permissions.Modify
+  - Sys.Modify
+  - User.Modify
+
+pve_api_identity_storages:
+  - local
+  - local-lvm
+pve_api_identity_acl_paths: >-
+  {{ ['/sdn']
+  + (pve_api_identity_storages | map('regex_replace', '^', '/storage/') | list)
+  + ['/pool/' ~ pve_api_identity_pool, '/nodes/' ~ (pve_node_name | default(inventory_hostname))] }}
+
+pve_api_identity_token_id: "{{ pve_api_identity_user }}!{{ pve_api_identity_token }}"
+pve_api_identity_secret_min_length: 36
+pve_api_identity_repo_root: "{{ (inventory_dir ~ '/../..') | realpath }}"
+pve_api_identity_secret_path: "iac/secrets/tofu/{{ inventory_hostname }}-api.sops.yaml"

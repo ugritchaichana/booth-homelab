@@ -3,3 +3,5 @@ pve01_access: "{{ lookup('community.sops.sops', inventory_dir ~ '/../secrets/hos
 base_root_authorized_keys: "{{ pve01_access.root_authorized_keys }}"
 base_root_authorized_keys_revoked: "{{ pve01_access.root_authorized_keys_revoked }}"
 base_automation_authorized_keys: "{{ pve01_access.automation_authorized_keys }}"
+pve01_network: "{{ lookup('community.sops.sops', inventory_dir ~ '/../secrets/hosts/pve01-network.sops.yaml') | from_yaml }}"
+pve_firewall_host_routed_prefixes: "{{ pve01_network.host_routed_prefixes }}"

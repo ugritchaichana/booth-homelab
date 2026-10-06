@@ -1,0 +1,29 @@
+---
+- name: Block the vsock transport from loading
+  ansible.builtin.copy:
+    dest: "{{ hyperv_guest_modprobe_dropin }}"
+    content: "{% for module in hyperv_guest_blocked_modules %}install {{ module }} /bin/false\n{% endfor %}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unload the blocked modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ hyperv_guest_blocked_modules }}"
+
+- name: Read installed packages
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Read services
+  ansible.builtin.service_facts:
+
+- name: Assert no host-integration daemon is installed or running
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.packages | list | intersect(hyperv_guest_forbidden_packages) | length == 0
+      - ansible_facts.services | list | select('match', hyperv_guest_forbidden_service_pattern)
+        | map('extract', ansible_facts.services) | selectattr('state', 'equalto', 'running') | list | length == 0
+    fail_msg: A Hyper-V KVP, VSS or file-copy daemon is installed or running; remove it, it is a host-to-guest channel

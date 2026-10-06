@@ -1,0 +1,175 @@
+---
+- name: Read the tokens of the provisioning user
+  ansible.builtin.command:
+    argv:
+      - pveum
+      - user
+      - token
+      - list
+      - "{{ pve_api_identity_user }}"
+      - --output-format
+      - json
+  register: pve_api_identity_tokens
+  changed_when: false
+
+- name: Find the current token
+  ansible.builtin.set_fact:
+    pve_api_identity_token_current: >-
+      {{ pve_api_identity_tokens.stdout | from_json
+      | selectattr('tokenid', 'equalto', pve_api_identity_token) | list }}
+
+- name: Assert an existing token is privilege-separated
+  ansible.builtin.assert:
+    that:
+      - (pve_api_identity_token_current | first).privsep | string == '1'
+    fail_msg: The existing token is not privilege-separated; rotate it with pve_api_identity_rotate=true
+  when: pve_api_identity_token_current | length > 0
+
+- name: Check that the stored secret matches an existing token
+  when:
+    - pve_api_identity_token_current | length > 0
+    - not pve_api_identity_rotate | bool
+  block:
+    - name: Count the stored secret characters
+      ansible.builtin.shell:
+        cmd: set -o pipefail; sops decrypt --extract '["token_secret"]' {{ pve_api_identity_secret_path | quote }} | wc -c
+        chdir: "{{ pve_api_identity_repo_root }}"
+        executable: /bin/bash
+      delegate_to: localhost
+      become: false
+      register: pve_api_identity_stored_secret
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: Assert the stored secret is present
+      ansible.builtin.assert:
+        that:
+          - pve_api_identity_stored_secret.rc == 0
+          - pve_api_identity_stored_secret.stdout | int >= pve_api_identity_secret_min_length
+        fail_msg: The token exists but its secret is not in the SOPS file; rotate it with pve_api_identity_rotate=true
+
+- name: Create the token and store its secret
+  when: pve_api_identity_token_current | length == 0 or pve_api_identity_rotate | bool
+  block:
+    - name: Remove the token before rotating it
+      ansible.builtin.command:
+        argv:
+          - pveum
+          - user
+          - token
+          - remove
+          - "{{ pve_api_identity_user }}"
+          - "{{ pve_api_identity_token }}"
+      when: pve_api_identity_token_current | length > 0
+      changed_when: true
+
+    - name: Create the privilege-separated token
+      ansible.builtin.command:
+        argv:
+          - pveum
+          - user
+          - token
+          - add
+          - "{{ pve_api_identity_user }}"
+          - "{{ pve_api_identity_token }}"
+          - --privsep
+          - "1"
+          - --output-format
+          - json
+      register: pve_api_identity_created
+      changed_when: true
+      no_log: true
+
+    - name: Keep the token secret in memory
+      ansible.builtin.set_fact:
+        pve_api_identity_new_secret: "{{ (pve_api_identity_created.stdout | from_json).value }}"
+        pve_api_identity_new_token_id: "{{ (pve_api_identity_created.stdout | from_json)['full-tokenid'] }}"
+      no_log: true
+
+    - name: Assert the new token is the expected one
+      ansible.builtin.assert:
+        that:
+          - pve_api_identity_new_token_id == pve_api_identity_token_id
+          - pve_api_identity_new_secret | length >= pve_api_identity_secret_min_length
+        fail_msg: The created token is not the expected identity or its secret is too short
+      no_log: true
+
+    - name: Look for the secret file
+      ansible.builtin.stat:
+        path: "{{ pve_api_identity_repo_root }}/{{ pve_api_identity_secret_path }}"
+      delegate_to: localhost
+      become: false
+      register: pve_api_identity_secret_file
+
+    - name: Create the secret file holding only the token id
+      ansible.builtin.command:
+        argv:
+          - sops
+          - encrypt
+          - --filename-override
+          - "{{ pve_api_identity_secret_path }}"
+          - --input-type
+          - yaml
+          - --output-type
+          - yaml
+          - --output
+          - "{{ pve_api_identity_secret_path }}"
+          - /dev/stdin
+        chdir: "{{ pve_api_identity_repo_root }}"
+        stdin: "token_id: {{ pve_api_identity_token_id }}"
+      delegate_to: localhost
+      become: false
+      when: not pve_api_identity_secret_file.stat.exists
+      changed_when: true
+
+    - name: Store the token secret through stdin
+      ansible.builtin.command:
+        argv:
+          - sops
+          - set
+          - --value-stdin
+          - "{{ pve_api_identity_secret_path }}"
+          - '["token_secret"]'
+        chdir: "{{ pve_api_identity_repo_root }}"
+        stdin: "{{ pve_api_identity_new_secret | to_json }}"
+        stdin_add_newline: false
+      delegate_to: localhost
+      become: false
+      changed_when: true
+      no_log: true
+
+    - name: Store the token id
+      ansible.builtin.command:
+        argv:
+          - sops
+          - set
+          - "{{ pve_api_identity_secret_path }}"
+          - '["token_id"]'
+          - "{{ pve_api_identity_token_id | to_json }}"
+        chdir: "{{ pve_api_identity_repo_root }}"
+      delegate_to: localhost
+      become: false
+      changed_when: true
+
+    - name: Forget the secret in memory
+      ansible.builtin.set_fact:
+        pve_api_identity_new_secret: ""
+        pve_api_identity_created: {}
+      no_log: true
+  rescue:
+    - name: Remove the token created in this run so the next run can create it again
+      ansible.builtin.command:
+        argv:
+          - pveum
+          - user
+          - token
+          - remove
+          - "{{ pve_api_identity_user }}"
+          - "{{ pve_api_identity_token }}"
+      changed_when: true
+      failed_when: false
+
+    - name: Stop after a failed token bootstrap
+      ansible.builtin.fail:
+        msg: The token bootstrap failed and the token was removed; check the sops key access and run again

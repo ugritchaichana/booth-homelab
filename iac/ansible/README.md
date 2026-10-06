@@ -7,9 +7,13 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `ansible.cfg` | Inventory, roles path and mandatory host-key checking. |
 | `requirements.yml` | Pinned collections. |
 | `requirements-ci.txt` | Hash-locked Python toolchain for CI and local linting. |
-| `playbooks/bootstrap.yml` | First contact as `root`: creates the automation user. |
-| `playbooks/site.yml` | Steady state, run as the automation user. |
+| `playbooks/bootstrap.yml` | First contact as `root`: switches the Proxmox repositories, then creates the automation user. |
+| `playbooks/site.yml` | Steady state, run as the automation user: `base`, then `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall` on the Proxmox hosts. |
 | `roles/base/` | Provider-neutral Debian baseline. |
+| `roles/hyperv_guest/` | Blocks `hv_sock` and asserts no KVP, VSS or file-copy daemon. |
+| `roles/pve_host/` | Proxmox repositories, full upgrade, reboot on a new kernel, nested-KVM assert. |
+| `roles/pve_api_identity/` | OpenTofu's API user, role, pool, ACLs and privilege-separated token. |
+| `roles/pve_firewall/` | `cluster.fw`, `host.fw` and the firewall dead-man. |
 
 ## Toolchain
 
@@ -71,3 +75,9 @@ If a step after the arming fails, the timer stays armed and restores the previou
 ### Line endings
 
 `iac/ansible/.gitattributes` forces LF: a CRLF template would put a carriage return into the sshd drop-in and the restore script.
+
+## Roles for Proxmox hosts
+
+- `pve_host`: `tasks/repos.yml` disables the enterprise repositories and enables `pve-no-subscription` as deb822 sources (it works before `sudo` exists, so `bootstrap.yml` runs it first); the rest of the role upgrades, reboots into a newer kernel and asserts nested KVM.
+- `pve_api_identity`: creates `tofu@pve` without a password, the role `HomelabProvisioner` (privileges listed in `defaults/main.yml`, none that manage identities or the host), the pool and the ACLs for both the user and the token, then the privilege-separated token. The secret goes to `iac/secrets/tofu/<host>-api.sops.yaml` through `sops set --value-stdin`; nothing is printed or placed on a command line. A run skips an existing token; `-e pve_api_identity_rotate=true` replaces it. The sops key must be readable by the controller.
+- `pve_firewall`: writes `/etc/pve/firewall/cluster.fw` and `/etc/pve/nodes/<node>/host.fw` behind a dead-man that restores the previous files, also at boot. Host-routed prefixes come from `iac/secrets/hosts/<host>-network.sops.yaml`. `bash tests/isolation/test-cluster-fw-render.sh` checks the rendered deny set offline.

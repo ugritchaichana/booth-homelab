@@ -1,0 +1,52 @@
+---
+- name: Configure the package repositories
+  ansible.builtin.import_tasks: repos.yml
+
+- name: Refresh the apt cache and apply a full upgrade
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: full
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  async: "{{ pve_host_upgrade_timeout }}"
+  poll: 15
+
+- name: Check for a pending reboot marker
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: pve_host_reboot_marker
+
+- name: Find the newest installed kernel image
+  ansible.builtin.shell: set -o pipefail; ls /boot/vmlinuz-* | sed 's|/boot/vmlinuz-||' | sort -V | tail -1
+  args:
+    executable: /bin/bash
+  register: pve_host_newest_kernel
+  changed_when: false
+
+- name: Reboot into the newest kernel
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ pve_host_reboot_timeout }}"
+    test_command: pveversion
+  when: pve_host_reboot_marker.stat.exists or pve_host_newest_kernel.stdout != ansible_facts.kernel
+
+- name: Read the nested virtualisation parameter
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  loop: "{{ pve_host_kvm_parameter_paths }}"
+  register: pve_host_nested_parameters
+  failed_when: false
+
+- name: Count the CPU virtualisation flags
+  ansible.builtin.command: grep -c -E '^flags.*\b(vmx|svm)\b' /proc/cpuinfo
+  register: pve_host_virt_flags
+  changed_when: false
+  failed_when: pve_host_virt_flags.rc > 1
+
+- name: Assert nested KVM is available
+  ansible.builtin.assert:
+    that:
+      - pve_host_virt_flags.stdout | int > 0
+      - pve_host_nested_parameters.results
+        | selectattr('content', 'defined') | map(attribute='content') | map('b64decode') | map('trim')
+        | select('in', ['1', 'Y']) | list | length > 0
+    fail_msg: Nested KVM is off; expose virtualisation extensions to the VM and check the kvm module parameter
