@@ -60,3 +60,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0017 | [Size templates by generic cloud flavors](0017-size-templates-by-generic-cloud-flavors.md) | Accepted |
 | 0018 | [Manage several machines as independent hosts in one inventory](0018-manage-several-machines-as-independent-hosts-in-one-inventory.md) | Accepted |
 | 0019 | [Take restore points of the PVE VM only while it is Off](0019-take-restore-points-of-the-pve-vm-only-while-it-is-off.md) | Accepted |
+| 0020 | [Retire the bootstrap, cache and Ansible assets of the previous host instead of porting them](0020-retire-the-bootstrap-cache-and-ansible-assets-of-the-previous-host-instead-of-porting-them.md) | Accepted |
