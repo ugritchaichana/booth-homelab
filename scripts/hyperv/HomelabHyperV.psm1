@@ -64,6 +64,7 @@ function Import-PveConfig {
     if (-not [IO.Path]::IsPathRooted($cfg.RootPath) -or $cfg.RootPath.Length -lt 6 -or [IO.Path]::GetPathRoot($cfg.RootPath) -eq $cfg.RootPath) {
         throw 'RootPath must be an absolute folder path below a drive root'
     }
+    if ($cfg.AclWeightMin -lt 0 -or $cfg.AclWeightMax -gt 65535) { throw 'AclWeightMin/AclWeightMax must stay inside 0..65535 (65535 accepted, 100000 rejected by the switch)' }
     if ($cfg.AddOwnerToHyperVAdministrators -isnot [bool]) { throw 'AddOwnerToHyperVAdministrators must be $true or $false' }
 
     $static = @()
@@ -289,10 +290,27 @@ function Get-PveAclPlan {
     if ($DenyAllEgress) {
         & $addRule ($min + 11) 'Deny' 'Outbound' '0.0.0.0/0' $null $null $false 'all egress denied (fail closed)'
     } else {
-        & $addRule ($min + 10) 'Allow' 'Outbound' '0.0.0.0/0' $null $null $true 'general internet out, replies flow'
+        & $addRule ($min + 10) 'Allow' 'Outbound' '0.0.0.0/0' 'TCP' $null $true 'internet out (TCP), replies flow'
+        & $addRule ($min + 9) 'Allow' 'Outbound' '0.0.0.0/0' 'UDP' $null $true 'internet out (UDP), replies flow'
     }
     & $addRule $min 'Deny' 'Inbound' '0.0.0.0/0' $null $null $false 'default deny in'
-    $rules.ToArray()
+    $planned = $rules.ToArray()
+    Assert-PveAclRule -Rule $planned
+    $planned
+}
+
+function Assert-PveAclRule {
+    param([Parameter(Mandatory)][object[]]$Rule)
+    $seen = @{}
+    foreach ($r in $Rule) {
+        $w = [int]$r.Weight
+        if ($w -lt 0 -or $w -gt 65535) { throw "ACL rule weight $w is outside 0..65535 (measured: 65535 accepted, 100000 rejected)" }
+        if ($r.Stateful -and $r.Action -ne 'Allow') { throw "Stateful ACL rules must be Allow (weight $w); the switch rejects a stateful Deny" }
+        if ($r.Stateful -and @('TCP', 'UDP') -notcontains ([string]$r.Protocol).ToUpperInvariant()) { throw "Stateful ACL rules must be TCP or UDP on this host (weight $w, protocol '$($r.Protocol)'); ICMP, ANY and no protocol are rejected at switch-apply time" }
+        $k = '{0}|{1}' -f $w, $r.Direction
+        if ($seen.ContainsKey($k)) { throw "Two ACL rules share weight $w and direction $($r.Direction)" }
+        $seen[$k] = $true
+    }
 }
 
 function ConvertTo-PveAclKey {
@@ -301,7 +319,9 @@ function ConvertTo-PveAclKey {
     if ($null -eq $Rule.RemoteIPAddress) { $remote = [string]$Rule.Remote }
     $remote = $remote.Trim().ToLowerInvariant() -replace '/32$', ''
     if ($remote -in @('any', '*', '')) { $remote = '0.0.0.0/0' }
-    '{0}|{1}|{2}' -f $Rule.Weight, $Rule.Action, $remote
+    $proto = ([string]$Rule.Protocol).Trim().ToUpperInvariant()
+    if ($proto -in @('ANY', '*')) { $proto = '' }
+    '{0}|{1}|{2}|{3}' -f $Rule.Weight, $Rule.Action, $remote, $proto
 }
 
 function Get-PveVmAdapter {
@@ -698,7 +718,7 @@ function Format-HomelabGiB {
 
 Export-ModuleMember -Function Write-HomelabLog, Import-PveConfig, ConvertTo-IPv4Number, ConvertFrom-IPv4Number, ConvertTo-IPv4Range,
 Test-IPv4RangeOverlap, Test-IPv4RangeCover, Merge-IPv4Prefix, Get-PveFixedDenyPrefix, Get-PveDenyInput, Get-PveExtraFingerprint,
-Write-PveDenySummary, Save-PveLocalOverride, Get-PveAclPlan, ConvertTo-PveAclKey, Get-PveVmAdapter, Get-PveOwnAcl, Get-PveForeignAcl,
+Write-PveDenySummary, Save-PveLocalOverride, Get-PveAclPlan, Assert-PveAclRule, ConvertTo-PveAclKey, Get-PveVmAdapter, Get-PveOwnAcl, Get-PveForeignAcl,
 Format-PveAclTable, Sync-PveVmAcl, Sync-PveIsolation, Get-PveFirewallRuleSpec, Get-PveFirewallState, Sync-PveHostFirewallRule,
 Revoke-PveHostFirewallRule, Test-HomelabElevated, Get-HomelabHyperVRight, Grant-PveCurrentUserHyperVAdmin, Revoke-PveUserHyperVAdmin,
 Test-PveInsideRoot, Test-PveRootOwner, Assert-PveSafePath, Get-PveRootAclSpec, Test-PveRootAcl, Initialize-PveRootAcl,

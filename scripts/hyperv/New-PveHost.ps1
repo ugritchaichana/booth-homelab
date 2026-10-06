@@ -158,7 +158,11 @@ function Invoke-Preflight {
         $driveRoot = [IO.Path]::GetPathRoot($cfg.RootPath)
         $free = [int64](New-Object IO.DriveInfo $driveRoot).AvailableFreeSpace
         $vhdxNow = 0
-        if (Test-Path -LiteralPath $cfg.VhdxPath) { $vhdxNow = [int64](Get-Item -LiteralPath $cfg.VhdxPath).Length }
+        try {
+            if (Test-Path -LiteralPath $cfg.VhdxPath) { $vhdxNow = [int64](Get-Item -LiteralPath $cfg.VhdxPath).Length }
+        } catch {
+            if (-not $script:PlanMode) { throw }
+        }
         $isoNeeded = 0
         if ($isoOk) { $isoNeeded = $isoLen }
         $after = $free - ($cfg.DiskBytes - $vhdxNow) - $isoNeeded
@@ -515,9 +519,14 @@ function Invoke-FileAccessStep {
 function Test-InstallGuard {
     $cfg = $script:Cfg
     $limit = [int64]$cfg.EmptyVhdxMaxMiB * 1MB
-    if (Test-Path -LiteralPath $cfg.VhdxPath) {
-        $len = (Get-Item -LiteralPath $cfg.VhdxPath).Length
-        if ($len -gt $limit) { return ('VHDX {0} is {1} bytes (limit {2}); it holds data. Never reinstall over data.' -f $cfg.VhdxPath, $len, $limit) }
+    try {
+        if (Test-Path -LiteralPath $cfg.VhdxPath) {
+            $len = (Get-Item -LiteralPath $cfg.VhdxPath).Length
+            if ($len -gt $limit) { return ('VHDX {0} is {1} bytes (limit {2}); it holds data. Never reinstall over data.' -f $cfg.VhdxPath, $len, $limit) }
+        }
+    } catch {
+        if (-not $script:PlanMode) { throw }
+        Write-HomelabLog -Level Skip -Message 'VHDX size: needs elevation/Hyper-V rights - skipped in plan'
     }
     if (-not $script:Rights.HasRights) { return $null }
     $vm = Get-VM -Name $cfg.VmName -ErrorAction SilentlyContinue
@@ -533,7 +542,7 @@ function Invoke-InstallStep {
     $n = $cfg.VmName
     Write-HomelabLog -Level Step -Message 'Step: unattended install, checkpoint, first cold start'
     if ($script:PlanMode) {
-        Write-HomelabLog -Level Plan -Message ('start VM; wait until Off (timeout {0} min, progress every {1} s); detach the ISO; Checkpoint-VM "{2}" while Off; start; wait for TCP {3}:{4} (timeout {5} min); print elapsed seconds; then delete the ISO copy under RootPath (it holds the root-password hash)' -f $cfg.InstallTimeoutMinutes, $cfg.ProgressSeconds, $cfg.CheckpointName, $cfg.GuestAddress, $cfg.SshPort, $cfg.BootTimeoutMinutes)
+        Write-HomelabLog -Level Plan -Message ('start VM; wait until Off (timeout {0} min, progress every {1} s); eject the ISO (documented form, confirmed by read-back); Checkpoint-VM "{2}" while Off; start; wait for TCP {3}:{4} (timeout {5} min); print elapsed seconds; then delete the ISO copy under RootPath (it holds the root-password hash)' -f $cfg.InstallTimeoutMinutes, $cfg.ProgressSeconds, $cfg.CheckpointName, $cfg.GuestAddress, $cfg.SshPort, $cfg.BootTimeoutMinutes)
         return 0
     }
     $limit = [int64]$cfg.EmptyVhdxMaxMiB * 1MB
@@ -555,8 +564,19 @@ function Invoke-InstallStep {
         Write-HomelabLog -Level Fail -Message 'VM powered off but the VHDX is still empty; the install did not complete. No checkpoint taken.'
         return 1
     }
-    Get-VMDvdDrive -VMName $n | Set-VMDvdDrive -Path $null
-    Write-HomelabLog -Level Pass -Message 'ISO detached'
+    foreach ($d in @(Get-VMDvdDrive -VMName $n | Where-Object { $_.Path })) {
+        Set-VMDvdDrive -VMName $n -ControllerNumber $d.ControllerNumber -ControllerLocation $d.ControllerLocation -Path $null
+    }
+    $ejected = $false
+    for ($t = 0; $t -le 20; $t++) {
+        if (@(Get-VMDvdDrive -VMName $n | Where-Object { $_.Path }).Count -eq 0) { $ejected = $true; break }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $ejected) {
+        Write-HomelabLog -Level Fail -Message 'ISO still attached 20 s after the eject; no checkpoint taken and the ISO copy is kept. Eject it by hand (Set-VMDvdDrive -VMName <vm> -ControllerNumber <n> -ControllerLocation <m> -Path $null) and re-run.'
+        return 1
+    }
+    Write-HomelabLog -Level Pass -Message 'ISO ejected (confirmed by read-back)'
     Checkpoint-VM -Name $n -SnapshotName $cfg.CheckpointName
     Write-HomelabLog -Level Pass -Message ('checkpoint "{0}" taken while Off, without the ISO attached' -f $cfg.CheckpointName)
     Sync-PveIsolation -Config $cfg -Persist -ShowPrefixes:$script:ShowPrefixes | Out-Null
