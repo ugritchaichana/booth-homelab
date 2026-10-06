@@ -2,9 +2,12 @@
 - name: Assert the identity cannot manage identities or the host
   ansible.builtin.assert:
     that:
-      - pve_api_identity_privileges | intersect(pve_api_identity_forbidden_privileges) | length == 0
+      - pve_api_identity_roles | dict2items | map(attribute='value') | flatten | intersect(pve_api_identity_forbidden_privileges) | length == 0
+      - pve_api_identity_grants | map(attribute='role') | difference(pve_api_identity_roles.keys() | list + ['NoAccess']) | length == 0
       - pve_api_identity_rotate | string | lower in ['true', 'false', 'yes', 'no']
-    fail_msg: The provisioner role may not hold Permissions.Modify, User.Modify or Sys.Modify, and pve_api_identity_rotate must be true or false
+    fail_msg: >-
+      A provisioner role may not hold Permissions.Modify, User.Modify or Sys.Modify, every grant needs a declared role,
+      and pve_api_identity_rotate must be true or false
 
 - name: Read the Proxmox users
   ansible.builtin.command: pveum user list --output-format json
@@ -25,39 +28,39 @@
 
 - name: Read the Proxmox roles
   ansible.builtin.command: pveum role list --output-format json
-  register: pve_api_identity_roles
+  register: pve_api_identity_role_list
   changed_when: false
 
-- name: Find the current provisioner role
-  ansible.builtin.set_fact:
-    pve_api_identity_role_current: >-
-      {{ pve_api_identity_roles.stdout | from_json
-      | selectattr('roleid', 'equalto', pve_api_identity_role) | list }}
-
-- name: Create the provisioner role
+- name: Create the missing roles
   ansible.builtin.command:
     argv:
       - pveum
       - role
       - add
-      - "{{ pve_api_identity_role }}"
+      - "{{ item.key }}"
       - --privs
-      - "{{ pve_api_identity_privileges | sort | join(' ') }}"
-  when: pve_api_identity_role_current | length == 0
+      - "{{ item.value | sort | join(' ') }}"
+  loop: "{{ pve_api_identity_roles | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: item.key not in (pve_api_identity_role_list.stdout | from_json | map(attribute='roleid') | list)
   changed_when: true
 
-- name: Replace the provisioner role privileges when they differ
+- name: Replace the privileges of roles that differ
   ansible.builtin.command:
     argv:
       - pveum
       - role
       - modify
-      - "{{ pve_api_identity_role }}"
+      - "{{ item.key }}"
       - --privs
-      - "{{ pve_api_identity_privileges | sort | join(' ') }}"
+      - "{{ item.value | sort | join(' ') }}"
+  loop: "{{ pve_api_identity_roles | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
   when:
-    - pve_api_identity_role_current | length > 0
-    - (pve_api_identity_role_current | first).privs.split(',') | sort != pve_api_identity_privileges | sort
+    - item.key in (pve_api_identity_role_list.stdout | from_json | map(attribute='roleid') | list)
+    - (pve_api_identity_role_list.stdout | from_json | selectattr('roleid', 'equalto', item.key) | first).privs.split(',') | sort != item.value | sort
   changed_when: true
 
 - name: Read the resource pools
@@ -86,32 +89,56 @@
 - name: Compute the grants already in place
   ansible.builtin.set_fact:
     pve_api_identity_user_granted: >-
-      {{ pve_api_identity_acl_raw.stdout | from_json
-      | selectattr('ugid', 'equalto', pve_api_identity_user)
-      | selectattr('roleid', 'equalto', pve_api_identity_role)
-      | map(attribute='path') | list }}
+      {{ pve_api_identity_acl_raw.stdout | from_json | selectattr('ugid', 'equalto', pve_api_identity_user)
+      | map(attribute='path') | zip(pve_api_identity_acl_raw.stdout | from_json
+      | selectattr('ugid', 'equalto', pve_api_identity_user) | map(attribute='roleid'))
+      | map('join', '|') | list }}
     pve_api_identity_token_granted: >-
-      {{ pve_api_identity_acl_raw.stdout | from_json
-      | selectattr('ugid', 'equalto', pve_api_identity_token_id)
-      | selectattr('roleid', 'equalto', pve_api_identity_role)
-      | map(attribute='path') | list }}
+      {{ pve_api_identity_acl_raw.stdout | from_json | selectattr('ugid', 'equalto', pve_api_identity_token_id)
+      | map(attribute='path') | zip(pve_api_identity_acl_raw.stdout | from_json
+      | selectattr('ugid', 'equalto', pve_api_identity_token_id) | map(attribute='roleid'))
+      | map('join', '|') | list }}
 
-- name: Grant the role to the user and the privilege-separated token
+- name: Remove grants of the identity that are not declared
+  ansible.builtin.command:
+    argv:
+      - pveum
+      - acl
+      - delete
+      - "{{ item.path }}"
+      - --roles
+      - "{{ item.roleid }}"
+      - "{{ '--users' if item.type == 'user' else '--tokens' }}"
+      - "{{ item.ugid }}"
+  loop: "{{ pve_api_identity_acl_raw.stdout | from_json | selectattr('ugid', 'in', [pve_api_identity_user, pve_api_identity_token_id]) | list }}"
+  loop_control:
+    label: "{{ item.path }} {{ item.roleid }} {{ item.ugid }}"
+  when: >-
+    (item.path ~ '|' ~ item.roleid) not in
+    (pve_api_identity_grants | map(attribute='path') | zip(pve_api_identity_grants | map(attribute='role')) | map('join', '|') | list)
+  changed_when: true
+
+- name: Grant each role to the user and the privilege-separated token
   ansible.builtin.command:
     argv:
       - pveum
       - acl
       - modify
-      - "{{ item }}"
+      - "{{ item.path }}"
       - --roles
-      - "{{ pve_api_identity_role }}"
+      - "{{ item.role }}"
       - --users
       - "{{ pve_api_identity_user }}"
       - --tokens
       - "{{ pve_api_identity_token_id }}"
       - --propagate
       - "1"
-  loop: "{{ pve_api_identity_acl_paths | reject('in', pve_api_identity_user_granted | intersect(pve_api_identity_token_granted)) | list }}"
+  loop: "{{ pve_api_identity_grants }}"
+  loop_control:
+    label: "{{ item.path }} {{ item.role }}"
+  when: >-
+    (item.path ~ '|' ~ item.role) not in pve_api_identity_user_granted
+    or (item.path ~ '|' ~ item.role) not in pve_api_identity_token_granted
   changed_when: true
 
 - name: Read the ACL entries again
@@ -122,26 +149,30 @@
 - name: Assert the identity holds exactly the declared grants
   ansible.builtin.assert:
     that:
-      - pve_api_identity_unexpected | length == 0
-      - pve_api_identity_user_after | difference(pve_api_identity_acl_paths) | length == 0
-      - pve_api_identity_acl_paths | difference(pve_api_identity_user_after) | length == 0
-      - pve_api_identity_acl_paths | difference(pve_api_identity_token_after) | length == 0
-    fail_msg: The identity holds a grant outside the declared paths and role, or lacks one; remove it with pveum acl delete
+      - pve_api_identity_user_after | sort == pve_api_identity_wanted | sort
+      - pve_api_identity_token_after | sort == pve_api_identity_wanted | sort
+    fail_msg: The user or the token holds a grant that is not declared, or lacks one; remove it with pveum acl delete
   vars:
-    pve_api_identity_identity_entries: >-
-      {{ pve_api_identity_acl_after.stdout | from_json
-      | selectattr('ugid', 'in', [pve_api_identity_user, pve_api_identity_token_id]) | list }}
-    pve_api_identity_unexpected: >-
-      {{ pve_api_identity_identity_entries | rejectattr('roleid', 'equalto', pve_api_identity_role) | list
-      + (pve_api_identity_identity_entries | selectattr('roleid', 'equalto', pve_api_identity_role)
-      | rejectattr('path', 'in', pve_api_identity_acl_paths) | list) }}
+    pve_api_identity_acl_entries: "{{ pve_api_identity_acl_after.stdout | from_json }}"
+    pve_api_identity_wanted: >-
+      {{ pve_api_identity_grants | map(attribute='path')
+      | zip(pve_api_identity_grants | map(attribute='role')) | map('join', '|') | list }}
     pve_api_identity_user_after: >-
-      {{ pve_api_identity_identity_entries
-      | selectattr('ugid', 'equalto', pve_api_identity_user)
-      | selectattr('roleid', 'equalto', pve_api_identity_role)
-      | map(attribute='path') | list }}
+      {{ pve_api_identity_acl_entries | selectattr('ugid', 'equalto', pve_api_identity_user) | map(attribute='path')
+      | zip(pve_api_identity_acl_entries | selectattr('ugid', 'equalto', pve_api_identity_user) | map(attribute='roleid'))
+      | map('join', '|') | list }}
     pve_api_identity_token_after: >-
-      {{ pve_api_identity_identity_entries
-      | selectattr('ugid', 'equalto', pve_api_identity_token_id)
-      | selectattr('roleid', 'equalto', pve_api_identity_role)
-      | map(attribute='path') | list }}
+      {{ pve_api_identity_acl_entries | selectattr('ugid', 'equalto', pve_api_identity_token_id) | map(attribute='path')
+      | zip(pve_api_identity_acl_entries | selectattr('ugid', 'equalto', pve_api_identity_token_id) | map(attribute='roleid'))
+      | map('join', '|') | list }}
+
+- name: Delete roles that this role no longer declares
+  ansible.builtin.command:
+    argv:
+      - pveum
+      - role
+      - delete
+      - "{{ item }}"
+  loop: "{{ pve_api_identity_retired_roles }}"
+  when: item in (pve_api_identity_role_list.stdout | from_json | map(attribute='roleid') | list)
+  changed_when: true
