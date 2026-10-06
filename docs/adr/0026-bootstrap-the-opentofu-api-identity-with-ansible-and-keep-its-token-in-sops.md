@@ -34,3 +34,4 @@ Option 3, implemented by `iac/ansible/roles/pve_api_identity`.
 - Not proven until the first apply: that a grant on a vnet path that does not exist yet is accepted, and which `VM.Config.*` a real plan still lacks; the roles in `defaults/main.yml` are the only place to change.
 - Accepted loss: the secret value passes through controller memory and the Ansible module payload directory for the length of one task.
 - The token's inability to create users or ACLs (HTTP 403) is proven at the first converge, not by this record.
+- A pool-scoped token must not set guest tags at create time: Proxmox checks `VM.Config.Options` for tags on `/vms/<id>` without the pool, which a guest that does not exist yet cannot inherit from the pool (measured on the first probe apply: 403 on both creates).

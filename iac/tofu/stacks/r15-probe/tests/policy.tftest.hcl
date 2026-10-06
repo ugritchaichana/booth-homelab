@@ -185,3 +185,12 @@ run "address_outside_the_host_subnet_is_rejected" {
     proxmox_virtual_environment_vm.probe,
   ]
 }
+
+run "no_tags_at_create_because_a_pool_scoped_token_cannot_inherit_them" {
+  command = plan
+
+  assert {
+    condition     = proxmox_virtual_environment_container.probe.tags == null && proxmox_virtual_environment_vm.probe.tags == null
+    error_message = "Tags are checked on /vms/<id> without the pool, so a pool-scoped token cannot set them at create time."
+  }
+}
