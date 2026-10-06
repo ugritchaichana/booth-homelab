@@ -28,7 +28,7 @@ Option 3, in `iac/tofu/modules/proxmox/sdn/`, called by `iac/tofu/stacks/proxmox
 
 ## Rationale and trade-offs
 
-- Option 3 adds no package and no new socket, but the zone adds host addresses, `10.99.16.1` and a link-local one on the `guests` bridge, where the existing wildcard listeners answer: sshd 22, pveproxy 8006 and spiceproxy 3128. It also turns on IPv4 forwarding. Only the host firewall's management-only input policy (ADR 0027) keeps guests off those listeners, and the isolation probe measures it. Option 2 would add a package and a listener for leases that static addresses make unnecessary.
+- Option 3 adds no package and no new socket, but the zone adds host addresses, `10.99.16.1` and a link-local one on the `guests` bridge, where the existing wildcard listeners answer, among them sshd 22, rpcbind 111 (tcp and udp), spiceproxy 3128 and pveproxy 8006. It also turns on IPv4 forwarding. Only the host firewall's management-only input policy (ADR 0027) keeps guests off those listeners, and the R15 isolation probe measures it. Option 2 would add a package and a listener for leases that static addresses make unnecessary.
 - Accepted loss: every guest address is assigned by hand and must be unique; nothing detects a duplicate. Revisit when guests are created from templates in bulk.
 - Measured offline with a mocked provider: `tofu test` passes the policy, two-host and overlap cases, and removing the overlap check or setting `snat` or `isolate_ports` to false each makes a test fail.
 - HYPOTHESIS, proven only by the host apply: SNAT works with the firewall on; `proxmox_sdn_applier` is documented EXPERIMENTAL and a second plan after apply shows no changes; the pinned provider's `isolate_ports` takes effect on the bridge.

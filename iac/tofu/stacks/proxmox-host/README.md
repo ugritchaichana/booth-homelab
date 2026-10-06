@@ -15,7 +15,7 @@ bash scripts/iac/tofu.sh proxmox-host pve01 apply
 
 One-time setup of the state root: `sudo install -d -o "$USER" -m 0700 /var/lib/homelab/tofu`.
 
-`apply` first runs `sudo -n ifquery --check -a` on the host as `automation`, over the rendered ssh config, and refuses when it returns non-zero, printing its output. The SDN apply reloads the whole network config, so drift between `/etc/network/interfaces` and the running state would be applied together with the guest bridge. `plan` skips the check.
+`apply` and `destroy` first run `sudo -n ifquery --check -a` on the host as `automation`, over the rendered ssh config, and refuses when it returns non-zero, printing its output. The SDN applier runs on both and reloads the whole network config, so drift between `/etc/network/interfaces` and the running state would be applied together with the guest bridge. `plan` skips the check.
 
 ## Verify after apply
 
