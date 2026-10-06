@@ -25,6 +25,7 @@ pve_api_identity_roles:
     - VM.PowerMgmt
   HomelabDisks:
     - Datastore.AllocateSpace
+    - Datastore.Audit
   HomelabTemplates:
     - Datastore.AllocateTemplate
     - Datastore.Audit
