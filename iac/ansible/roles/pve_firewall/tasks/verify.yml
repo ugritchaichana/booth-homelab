@@ -18,7 +18,7 @@
     that:
       - pve_firewall_compile.rc == 0
       - (pve_firewall_compile.stdout_lines + pve_firewall_compile.stderr_lines)
-        | select('search', pve_firewall_compile_error_pattern) | list | length == 0
+        | select('search', pve_firewall_compile_error_patterns | join('|')) | list | length == 0
     fail_msg: The host skipped or rejected a firewall line; run pve-firewall compile on the host to see which
   no_log: true
 
