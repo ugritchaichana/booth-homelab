@@ -139,7 +139,10 @@ Implemented enterprise-grade zero-trust network segmentation and bridge port iso
 - **East-West Traffic:** 100% packet loss between CT 102 (.NET) and CT 103 (Angular).
 - **Service Isolation:** Runner access to MinIO S3 API (:9000) allowed; Web Console (:9001) blocked.
 - **Egress Whitelist:** Outbound restricted strictly to ports 53, 80, 443, 123 (Default DROP).
-- **Verification:** 10/10 automated assertions passing via `scripts/proxmox/verify-enterprise-firewall.py`.
+- **Verification:** 10/10 automated assertions passed with a script that was retired together with this firewall (ADR 0020).
+
+### Status Note
+Retired with the previous host (ADR 0020). The current firewall is owned by Ansible (ADR 0025, ADR 0027) and guest isolation is proven per ADR 0031.
 """
     },
     {
@@ -150,10 +153,10 @@ Implemented enterprise-grade zero-trust network segmentation and bridge port iso
 Engineered declarative Infrastructure as Code using OpenTofu 1.13 and provider `bpg/proxmox` (~> 0.68.0).
 
 ### Key Features
-- **Multi-Cloud Flavor Catalog (`iac/tofu/flavors.json`):** Abstracts hardware sizing using AWS (t3/c5/m5), GCP (e2/c2), Azure (B/D/F), Hetzner (cx/cpx), and DigitalOcean profiles.
-- **Dynamic HCL Mapping:** Automatically resolves vCPU, RAM, and Disk allocations based on selected cloud provider and instance flavor.
-- **Modular Topology:** Reusable modules for CI runners (`modules/lxc_runner`) and MinIO S3 cache (`modules/minio_cache`).
-- **Dynamic Inventory:** Generates Ansible inventory directly from OpenTofu state outputs.
+- **Multi-Cloud Flavor Catalog (`iac/tofu/flavors.json`, ADR 0017):** Abstracts hardware sizing using AWS (t3/c5/m5), GCP (e2/c2), Azure (B/D/F), Hetzner (cx/cpx), and DigitalOcean profiles.
+- **Dynamic HCL Mapping:** Resolved vCPU, RAM, and Disk allocations from the selected cloud provider and instance flavor; the root module that did this was replaced by the stacks under `iac/tofu/stacks/` and nothing reads the catalog yet.
+- **Modular Topology:** The runner and cache modules are gone. The current module is `iac/tofu/modules/proxmox/sdn` (guest network, ADR 0030), called by the stacks `iac/tofu/stacks/proxmox-host` and `iac/tofu/stacks/r15-probe`.
+- **Inventory:** The generated Ansible inventory was replaced by one hand-kept file, `iac/inventory/hosts.yml`, read by Ansible and OpenTofu (ADR 0021).
 """
     },
     {
@@ -161,12 +164,12 @@ Engineered declarative Infrastructure as Code using OpenTofu 1.13 and provider `
         "labels": ["iac", "ansible"],
         "status": "Done",
         "body": """### Summary
-Engineered declarative, idempotent configuration management in `iac/ansible/` for host networking, runners, and storage.
+Engineered declarative, idempotent configuration management in `iac/ansible/` for the Proxmox hosts.
 
 ### Deliverables
-- **Master Orchestrator:** `playbooks/site.yml` executing host setup, cache deployment, and runner provisioning.
-- **Structured Roles:** `common`, `enterprise_firewall`, `minio_cache`, `runner_dotnet`, `runner_angular`.
-- **Group Variables:** Centralized subnets, ports, runner versions, and S3 credentials in `inventory/group_vars/`.
+- **Orchestrators:** `playbooks/bootstrap.yml` (first contact as root) and `playbooks/site.yml` (steady state); `playbooks/r15-verify.yml` runs the isolation proof on demand.
+- **Structured Roles:** `base`, `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`. The Ansible content of the previous host was retired (ADR 0020, ADR 0023).
+- **Variables:** Host data lives in `iac/inventory/` (`hosts.yml`, `group_vars/`, `host_vars/`); secrets are SOPS files under `iac/secrets/` (ADR 0009).
 """
     },
     {
@@ -179,7 +182,7 @@ Restructured repository directory hierarchy for universal 5-second clarity, remo
 ### Directory Layout
 - `apps/backend/`: .NET 8 solution with deterministic MSBuild and DAG diff runner.
 - `apps/frontend/`: Angular 18/19 standalone Jest test suite with pure headless jsdom.
-- `iac/`: Clean separation into `tofu/`, `ansible/`, and `bootstrap/`.
+- `iac/`: Clean separation into `tofu/`, `ansible/`, `inventory/`, `secrets/`, and `proxmox/`; the old `bootstrap/` tree was retired (ADR 0020).
 - `scripts/`: Compact developer CLI tools only (`scripts/apps/`, `scripts/ci/`, `scripts/proxmox/`).
 """
     },

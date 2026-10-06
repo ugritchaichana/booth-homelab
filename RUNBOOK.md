@@ -495,15 +495,10 @@ pct template 9001
 
 ### 7.2 OpenTofu Ephemeral Runner Provisioning
 
+The OpenTofu root module that provisioned runners was replaced by the stacks under `iac/tofu/stacks/`, so `iac/tofu` itself is no longer a root module and `tofu apply` there does nothing. The ephemeral pool design is ADR 0016. Until the runner stack exists, the only stacks are `iac/tofu/stacks/proxmox-host` and `iac/tofu/stacks/r15-probe`, run through the wrapper (see `iac/tofu/README.md`):
+
 ```bash
-cd iac/tofu
-tofu init
-tofu apply -auto-approve
-
-# Test suite execution runs here...
-
-# Destroy ephemeral runner immediately after test execution:
-tofu destroy -auto-approve
+bash scripts/iac/tofu.sh proxmox-host pve01 plan
 ```
 
 ### 7.3 Zero-Trace Decommissioning (Complete Host Reclamation)
