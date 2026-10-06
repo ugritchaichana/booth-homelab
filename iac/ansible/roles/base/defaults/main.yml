@@ -1,5 +1,8 @@
 ---
 base_container_test_mode: false
+base_test_mode_connections:
+  - community.docker.docker
+  - docker
 
 base_automation_user: "{{ automation_user | default('automation') }}"
 base_automation_shell: /bin/bash
@@ -17,7 +20,8 @@ base_deadman_minutes: "{{ deadman_minutes | default(10) }}"
 base_deadman_unit: homelab-deadman-ssh
 base_deadman_dir: /var/lib/homelab/deadman-ssh
 
-base_fresh_session_ssh_args: -o ControlMaster=no -o ControlPath=none
+base_fresh_session_ssh_extra_args: -o ControlPath=none
+base_deadman_boot_unit: homelab-deadman-ssh-boot
 
 base_time_servers: "{{ time_servers | default(['0.debian.pool.ntp.org', '1.debian.pool.ntp.org']) }}"
 base_journald_system_max_use: "{{ journald_system_max_use | default('200M') }}"

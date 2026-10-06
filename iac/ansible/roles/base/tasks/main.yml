@@ -1,4 +1,24 @@
 ---
+- name: Assert test mode is a real boolean and only on a container connection
+  ansible.builtin.assert:
+    that:
+      - base_container_test_mode is boolean
+      - not (base_container_test_mode | bool) or (ansible_connection | default('')) in base_test_mode_connections
+    fail_msg: base_container_test_mode must be a boolean and may be true only on a container connection
+
+- name: Read the dead-man timer state
+  ansible.builtin.systemd_service:
+    name: "{{ base_deadman_unit }}.timer"
+  register: base_deadman_timer
+  when: not base_container_test_mode | bool
+
+- name: Refuse to run while a dead-man timer is armed
+  ansible.builtin.assert:
+    that:
+      - base_deadman_timer.status.ActiveState | default('inactive') not in ['active', 'activating']
+    fail_msg: A homelab-deadman-ssh timer is armed from an earlier run; check the host, then stop the timer
+  when: not base_container_test_mode | bool
+
 - name: Create the automation identity
   ansible.builtin.import_tasks: automation_user.yml
 

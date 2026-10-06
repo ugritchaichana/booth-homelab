@@ -53,18 +53,20 @@ Role inputs are the `base_*` variables in `roles/base/defaults/main.yml`; the in
 
 ### SSH change guard
 
+Before anything else the role refuses to run while a `homelab-deadman-ssh` timer is armed. `site.yml` also refuses to run unless the connection user is the automation user.
+
 When the sshd drop-in or the root keys would change, the role does this in order:
 
-1. Open a fresh, non-multiplexed session as the automation user and run `sudo -n`; stop if it fails.
-2. Back up the current drop-in and root keys, then arm `systemd-run --on-active=<deadman_minutes>min --unit=homelab-deadman-ssh` with a script that restores them.
-3. Apply the root key changes and the drop-in, then reload sshd.
-4. Open another fresh session as the automation user; only then stop the timer and delete the backup.
+1. Open a fresh session as the automation user (no multiplexing, the wrapper's ssh arguments kept) and run `sudo -n`; stop if it fails.
+2. Back up the current drop-in and root keys, write an `armed` marker, then arm `systemd-run --on-active=<deadman_minutes>min --unit=homelab-deadman-ssh` with a script that restores them. The enabled unit `homelab-deadman-ssh-boot` runs the same script at boot while `armed` exists, so a reboot inside the window does not disarm the restore.
+3. Edit the root keys (on PVE the key file is a link into the cluster filesystem, so the file it points to is edited in place) and install the drop-in; check it with `sshd -t`, then reload sshd.
+4. Open another fresh session as the automation user and assert the effective `sshd -T` values, that the timer is still active and that no `fired` marker exists; only then stop the timer and delete the state.
 
-If step 4 fails the timer stays armed and restores the previous access. Nothing is armed when nothing changes, so a second run reports `changed=0`.
+If a step after the arming fails, the timer stays armed and restores the previous access. Nothing is armed when nothing changes, so a second run reports `changed=0`.
 
 ### Test mode
 
-`base_container_test_mode: true` skips the fresh-session checks, the dead-man and the chrony start and restart, because a container has no second SSH login, no host clock and no timer to lock out. Only the Molecule scenario sets it. A real host must never set it.
+`base_container_test_mode: true` skips the fresh-session checks, the dead-man and the chrony start and restart, because a container has no second SSH login, no host clock and no timer to lock out. Only the Molecule scenario sets it. The role asserts the value is a boolean and is `true` only on a container connection, so a real host cannot run with it on.
 
 ### Line endings
 

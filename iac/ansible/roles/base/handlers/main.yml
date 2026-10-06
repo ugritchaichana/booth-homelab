@@ -3,7 +3,7 @@
   ansible.builtin.service:
     name: chrony
     state: restarted
-  when: not base_container_test_mode
+  when: not base_container_test_mode | bool
 
 - name: Restart journald
   ansible.builtin.service:

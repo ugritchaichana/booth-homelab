@@ -22,6 +22,11 @@
         name: ssh
       register: base_verify_ssh_unit
 
+    - name: Read the boot-time dead-man unit
+      ansible.builtin.systemd_service:
+        name: homelab-deadman-ssh-boot.service
+      register: base_verify_boot_unit
+
     - name: Validate the sudoers drop-in
       ansible.builtin.command: /usr/sbin/visudo -cf /etc/sudoers.d/90-homelab-automation
       changed_when: false
@@ -60,6 +65,7 @@
       ansible.builtin.assert:
         that:
           - base_verify_ssh_unit.status.ActiveState == 'active'
+          - base_verify_boot_unit.status.UnitFileState == 'enabled'
           - base_verify_sudoers.stat.mode == '0440'
           - "'NOPASSWD: ALL' in base_verify_sudo_list.stdout"
           - base_verify_passwd.stdout.split()[1] == 'L'

@@ -21,13 +21,13 @@ Option 2 for roles that are provider-neutral, with the host-specific proof done 
 
 - `.github/workflows/iac-ci.yml` job `ansible-quality-gate`: `ansible-lint --profile production`, `--syntax-check` on every playbook, then `molecule test` in `iac/ansible/roles/base`. Its default sequence prints `Idempotence completed successfully` when a second converge changes nothing.
 - The scenario's `verify.yml` asserts the effective state: `sshd -T` values, sudoers validity and mode, the automation account, root key restriction and revocation, chrony package, unit and sources, and the journal cap.
-- The toolchain is a hash-locked `requirements-ci.txt` installed with `--require-hashes` on Python 3.13, the interpreter the lock was resolved under. The Molecule Docker driver needs `community.docker`, so it is pinned in `requirements.yml` beside the three collections the roles use.
-- `base_container_test_mode` is the only switch that skips behaviour a container cannot run: the fresh-session checks, the dead-man and the chrony start. Its effect is documented in `iac/ansible/README.md`, and a real host never sets it.
-- What stays proven locally: the guard in ADR 0023, `pve_*` roles, plan and apply, and the isolation proof. The output is recorded in the pull request.
+- The toolchain is a hash-locked `requirements-ci.txt` installed with `--require-hashes` on Python 3.13, the interpreter the lock was resolved under. The Molecule Docker driver needs `community.docker`, so it is pinned in `requirements.yml` beside the collections pinned for later roles (`community.sops`, `community.general`); the base role itself uses `ansible.posix`.
+- `base_container_test_mode` is the only switch that skips behaviour a container cannot run: the fresh-session checks, the dead-man and the chrony start. Its effect is documented in `iac/ansible/README.md`. The role asserts it is a boolean and `true` only on a container connection, so a real host cannot run with it on.
+- What stays proven locally: the guard in ADR 0023 (including the persistent boot-time unit), `pve_*` roles, plan and apply, and the isolation proof. The output is recorded in the pull request.
 
 ## Rationale and trade-offs
 
-- Measured 2026-10-07 in a disposable Debian 13 instance with systemd, using the scenario's own `prepare.yml`, `converge.yml`, `verify.yml` and variables: first converge applied, second converge `changed=0`, `verify` passed 17 tasks. Removing `PasswordAuthentication no` from the drop-in template made `verify` fail at the `sshd -T` assertion.
-- Not measured: the Molecule run itself on a hosted runner, because no Docker daemon exists on the workstation. Treat the container build, privileged systemd start and cgroup mount as HYPOTHESIS until the first CI run.
+- Measured 2026-10-07 in a disposable Debian 13 instance with systemd, using the scenario's own `prepare.yml`, `converge.yml`, `verify.yml` and variables: first converge applied, second converge `changed=0`, `verify` passed. Removing `PasswordAuthentication no` from the drop-in template made `verify` fail at the `sshd -T` assertion.
+- Measured in CI: run 37512445688 passed converge, idempotence and verify on a hosted runner, and run 37512472886 with `PasswordAuthentication no` removed from the template failed at `verify`.
 - Accepted loss: test mode leaves the guard and the chrony start untested in CI, so a regression there shows only in the local proof.
 - A change to `.ansible-lint` alone does not start the workflow, because the trigger paths stay `iac/**` and the workflow file.

@@ -19,4 +19,4 @@
   ansible.builtin.service:
     name: chrony
     enabled: true
-    state: "{{ omit if base_container_test_mode else 'started' }}"
+    state: "{{ omit if base_container_test_mode | bool else 'started' }}"
