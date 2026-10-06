@@ -343,7 +343,6 @@
   loop:
     - accept_ra
     - autoconf
-    - forwarding
   register: pve_firewall_ipv6_bridge
   changed_when: false
   when: pve_firewall_guest_bridge.stat.exists
@@ -353,4 +352,4 @@
     that:
       - pve_firewall_ipv6_live.results | map(attribute='stdout') | unique | list == ['0']
       - not pve_firewall_guest_bridge.stat.exists or (pve_firewall_ipv6_bridge.results | map(attribute='stdout') | unique | list == ['0'])
-    fail_msg: IPv6 router advertisements or forwarding are still on for the host or the guest bridge
+    fail_msg: The host still accepts IPv6 router advertisements on the guest bridge or forwards IPv6 between interfaces
