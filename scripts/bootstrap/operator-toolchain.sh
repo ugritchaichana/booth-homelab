@@ -7,13 +7,17 @@ SOPS_VERSION="3.13.3"
 SOPS_SHA256="e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b"
 GITLEAKS_VERSION="8.30.1"
 GITLEAKS_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+TFLINT_VERSION="0.64.0"
+TFLINT_SHA256="cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537"
+ANSIBLE_LINT_VERSION="26.9.0"
+ANSIBLE_LINT_VENV="/usr/local/lib/homelab/ansible-lint"
 PVE_KEYRING_SHA256="136673be77aba35dcce385b28737689ad64fd785a797e57897589aed08db6e45"
 PVE_KEYRING_URL="https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg"
 PVE_KEYRING="/usr/share/keyrings/proxmox-archive-keyring.gpg"
 PVE_SOURCES="/etc/apt/sources.list.d/proxmox-pve.sources"
 PVE_PREFS="/etc/apt/preferences.d/proxmox-pve"
 INSTALL_DIR="/usr/local/bin"
-APT_PACKAGES=(ca-certificates curl gpg openssl python3 jq age xorriso ansible git openssh-client)
+APT_PACKAGES=(ca-certificates curl gpg openssl python3 jq age xorriso ansible git openssh-client unzip python3-venv)
 
 export DEBIAN_FRONTEND=noninteractive
 apt_updated=0
@@ -111,6 +115,33 @@ else
   install -m 0755 "$work/x/gitleaks" "$INSTALL_DIR/gitleaks"
 fi
 
+log "tflint ${TFLINT_VERSION}"
+if command -v tflint >/dev/null && [ "$(tflint --version | head -n1)" = "TFLint version ${TFLINT_VERSION}" ]; then
+  echo "present: tflint ${TFLINT_VERSION}"
+else
+  work="$(new_tmp)"
+  archive="tflint_linux_amd64.zip"
+  curl -fsSL --retry 3 -o "$work/$archive" "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/$archive"
+  verify_sha256 "$work/$archive" "$TFLINT_SHA256"
+  mkdir "$work/x"
+  unzip -q "$work/$archive" tflint -d "$work/x"
+  install -m 0755 "$work/x/tflint" "$INSTALL_DIR/tflint"
+fi
+
+log "ansible-lint ${ANSIBLE_LINT_VERSION}"
+if [ -x "$INSTALL_DIR/ansible-lint" ] && NO_COLOR=1 "$INSTALL_DIR/ansible-lint" --version 2>/dev/null | grep -q "^ansible-lint ${ANSIBLE_LINT_VERSION}"; then
+  echo "present: ansible-lint ${ANSIBLE_LINT_VERSION}"
+else
+  rm -rf "$ANSIBLE_LINT_VENV"
+  python3 -m venv "$ANSIBLE_LINT_VENV"
+  "$ANSIBLE_LINT_VENV/bin/pip" install -q --disable-pip-version-check --require-hashes --no-deps --only-binary=:all: -r "$(dirname "${BASH_SOURCE[0]}")/ansible-lint.lock.txt"
+  printf '#!/bin/sh
+PATH="%s/bin:$PATH" exec "%s/bin/ansible-lint" "$@"
+' "$ANSIBLE_LINT_VENV" "$ANSIBLE_LINT_VENV" > "$INSTALL_DIR/ansible-lint"
+  chmod 0755 "$INSTALL_DIR/ansible-lint"
+  echo "installed: ansible-lint ${ANSIBLE_LINT_VERSION}"
+fi
+
 log "Proxmox VE no-subscription repository"
 if [ -f "$PVE_KEYRING" ] && [ "$(sha256sum "$PVE_KEYRING" | cut -d' ' -f1)" = "$PVE_KEYRING_SHA256" ]; then
   echo "present: $PVE_KEYRING"
@@ -120,7 +151,7 @@ else
   verify_sha256 "$work/proxmox-archive-keyring-trixie.gpg" "$PVE_KEYRING_SHA256"
   install -m 0644 "$work/proxmox-archive-keyring-trixie.gpg" "$PVE_KEYRING"
 fi
-echo "keyring sha256 OK $PVE_KEYRING"
+echo "keyring verified $PVE_KEYRING"
 
 write_if_changed "$PVE_SOURCES" "Types: deb
 URIs: http://download.proxmox.com/debian/pve
@@ -144,6 +175,8 @@ row() { printf '%-34s %s\n' "$1" "$2"; }
 row tofu "$(tofu version | head -n1)"
 row sops "$(sops --disable-version-check --version 2>&1 | head -n1)"
 row gitleaks "$(gitleaks version)"
+row tflint "$(tflint --version | head -n1)"
+row ansible-lint "$(NO_COLOR=1 "$INSTALL_DIR/ansible-lint" --version 2>/dev/null | head -n1 | cut -d' ' -f1,2)"
 row age "$(age --version)"
 row age-keygen "$(age-keygen --version)"
 row ansible-package "$(dpkg-query -W -f='${Version}' ansible)"
