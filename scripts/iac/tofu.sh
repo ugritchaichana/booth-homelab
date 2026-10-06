@@ -7,7 +7,7 @@ state_root="${HOMELAB_STATE_ROOT:-/var/lib/homelab/tofu}"
 inventory="$repo/iac/inventory/hosts.yml"
 cmdexe="/mnt/c/Windows/System32/cmd.exe"
 local_port=18006
-safe_path='^[A-Za-z0-9:/._ -]+$'
+safe_path='^/[A-Za-z0-9._/ -]+$'
 name_re='^[a-z0-9][a-z0-9-]{0,62}$'
 tmp=""
 
@@ -95,8 +95,9 @@ backup_state() {
   local base dest latest
   base="$(winvar LOCALAPPDATA)"
   [ -n "$base" ] || die "cannot resolve the Windows local application data directory"
+  base="$(wslpath -u "$base")" || die "cannot convert the Windows local application data path"
   [[ "$base" =~ $safe_path ]] || die "unsafe characters in the Windows local application data path"
-  dest="$(wslpath -u "$base")/homelab/tofu-state"
+  dest="$base/homelab/tofu-state"
   mkdir -p "$dest"
   latest="$(ls -1t "$dest/$stack-$host-"*.tfstate 2>/dev/null | head -n1 || true)"
   if [ -n "$latest" ] && cmp -s "$state" "$latest"; then return 0; fi
