@@ -1,0 +1,6 @@
+---
+- name: Proxmox VE host baseline
+  hosts: pve
+  gather_facts: true
+  roles:
+    - role: "{{ playbook_dir }}/../roles/pve_repos"  # noqa role-name[path]

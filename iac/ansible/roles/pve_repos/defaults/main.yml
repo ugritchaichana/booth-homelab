@@ -1,0 +1,4 @@
+---
+pve_repos_suite: trixie
+pve_repos_keyring: /usr/share/keyrings/proxmox-archive-keyring.gpg
+pve_repos_reboot_timeout: 900
