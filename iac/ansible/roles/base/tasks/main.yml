@@ -19,6 +19,21 @@
     fail_msg: A homelab-deadman-ssh timer is armed from an earlier run; check the host, then stop the timer
   when: not base_container_test_mode | bool
 
+- name: Look for a stale dead-man marker
+  ansible.builtin.stat:
+    path: "{{ base_deadman_dir }}/armed"
+  register: base_deadman_armed
+  when: not base_container_test_mode | bool
+
+- name: Refuse to run with a stale dead-man marker and no timer
+  ansible.builtin.assert:
+    that:
+      - not base_deadman_armed.stat.exists
+    fail_msg: >-
+      {{ base_deadman_dir }}/armed exists but no timer is active, so the next boot would roll back SSH changes.
+      Check the host and journalctl -t homelab-deadman, then delete {{ base_deadman_dir }}/armed.
+  when: not base_container_test_mode | bool
+
 - name: Create the automation identity
   ansible.builtin.import_tasks: automation_user.yml
 

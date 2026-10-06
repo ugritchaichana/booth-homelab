@@ -29,7 +29,7 @@
     content: |
       [Unit]
       Description=Restore SSH access when an interrupted change left the dead-man armed
-      After={{ base_sshd_service }}.service pve-cluster.service
+      After={{ base_sshd_service }}.service pve-cluster.service pveproxy.service
       ConditionPathExists={{ base_deadman_dir }}/armed
 
       [Service]
@@ -96,6 +96,17 @@
   loop: "{{ base_root_authorized_keys_revoked }}"
   check_mode: true
   register: base_revoke_preview
+
+- name: Look for the root SSH directory
+  ansible.builtin.stat:
+    path: "{{ base_root_authorized_keys_path | dirname }}"
+  register: base_root_ssh_dir
+
+- name: Assert the root SSH directory exists before arming
+  ansible.builtin.assert:
+    that:
+      - base_root_ssh_dir.stat.isdir | default(false)
+    fail_msg: "{{ base_root_authorized_keys_path | dirname }} does not exist; create it before the role edits root keys"
 
 - name: Record whether an SSH change is pending
   ansible.builtin.set_fact:
@@ -199,6 +210,38 @@
         state: absent
       loop: "{{ base_root_authorized_keys_revoked }}"
 
+    - name: Read the root key file after the edit
+      ansible.builtin.slurp:
+        src: "{{ base_root_keys_target }}"
+      register: base_root_keys_after
+
+    - name: Assert each kept root key appears once with its source restriction
+      ansible.builtin.assert:
+        that:
+          - base_key_hits | length == 1
+          - base_key_hits | first is match('from="' ~ (base_root_key_from | regex_escape) ~ '" ')
+        fail_msg: A kept root key is missing, duplicated or has no from= restriction
+      vars:
+        base_key_hits: >-
+          {{ (base_root_keys_after.content | b64decode).splitlines()
+          | select('search', '(^| )' ~ (item.split()[1] | regex_escape) ~ '( |$)') | list }}
+      loop: "{{ base_root_authorized_keys }}"
+      loop_control:
+        label: "{{ item.split()[-1] }}"
+
+    - name: Assert no revoked root key remains
+      ansible.builtin.assert:
+        that:
+          - base_key_hits | length == 0
+        fail_msg: A revoked root key is still present
+      vars:
+        base_key_hits: >-
+          {{ (base_root_keys_after.content | b64decode).splitlines()
+          | select('search', '(^| )' ~ (item.split()[1] | regex_escape) ~ '( |$)') | list }}
+      loop: "{{ base_root_authorized_keys_revoked }}"
+      loop_control:
+        label: "{{ item.split()[-1] }}"
+
     - name: Install the SSH hardening drop-in
       ansible.builtin.template:
         src: sshd-hardening.conf.j2
@@ -264,6 +307,12 @@
               - base_deadman_before_cancel.status.ActiveState == 'active'
               - not base_deadman_fired.stat.exists
             fail_msg: The dead-man fired or is gone, so the previous SSH access was restored
+
+        - name: Remove the armed marker before cancelling the timer
+          ansible.builtin.file:
+            path: "{{ base_deadman_dir }}/armed"
+            state: absent
+          become: true
 
         - name: Cancel the dead-man
           ansible.builtin.systemd_service:

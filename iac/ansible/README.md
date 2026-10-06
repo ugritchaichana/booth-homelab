@@ -53,14 +53,14 @@ Role inputs are the `base_*` variables in `roles/base/defaults/main.yml`; the in
 
 ### SSH change guard
 
-Before anything else the role refuses to run while a `homelab-deadman-ssh` timer is armed. `site.yml` also refuses to run unless the connection user is the automation user.
+Before anything else the role refuses to run while a `homelab-deadman-ssh` timer is armed, or while an `armed` marker exists without a timer (inspect the host and `journalctl -t homelab-deadman`, then delete the marker). `site.yml` also refuses to run unless the connection user is the automation user.
 
 When the sshd drop-in or the root keys would change, the role does this in order:
 
 1. Open a fresh session as the automation user (no multiplexing, the wrapper's ssh arguments kept) and run `sudo -n`; stop if it fails.
 2. Back up the current drop-in and root keys, write an `armed` marker, then arm `systemd-run --on-active=<deadman_minutes>min --unit=homelab-deadman-ssh` with a script that restores them. The enabled unit `homelab-deadman-ssh-boot` runs the same script at boot while `armed` exists, so a reboot inside the window does not disarm the restore.
 3. Edit the root keys (on PVE the key file is a link into the cluster filesystem, so the file it points to is edited in place) and install the drop-in; check it with `sshd -t`, then reload sshd.
-4. Open another fresh session as the automation user and assert the effective `sshd -T` values, that the timer is still active and that no `fired` marker exists; only then stop the timer and delete the state.
+4. Assert that each kept root key occurs once with its `from=` option and each revoked key nowhere. After the reload, open another fresh session as the automation user and assert the effective `sshd -T` values, that the timer is still active and that no `fired` marker exists; only then delete the `armed` marker, stop the timer and delete the state.
 
 If a step after the arming fails, the timer stays armed and restores the previous access. Nothing is armed when nothing changes, so a second run reports `changed=0`.
 

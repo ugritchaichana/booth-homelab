@@ -28,6 +28,6 @@ Option 2 for roles that are provider-neutral, with the host-specific proof done 
 ## Rationale and trade-offs
 
 - Measured 2026-10-07 in a disposable Debian 13 instance with systemd, using the scenario's own `prepare.yml`, `converge.yml`, `verify.yml` and variables: first converge applied, second converge `changed=0`, `verify` passed. Removing `PasswordAuthentication no` from the drop-in template made `verify` fail at the `sshd -T` assertion.
-- Measured in CI: run 37512445688 passed converge, idempotence and verify on a hosted runner, and run 37512472886 with `PasswordAuthentication no` removed from the template failed at `verify`.
+- Measured in CI: run 37512445688 on `9ad6883` and run 37517717613 on `7ab2d9f` passed converge, idempotence and verify on a hosted runner, and run 37512472886 (a scratch branch with `PasswordAuthentication no` removed from the template) failed at `verify`.
 - Accepted loss: test mode leaves the guard and the chrony start untested in CI, so a regression there shows only in the local proof.
 - A change to `.ansible-lint` alone does not start the workflow, because the trigger paths stay `iac/**` and the workflow file.
