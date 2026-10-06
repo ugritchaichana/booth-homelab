@@ -15,6 +15,21 @@ bash scripts/iac/tofu.sh proxmox-host pve01 apply
 
 One-time setup of the state root: `sudo install -d -o "$USER" -m 0700 /var/lib/homelab/tofu`.
 
+`apply` first runs `sudo -n ifquery --check -a` on the host as `automation`, over the rendered ssh config, and refuses when it returns non-zero, printing its output. The SDN apply reloads the whole network config, so drift between `/etc/network/interfaces` and the running state would be applied together with the guest bridge. `plan` skips the check.
+
+## Verify after apply
+
+Read-only, on the host as `automation` (`ssh pve01`). Each must hold before any guest is attached:
+
+```sh
+bridge -d link show | grep -A1 'master guests'        # every guest port: isolated on (empty until a guest exists)
+sudo iptables -t nat -S POSTROUTING | grep 10.99.16.0/24   # the SNAT rule for the guest subnet
+sysctl -n net.ipv4.ip_forward                         # 1
+ip -4 -o addr show guests                             # exactly the gateway, 10.99.16.1
+```
+
+The first two are the only proof that `isolate_ports` and `snat` took effect on the kernel; the plan only shows the API objects (ADR 0030).
+
 ## Where things live
 
 | Item | Location |

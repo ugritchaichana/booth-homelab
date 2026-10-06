@@ -136,6 +136,16 @@ close_forward() {
   exec 7>&- 9>&-
 }
 
+check_network_config() {
+  local out rc=0
+  out="$(ssh "${sshopts[@]}" -o BatchMode=yes "$host" sudo -n ifquery --check -a 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  printf '%s\n' "$out" >&2
+  die "refusing to apply: ifquery --check -a returned $rc on $host, and the SDN apply reloads the whole network config; fix the drift first"
+}
+
+[ "$stack" != "proxmox-host" ] || [ "$1" != "apply" ] || check_network_config
+
 case "$1" in
   plan|apply|destroy|refresh|import|console) needs_api=1 ;;
   *) needs_api=0 ;;
