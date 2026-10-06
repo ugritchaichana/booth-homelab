@@ -258,3 +258,99 @@
 - name: Verify the firewall when nothing changed
   ansible.builtin.import_tasks: verify.yml
   when: not (pve_firewall_cluster_pending | bool or pve_firewall_host_pending | bool)
+
+- name: Install the guest firewall guard
+  ansible.builtin.copy:
+    src: guest-firewall-guard.py
+    dest: "{{ pve_firewall_guard_script }}"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install the guest firewall guard service
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ pve_firewall_guard_unit }}.service"
+    content: |
+      [Unit]
+      Description=Stop guests on the guest network whose firewall settings are not the required policy
+      After=pve-cluster.service pve-firewall.service
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ pve_firewall_guard_script }} {{ pve_firewall_guard_args }}
+      NoNewPrivileges=yes
+      PrivateTmp=yes
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_firewall_guard_service_file
+
+- name: Install the guest firewall guard timer
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ pve_firewall_guard_unit }}.timer"
+    content: |
+      [Unit]
+      Description=Check guest firewall settings every minute
+
+      [Timer]
+      OnBootSec=1min
+      OnUnitActiveSec=1min
+      AccuracySec=5s
+
+      [Install]
+      WantedBy=timers.target
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_firewall_guard_timer_file
+
+- name: Enable the guest firewall guard timer
+  ansible.builtin.systemd_service:
+    name: "{{ pve_firewall_guard_unit }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: "{{ pve_firewall_guard_service_file.changed or pve_firewall_guard_timer_file.changed }}"
+
+- name: Run the guest firewall guard once and require a clean result
+  ansible.builtin.systemd_service:
+    name: "{{ pve_firewall_guard_unit }}.service"
+    state: started
+  changed_when: false
+
+- name: Keep the host from learning IPv6 routes from guests
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: "{{ pve_firewall_ipv6_sysctl_file }}"
+    sysctl_set: true
+    reload: true
+    state: present
+  loop: "{{ pve_firewall_ipv6_sysctls | dict2items }}"
+
+- name: Read the IPv6 settings the kernel holds
+  ansible.builtin.command: sysctl -n {{ item.key }}
+  loop: "{{ pve_firewall_ipv6_sysctls | dict2items }}"
+  register: pve_firewall_ipv6_live
+  changed_when: false
+
+- name: Look for the guest bridge
+  ansible.builtin.stat:
+    path: "/proc/sys/net/ipv6/conf/{{ pve_firewall_guest_vnet }}"
+  register: pve_firewall_guest_bridge
+
+- name: Read the IPv6 settings of the guest bridge
+  ansible.builtin.command: sysctl -n net.ipv6.conf.{{ pve_firewall_guest_vnet }}.{{ item }}
+  loop:
+    - accept_ra
+    - autoconf
+    - forwarding
+  register: pve_firewall_ipv6_bridge
+  changed_when: false
+  when: pve_firewall_guest_bridge.stat.exists
+
+- name: Assert the host ignores router advertisements and does not route IPv6
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_ipv6_live.results | map(attribute='stdout') | unique | list == ['0']
+      - not pve_firewall_guest_bridge.stat.exists or (pve_firewall_ipv6_bridge.results | map(attribute='stdout') | unique | list == ['0'])
+    fail_msg: IPv6 router advertisements or forwarding are still on for the host or the guest bridge
