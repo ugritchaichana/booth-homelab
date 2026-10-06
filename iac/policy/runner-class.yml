@@ -1,0 +1,14 @@
+---
+# Per-guest firewall policy of the runner class: read by stacks/r15-probe now, by the runner stack later.
+runner_class_firewall_options:
+  enable: 1
+  policy_in: DROP
+  policy_out: DROP
+  ipfilter: 1
+  macfilter: 1
+  dhcp: 0
+  radv: 0
+  ndp: 1
+  log_level_out: info
+runner_class_security_group: guest-egress
+runner_class_nic_firewall: 1

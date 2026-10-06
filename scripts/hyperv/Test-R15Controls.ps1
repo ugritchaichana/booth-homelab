@@ -36,7 +36,7 @@ foreach ($line in Get-Content -LiteralPath $TargetsFile) {
     $address = $field[2]
     $port = [int]$field[3]
     $target = '{0}:{1}' -f $address, $port
-    if ($kind -notin @('tcp', 'tcp6')) { throw "$label : kind must be tcp or tcp6" }
+    if ($kind -notin @('tcp', 'tcp6', 'tcpvia')) { throw "$label : kind must be tcp, tcp6 or tcpvia" }
     if ($port -lt 1 -or $port -gt 65535) { throw "$label : invalid port" }
     if ($address.Contains('%')) {
         Write-Output ('CONTROL {0} {1} n/a' -f $label, $target)

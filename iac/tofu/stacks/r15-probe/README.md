@@ -7,13 +7,14 @@ A throwaway unprivileged container and a VM on the guest vnet, created only to p
 | Object | Value |
 |---|---|
 | Container, VM | ids, addresses and login users in `probe.yml`; addresses must lie inside the host's guest subnet |
-| Firewall options | `enable`, `policy_in`, `policy_out`, `ipfilter`, `log_level_out` from `probe.yml` (the names the Proxmox API reports) |
+| Container template | downloaded from the official template mirror with its SHA512 (`lxc_template_name`, `lxc_template_sha512`) |
+| Firewall options, group, NIC flag | `iac/policy/runner-class.yml`, shared with the runner stack that comes later (the names the Proxmox API reports) |
 | Rules | tcp/22 inbound from the guest gateway only, and the security group `guest-egress` |
 | VM source filter | `ipfilter-net0` holding the VM's own address |
 | Image | Debian 13 genericcloud from a dated directory with its SHA512 (`image_directory`, `image_sha512`), never `latest` |
 | Start | created stopped, `start_on_boot` on; `r15-verify.yml` starts them |
 
-The security group is created by the `pve_firewall` role (ADR 0025), so run `site.yml` first. The token needs the privileges guest creation checks beyond `VM.Config.Network`; ADR 0026 does not list them, so the first apply on the host is the check.
+The security group is created by the `pve_firewall` role (ADR 0025), so run `site.yml` first. The token needs the privileges guest creation checks beyond `VM.Config.Network`, and `Datastore.AllocateTemplate` plus `Sys.AccessNetwork` for the two downloads; ADR 0026 does not list all of them, so the first apply on the host is the check.
 
 ## Run
 
@@ -35,4 +36,4 @@ tofu -chdir=iac/tofu/stacks/r15-probe validate
 tofu -chdir=iac/tofu/stacks/r15-probe test
 ```
 
-`tests/policy.tftest.hcl` asserts the firewall options, the two rules, the on-boot and NIC flags, the addresses, the source filter and the pinned image with literal values, and rejects `latest`, a private key and an address outside the subnet.
+`tests/policy.tftest.hcl` asserts the firewall options, the two rules, the on-boot and NIC flags, the addresses, the source filter and the pinned image with literal values, and rejects `latest`, a private key and an address outside the subnet. The expected values are literals in the test, not read from `iac/policy/runner-class.yml`.

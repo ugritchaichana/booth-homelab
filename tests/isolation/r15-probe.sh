@@ -7,6 +7,7 @@ guest=""
 phase=""
 targets="$here/targets.env"
 wait_s=4
+via_route=""
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
@@ -24,25 +25,38 @@ done
 
 case "$guest" in lxc | vm) ;; *) die "--guest must be lxc or vm" ;; esac
 case "$phases" in *" $phase "*) ;; *) die "--phase must be one of:$phases" ;; esac
-[[ "$wait_s" =~ ^[0-9]{1,2}$ ]] || die "--wait must be 0 to 99 seconds"
+[[ "$wait_s" =~ ^[1-9][0-9]?$ ]] || die "--wait must be 1 to 99 seconds"
 [ -r "$targets" ] || die "no readable targets file at $targets"
-command -v nc > /dev/null || die "nc is not installed"
 command -v curl > /dev/null || die "curl is not installed"
 command -v timeout > /dev/null || die "timeout is not installed"
 
+drop_via_route() {
+  [ -z "$via_route" ] || ip route del "$via_route" 2> /dev/null
+  via_route=""
+}
+trap drop_via_route EXIT
+
+# open: connected; refused: answered at once with a reset; dropped: no answer before the timeout.
 tcp_state() {
-  local kind="$1" host="$2" port="$3" out rc
-  local fam=()
-  [ "$kind" = tcp6 ] && fam=(-6)
-  out="$(timeout "$((wait_s + 5))" nc "${fam[@]}" -z -w "$wait_s" "$host" "$port" 2>&1)"
+  local host="$1" port="$2" err rc
+  err="$(timeout "$wait_s" bash -c 'exec 3<>"/dev/tcp/$1/$2"' _ "$host" "$port" 2>&1)"
   rc=$?
   if [ "$rc" -eq 0 ]; then echo open
   elif [ "$rc" -eq 124 ]; then echo dropped
-  elif grep -qi 'refused' <<< "$out"; then echo refused
-  elif grep -qiE 'unreachable|no route' <<< "$out"; then echo unreachable
-  elif grep -qiE 'timed out|timeout' <<< "$out"; then echo dropped
-  else echo error
+  elif grep -qiE 'unreachable|no route' <<< "$err"; then echo unreachable
+  elif grep -qiE 'not known|resolve|invalid' <<< "$err"; then echo error
+  else echo refused
   fi
+}
+
+# Sends the peer's traffic through the gateway, the path that bypasses port isolation.
+tcp_state_via_gateway() {
+  local host="$1" port="$2" gw
+  gw="$(ip -4 route show default | awk '{for (i = 1; i < NF; i++) if ($i == "via") {print $(i + 1); exit}}')"
+  if [ -z "$gw" ] || ! ip route replace "$host/32" via "$gw" 2> /dev/null; then echo error; return; fi
+  via_route="$host/32"
+  tcp_state "$host" "$port"
+  drop_via_route
 }
 
 neg_total=0
@@ -59,7 +73,7 @@ while IFS='=' read -r label rest || [ -n "$label" ]; do
   read -r scope kind host port expect expect_red control extra <<< "$rest"
   [ -z "${extra:-}" ] || die "$label: expected 7 fields after '='"
   case "${scope:-}" in all | lxc | vm) ;; *) die "$label: scope must be all, lxc or vm" ;; esac
-  case "${kind:-}" in tcp | tcp6) ;; *) die "$label: kind must be tcp or tcp6" ;; esac
+  case "${kind:-}" in tcp | tcp6 | tcpvia) ;; *) die "$label: kind must be tcp, tcp6 or tcpvia" ;; esac
   [[ "${host:-}" =~ ^[0-9A-Za-z:.%_-]+$ ]] || die "$label: invalid host"
   [[ "${port:-}" =~ ^[0-9]{1,5}$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "$label: invalid port"
   case "${expect:-}" in open | blocked) ;; *) die "$label: expect must be open or blocked" ;; esac
@@ -69,7 +83,12 @@ while IFS='=' read -r label rest || [ -n "$label" ]; do
 
   want="$expect"
   [ "$phase" = red-first ] && want="$expect_red"
-  actual="$(tcp_state "$kind" "$host" "$port")"
+  if [ "$kind" = tcpvia ]; then
+    [ "$(id -u)" -eq 0 ] && command -v ip > /dev/null || die "$label: tcpvia needs root and ip"
+    actual="$(tcp_state_via_gateway "$host" "$port")"
+  else
+    actual="$(tcp_state "$host" "$port")"
+  fi
 
   if [ "$want" = open ]; then
     pos_total=$((pos_total + 1))
@@ -78,6 +97,9 @@ while IFS='=' read -r label rest || [ -n "$label" ]; do
     else
       verdict=FAIL; failed+=("$label expected open, got $actual")
     fi
+  elif [ "$actual" = open ] || [ "$actual" = refused ]; then
+    neg_total=$((neg_total + 1))
+    verdict=FAIL; failed+=("$label expected blocked, got $actual")
   elif [ "$control" != True ]; then
     verdict="NOT MEASURED"
   else
