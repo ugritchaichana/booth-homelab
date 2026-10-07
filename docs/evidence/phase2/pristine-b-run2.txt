@@ -1,0 +1,32 @@
+
+PLAY [Proxmox VE host baseline] ************************************************
+
+TASK [Gathering Facts] *********************************************************
+[WARNING]: Host 'pve01' is using the discovered Python interpreter at '/usr/bin/python3.13', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.19/reference_appendices/interpreter_discovery.html for more information.
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Disable the pve-enterprise repository] ***
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Disable the ceph enterprise repository] ***
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Enable the pve-no-subscription repository] ***
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Refresh the apt cache and apply a full upgrade] ***
+ASYNC OK on pve01: jid=j397061298474.1269
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Check for a pending reboot marker] ***
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Find the newest installed kernel image] ***
+ok: [pve01]
+
+TASK [<user-home>/Desktop/Project/_wt-pve-baseline/iac/ansible/playbooks/../roles/pve_repos : Reboot into the newest kernel] ***
+skipping: [pve01]
+
+PLAY RECAP *********************************************************************
+pve01                      : ok=7    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

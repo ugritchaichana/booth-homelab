@@ -1,0 +1,23 @@
+utc=2026-10-07T00:50:50Z
+CONTROL egress_public_https 1.1.1.1:443 True
+CONTROL gateway_ssh 10.99.16.1:22 False
+CONTROL gateway_web_console 10.99.16.1:8006 False
+CONTROL management_ssh 10.99.0.2:22 True
+CONTROL management_web_console 10.99.0.2:8006 True
+CONTROL lxc_to_vm_direct 10.99.16.22:22 False
+CONTROL lxc_to_vm_via_gateway 10.99.16.22:22 False
+CONTROL vm_to_lxc_direct 10.99.16.21:22 False
+CONTROL vm_to_lxc_via_gateway 10.99.16.21:22 False
+CONTROL gateway_ssh_link_local_lxc <target-gateway-ssh-link-local-lxc>%eth0:22 n/a
+CONTROL gateway_ssh_link_local_vm <target-gateway-ssh-link-local-lxc>%eth0:22 n/a
+CONTROL windows_host_smb 10.99.0.1:445 True
+CONTROL windows_host_lan_smb <target-windows-host-lan-smb>:445 True
+CONTROL windows_host_lan_netbios <target-windows-host-lan-smb>:139 True
+CONTROL home_router_web <target-home-router-web>:80 True
+CONTROL home_router_dns <target-home-router-web>:53 True
+CONTROL tailnet_self_smb <target-tailnet-self-smb>:445 True
+CONTROL mesh_self_smb <target-mesh-self-smb>:445 True
+CONTROL vpn_peer_web <target-mesh-self-smb>:80 False
+CONTROL mesh_dns <target-mesh-dns>:53 True
+CONTROL harvested_prefix_host <target-harvested-prefix-host>:443 False
+
