@@ -26,7 +26,7 @@ resource "proxmox_virtual_environment_container" "probe" {
     swap      = 0
   }
 
-  tags = ["r15-probe"]
+  tags = local.tags.lxc
 
   clone {
     vm_id = module.template_source[local.guests.lxc.template_class].vmid
@@ -45,7 +45,7 @@ resource "proxmox_virtual_environment_container" "probe" {
   }
 
   initialization {
-    hostname = "r15-probe-lxc"
+    hostname = local.names.lxc
 
     dns {
       servers = [var.dns_server]
@@ -66,11 +66,16 @@ resource "proxmox_virtual_environment_container" "probe" {
       condition     = cidrcontains(local.guest_network.cidr, local.guests.lxc.address) && local.guests.lxc.address != local.guest_network.gateway
       error_message = "The probe container address must be a host address inside the guest subnet."
     }
+
+    precondition {
+      condition     = local.names.lxc != null && can(regex(local.name_pattern, local.names.lxc))
+      error_message = "The probe container name must be r15-probe-<template class>-v<N> and a hostname of at most 63 characters."
+    }
   }
 }
 
 resource "proxmox_virtual_environment_vm" "probe" {
-  name            = "r15-probe-vm"
+  name            = local.names.vm
   node_name       = local.node_name
   vm_id           = local.guests.vm.vm_id
   pool_id         = var.pool_id
@@ -92,7 +97,7 @@ resource "proxmox_virtual_environment_vm" "probe" {
     dedicated = 512
   }
 
-  tags = ["r15-probe"]
+  tags = local.tags.vm
 
   clone {
     vm_id = module.template_source[local.guests.vm.template_class].vmid
@@ -138,11 +143,16 @@ resource "proxmox_virtual_environment_vm" "probe" {
   }
 
   lifecycle {
-    ignore_changes = [started]
+    ignore_changes = [started, pool_id]
 
     precondition {
       condition     = cidrcontains(local.guest_network.cidr, local.guests.vm.address) && local.guests.vm.address != local.guest_network.gateway
       error_message = "The probe VM address must be a host address inside the guest subnet."
+    }
+
+    precondition {
+      condition     = local.names.vm != null && can(regex(local.name_pattern, local.names.vm))
+      error_message = "The probe VM name must be r15-probe-<template class>-v<N> and a hostname of at most 63 characters."
     }
   }
 }
