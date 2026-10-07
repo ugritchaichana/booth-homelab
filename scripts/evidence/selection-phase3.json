@@ -1,0 +1,129 @@
+{
+  "phase": "phase3",
+  "entries": [
+    {
+      "src": "plans:booth-homelab-phase3/host-run/converge-site-1.txt",
+      "dest": "docs/evidence/phase3/converge-site-1.txt",
+      "proves": "Row 55: first Phase 3 converge of the template role on the real host"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/converge-site-7.txt",
+      "dest": "docs/evidence/phase3/converge-site-7.txt",
+      "proves": "Row 60: Phase 3 end state, second site.yml run reports changed=0"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/build-weekly-1.txt",
+      "dest": "docs/evidence/phase3/build-weekly-1.txt",
+      "proves": "Row 55: golden-template builds on the real host (first weekly rebuild run)"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/build-weekly-2.txt",
+      "dest": "docs/evidence/phase3/build-weekly-2.txt",
+      "proves": "Row 55: golden-template builds on the real host (second weekly rebuild run)"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/build-weekly-3.txt",
+      "dest": "docs/evidence/phase3/build-weekly-3.txt",
+      "proves": "Row 55: golden-template builds on the real host (third weekly rebuild run)"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/build-lxc-retention.txt",
+      "dest": "docs/evidence/phase3/build-lxc-retention.txt",
+      "proves": "Row 56: two versions per class kept, older versions retired after the clone-origin check"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/journal-timer-fired.txt",
+      "dest": "docs/evidence/phase3/journal-timer-fired.txt",
+      "proves": "Row 56: the systemd timer fired the weekly rebuild of both classes"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-timer.txt",
+      "dest": "docs/evidence/phase3/evidence-timer.txt",
+      "proves": "Row 60: the weekly rebuild timer is armed and persistent"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-timer-fired.txt",
+      "dest": "docs/evidence/phase3/evidence-timer-fired.txt",
+      "proves": "Row 56: timer-fired rebuild state of both classes"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/proof-rollback-token.txt",
+      "dest": "docs/evidence/phase3/proof-rollback-token.txt",
+      "proves": "Rows 56 and 57: one-command rollback and the provisioner token boundary"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-rollback-vm.txt",
+      "dest": "docs/evidence/phase3/evidence-rollback-vm.txt",
+      "proves": "Row 56: rollback moved current back one version and forward again on the VM class"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-manifests.txt",
+      "dest": "docs/evidence/phase3/evidence-manifests.txt",
+      "proves": "Row 56: manifest hashes match manifest_sha256 in the template descriptions"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-manifests-final.txt",
+      "dest": "docs/evidence/phase3/evidence-manifests-final.txt",
+      "proves": "Row 56: final manifest hash check after six builds"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/manifest-exact-lxc-runner-v5.json",
+      "dest": "docs/evidence/phase3/manifest-exact-lxc-runner-v5.json",
+      "proves": "Row 56: exact manifest of lxc-runner v5 (hash-anchored)",
+      "anchored": true
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/manifest-exact-lxc-runner-v6.json",
+      "dest": "docs/evidence/phase3/manifest-exact-lxc-runner-v6.json",
+      "proves": "Row 56: exact manifest of lxc-runner v6 (hash-anchored)",
+      "anchored": true
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/manifest-exact-vm-docker-v5.json",
+      "dest": "docs/evidence/phase3/manifest-exact-vm-docker-v5.json",
+      "proves": "Row 56: exact manifest of vm-docker v5 (hash-anchored)",
+      "anchored": true
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/manifest-exact-vm-docker-v6.json",
+      "dest": "docs/evidence/phase3/manifest-exact-vm-docker-v6.json",
+      "proves": "Row 56: exact manifest of vm-docker v6 (hash-anchored)",
+      "anchored": true
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-token-more.txt",
+      "dest": "docs/evidence/phase3/evidence-token-more.txt",
+      "proves": "Row 57: provisioner token gets 403 on delete and retag of a template, 200 on clone"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/evidence-vm-clone.txt",
+      "dest": "docs/evidence/phase3/evidence-vm-clone.txt",
+      "proves": "Row 59: the vm-docker clone runs a container, exposes no nested virtualization and has no Docker TCP listener"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/probe-tofu-apply1.txt",
+      "dest": "docs/evidence/phase3/probe-tofu-apply1.txt",
+      "proves": "Rows 57 and 58: clone from a template with inherited tags and guest firewall, first probe apply"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/probe-tofu-apply2.txt",
+      "dest": "docs/evidence/phase3/probe-tofu-apply2.txt",
+      "proves": "Row 58: second probe apply, clones resolved among members of the templates pool"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/host-run/tofu-host-plan-after-phase3.txt",
+      "dest": "docs/evidence/phase3/tofu-host-plan-after-phase3.txt",
+      "proves": "Row 60: host stack plan -detailed-exitcode reports no changes after Phase 3"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/r15/r15-baseline-lxc.txt",
+      "dest": "docs/evidence/phase3/r15-baseline-lxc.txt",
+      "proves": "Row 59: R15 baseline on a clone of the LXC template"
+    },
+    {
+      "src": "plans:booth-homelab-phase3/r15/r15-baseline-vm.txt",
+      "dest": "docs/evidence/phase3/r15-baseline-vm.txt",
+      "proves": "Row 59: R15 baseline on a clone of the VM template"
+    }
+  ]
+}

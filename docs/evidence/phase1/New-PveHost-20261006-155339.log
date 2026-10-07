@@ -1,0 +1,122 @@
+**********************
+Windows PowerShell transcript start
+Start time: 20261006155339
+Username: <workstation-user>
+RunAs User: <workstation-user>
+Configuration Name: 
+Machine: <tailnet-node-2-name> (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File <user-home>\Desktop\Project\_wt-phase1-hyperv\scripts\hyperv\New-PveHost.ps1 -ConfigPath <user-home>\Desktop\Project\_wt-phase1-hyperv\scripts\hyperv\pve01.psd1 -InstallIso <user-home>\AppData\Local\homelab\iso\pve01-auto.iso -InstallIsoSha256 db4c34590102a6910ce3e7964cb89bc09a9a9c1387e1bd32b6a1ce423e44b970 -Install
+Process ID: 11136
+PSVersion: 5.1.26100.9549
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9549
+BuildVersion: 10.0.26100.9549
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+       transcript: %LOCALAPPDATA%\homelab\logs\New-PveHost-20261006-155339.log
+==>    Preflight
+[PASS] OS: Microsoft Windows 11 Pro build 26200
+[PASS] Hyper-V features: enabled
+[PASS] vmms service: Running
+[PASS] VM config version: host supports up to 12.0; nested virtualization needs 9.3+
+[PASS] NAT: no foreign NAT
+[PASS] NAT prefix overlap: 10.99.0.0/24 does not overlap any route or address
+[PASS] Install ISO: pve01-auto.iso, 1.7 GiB
+[PASS] Install ISO SHA-256: expected hash supplied; verified before any change
+[PASS] Disk: C:\ free 170.8 GiB; after full VHDX growth and ISO copy 41.1 GiB (need 20 GiB)
+[PASS] RAM: available 26.0 GiB; after the VM 6.0 GiB (need 4 GiB)
+[PASS] CPU: 16 logical processors, VM gets 12
+[PASS] Elevation: elevated
+[PASS] source ISO SHA-256 matches -InstallIsoSha256
+==>    Step: Hyper-V features
+[PASS] already enabled
+==>    Step: VM folder and ACL (C:\HyperV\pve01)
+[PASS] protected ACL already in place
+==>    Step: Hyper-V Administrators membership (group SID S-1-5-32-578)
+[PASS] already a member of 'Hyper-V Administrators'; if Hyper-V cmdlets are still denied in a normal prompt, sign out and in
+==>    Step: install ISO copy
+[PASS] copied and verified, SHA-256 DB4C34590102A6910CE3E7964CB89BC09A9A9C1387E1BD32B6A1CE423E44B970
+==>    Step: internal switch, host address, NAT
+[PASS] switch already present
+[PASS] IPv6 binding already disabled (or not readable)
+[PASS] host address already set
+[PASS] NAT already present
+==>    Step: VM 'pve01'
+[PASS] VM settings match the config
+[PASS] ISO attached: C:\HyperV\pve01\pve01-auto.iso
+==>    Step: host-side isolation (port ACLs + Windows Firewall rule)
+       egress interface: Wi-Fi (configured)
+       host-routed deny prefixes: 2; would append 0 new to the local override; 2 prefix(es), SHA-256 6fa2b454e4d3c8d59e5d390e6ff264a54e2a16e96929cadee6ab480a8e348bff
+[PASS] port ACLs applied (added 2, removed 1). Intent:
+
+       Weight Direction Action Stateful Protocol Remote         LocalPort Note
+       ------ --------- ------ -------- -------- ------         --------- ----
+         4999 Inbound   Allow      True TCP      10.99.0.1      22        host to guest ssh, replies flow
+         4998 Inbound   Allow      True TCP      10.99.0.1      8006      host to guest web UI, replies flow
+         4989 Outbound  Deny      False          ::/0                     no IPv6 out
+         4988 Inbound   Deny      False          ::/0                     no IPv6 in
+         4899 Outbound  Deny      False          0.0.0.0/8                private/reserved range
+         4898 Outbound  Deny      False          10.0.0.0/8               private/reserved range
+         4897 Outbound  Deny      False          100.64.0.0/10            private/reserved range
+         4896 Outbound  Deny      False          127.0.0.0/8              private/reserved range
+         4895 Outbound  Deny      False          169.254.0.0/16           private/reserved range
+         4894 Outbound  Deny      False          172.16.0.0/12            private/reserved range
+         4893 Outbound  Deny      False          192.168.0.0/16           private/reserved range
+         4892 Outbound  Deny      False          224.0.0.0/4              private/reserved range
+         4891 Outbound  Deny      False          240.0.0.0/4              private/reserved range
+         4890 Outbound  Deny      False          (host-routed)            host-routed prefix
+         4889 Outbound  Deny      False          (host-routed)            host-routed prefix
+         4010 Outbound  Allow      True TCP      0.0.0.0/0                internet out (TCP), replies flow
+         4009 Outbound  Allow      True UDP      0.0.0.0/0                internet out (UDP), replies flow
+         4000 Inbound   Deny      False          0.0.0.0/0                default deny in
+       Read back from Hyper-V:
+
+       Weight Direction Action Stateful Protocol Remote         LocalPort Note
+       ------ --------- ------ -------- -------- ------         --------- ----
+         4999   Inbound  Allow     True TCP      10.99.0.1      22
+         4998   Inbound  Allow     True TCP      10.99.0.1      8006
+         4989  Outbound   Deny    False ANY      ::/0           ANY
+         4988   Inbound   Deny    False ANY      ::/0           ANY
+         4899  Outbound   Deny    False ANY      0.0.0.0/8      ANY
+         4898  Outbound   Deny    False ANY      10.0.0.0/8     ANY
+         4897  Outbound   Deny    False ANY      100.64.0.0/10  ANY
+         4896  Outbound   Deny    False ANY      127.0.0.0/8    ANY
+         4895  Outbound   Deny    False ANY      169.254.0.0/16 ANY
+         4894  Outbound   Deny    False ANY      172.16.0.0/12  ANY
+         4893  Outbound   Deny    False ANY      192.168.0.0/16 ANY
+         4892  Outbound   Deny    False ANY      224.0.0.0/4    ANY
+         4891  Outbound   Deny    False ANY      240.0.0.0/4    ANY
+         4890  Outbound   Deny    False ANY      (host-routed)  ANY
+         4889  Outbound   Deny    False ANY      (host-routed)  ANY
+         4010  Outbound  Allow     True TCP      0.0.0.0/0      ANY
+         4009  Outbound  Allow     True UDP      0.0.0.0/0      ANY
+         4000   Inbound   Deny    False ANY      0.0.0.0/0      ANY
+[PASS] firewall rule unchanged: Block inbound from 10.99.0.0/24 on "vEthernet (homelab-pve01)", all profiles (rule homelab-pve01-block-guest-inbound)
+==>    Step: connect the VM adapter (only after the port ACLs and the firewall rule check out)
+[PASS] adapter connected to 'homelab-pve01'
+==>    Step: per-VM file access check
+[PASS] per-VM ACE present: C:\HyperV\pve01\pve01.vhdx
+[PASS] per-VM ACE present: C:\HyperV\pve01\pve01-auto.iso
+       per-VM ACE not found in the ACL read-back, granted (idempotent): C:\HyperV\pve01\pve01\Virtual Machines\EC849046-A8E2-498C-9A9B-8F72CD4A4465.vmcx
+       per-VM ACE not found in the ACL read-back, granted (idempotent): C:\HyperV\pve01\pve01\Virtual Machines\EC849046-A8E2-498C-9A9B-8F72CD4A4465.vmgs
+       per-VM ACE not found in the ACL read-back, granted (idempotent): C:\HyperV\pve01\pve01\Virtual Machines\EC849046-A8E2-498C-9A9B-8F72CD4A4465.VMRS
+==>    Step: unattended install, checkpoint, first cold start
+       egress interface: Wi-Fi (configured)
+       host-routed deny prefixes: 2; would append 0 new to the local override; 2 prefix(es), SHA-256 6fa2b454e4d3c8d59e5d390e6ff264a54e2a16e96929cadee6ab480a8e348bff
+       install started; the answer file must power the VM off when done
+       install: state Off, elapsed 459 s, cpu 0%, vhdx 5.9 GiB
+[PASS] ISO ejected (confirmed by read-back)
+[PASS] checkpoint "post-install" taken while Off, without the ISO attached
+       egress interface: Wi-Fi (configured)
+       host-routed deny prefixes: 2; would append 0 new to the local override; 2 prefix(es), SHA-256 6fa2b454e4d3c8d59e5d390e6ff264a54e2a16e96929cadee6ab480a8e348bff
+[PASS] first cold start: TCP 10.99.0.2:22 answered 18.1 s after Start-VM
+[PASS] install ISO copy deleted from the VM folder (it held the root-password hash): pve01-auto.iso
+       Reminder: delete the source ISO you passed with -InstallIso (it also holds the root-password hash). This script never touches it.
+==>    Done.
+**********************
+Windows PowerShell transcript end
+End time: 20261006160203
+**********************

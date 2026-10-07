@@ -1,0 +1,100 @@
+{
+  "phase": "phase2",
+  "entries": [
+    {
+      "src": "plans:booth-homelab-phase2/pristine-b-run1.txt",
+      "dest": "docs/evidence/phase2/pristine-b-run1.txt",
+      "proves": "Row 43: pve_repos role proven from the fresh install, first run"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/pristine-b-run2.txt",
+      "dest": "docs/evidence/phase2/pristine-b-run2.txt",
+      "proves": "Row 43: second run reports changed=0"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/host-facts.txt",
+      "dest": "docs/evidence/phase2/host-facts.txt",
+      "proves": "Row 44: PVE host facts that shaped the Phase 2 design"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/converge-site-8.txt",
+      "dest": "docs/evidence/phase2/converge-site-8.txt",
+      "proves": "Row 46: converge after the probe teardown, ok=114 changed=0"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/tofu-reds.txt",
+      "dest": "docs/evidence/phase2/tofu-reds.txt",
+      "proves": "Row 49: state lock and wrong-passphrase reds"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/probe-tofu-apply1.txt",
+      "dest": "docs/evidence/phase2/probe-tofu-apply1.txt",
+      "proves": "Rows 48 and 50: first probe apply, token privileges and guest network"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/probe-tofu-apply2.txt",
+      "dest": "docs/evidence/phase2/probe-tofu-apply2.txt",
+      "proves": "Row 50: second probe apply, no drift"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/phase1-carryover-after-host-reboot.txt",
+      "dest": "docs/evidence/phase2/phase1-carryover-after-host-reboot.txt",
+      "proves": "Row 53: ACL read-back, host rule and IPv6 binding after the laptop reboot"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/controls-after-host-reboot.txt",
+      "dest": "docs/evidence/phase2/controls-after-host-reboot.txt",
+      "proves": "Row 53: Windows-side paired controls after the laptop reboot"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-red-first-lxc.txt",
+      "dest": "docs/evidence/phase2/r15-red-first-lxc.txt",
+      "proves": "Row 51: R15 red-first with pve-firewall stopped, container"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-red-first-vm.txt",
+      "dest": "docs/evidence/phase2/r15-red-first-vm.txt",
+      "proves": "Row 51: R15 red-first with pve-firewall stopped, VM"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-baseline-lxc.txt",
+      "dest": "docs/evidence/phase2/r15-baseline-lxc.txt",
+      "proves": "Row 52: R15 baseline with the firewall on, container"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-baseline-vm.txt",
+      "dest": "docs/evidence/phase2/r15-baseline-vm.txt",
+      "proves": "Row 52: R15 baseline with the firewall on, VM"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-after-pct-reboot-lxc.txt",
+      "dest": "docs/evidence/phase2/r15-after-pct-reboot-lxc.txt",
+      "proves": "Row 52: R15 after a container reboot, container"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-after-pct-reboot-vm.txt",
+      "dest": "docs/evidence/phase2/r15-after-pct-reboot-vm.txt",
+      "proves": "Row 52: R15 after a container reboot, VM"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-after-pve-reboot-lxc.txt",
+      "dest": "docs/evidence/phase2/r15-after-pve-reboot-lxc.txt",
+      "proves": "Row 52: R15 after a PVE reboot, container"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-after-pve-reboot-vm.txt",
+      "dest": "docs/evidence/phase2/r15-after-pve-reboot-vm.txt",
+      "proves": "Row 52: R15 after a PVE reboot, VM"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-after-host-reboot-lxc.txt",
+      "dest": "docs/evidence/phase2/r15-after-host-reboot-lxc.txt",
+      "proves": "Row 52: R15 after a laptop reboot, container"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/r15/r15-after-host-reboot-vm.txt",
+      "dest": "docs/evidence/phase2/r15-after-host-reboot-vm.txt",
+      "proves": "Row 52: R15 after a laptop reboot, VM"
+    }
+  ]
+}
