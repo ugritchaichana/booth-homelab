@@ -85,6 +85,7 @@ Host $name $addr
 CFG
 done
 
+# the secret path is stable on purpose: an alias rename does not change the pinned key
 cache_secret="iac/secrets/hosts/cache01-ssh.sops.yaml"
 cache_inventory="$repo/iac/inventory/cache.yml"
 cache_jump="pve01"
@@ -93,25 +94,30 @@ if [ -f "$repo/$cache_secret" ]; then
   cache_row="$(python3 - "$inventory" "$cache_inventory" "$cache_jump" <<'PY'
 import ipaddress, re, sys, yaml
 hosts = yaml.safe_load(open(sys.argv[1]))["all"]["children"]["pve_hosts"]["hosts"]
-cache = yaml.safe_load(open(sys.argv[2]))["all"]["children"]["cache"]["hosts"]["cache01"]
+cache_hosts = yaml.safe_load(open(sys.argv[2]))["all"]["children"]["cache"]["hosts"]
+if len(cache_hosts) != 1:
+    sys.exit("the cache group must hold exactly one host")
+alias, cache = next(iter(cache_hosts.items()))
+if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", alias):
+    sys.exit("invalid cache host alias")
 addr = str(ipaddress.ip_address(hosts[sys.argv[3]]["cache_endpoint"]["address"]))
 user = cache["ansible_user"]
 key = cache["ssh_key_name"]
 for value, pattern in ((user, r"[a-z_][a-z0-9_-]{0,31}"), (key, r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")):
     if not re.fullmatch(pattern, value):
-        sys.exit("invalid cache01 value")
-print("\t".join([addr, user, key]))
+        sys.exit("invalid cache host value")
+print("\t".join([alias, addr, user, key]))
 PY
-)" || die "cannot read cache01 from $cache_inventory and cache_endpoint of $cache_jump in $inventory"
-  IFS=$'\t' read -r cache_addr cache_user cache_key <<<"$cache_row"
+)" || die "cannot read the cache host from $cache_inventory and cache_endpoint of $cache_jump in $inventory"
+  IFS=$'\t' read -r cache_alias cache_addr cache_user cache_key <<<"$cache_row"
   pub="$(cd "$repo" && sops -d --extract '["ssh_host_ed25519_public"]' "$cache_secret")" || die "cannot decrypt $cache_secret"
   read -r keytype keydata _ <<<"$pub"
   [ "$keytype" = "ssh-ed25519" ] && [ -n "$keydata" ] || die "$cache_secret does not hold an ssh-ed25519 public key"
-  printf '%s %s %s\n' "cache01" "$keytype" "$keydata" >> "$kh"
+  printf '%s %s %s\n' "$cache_alias" "$keytype" "$keydata" >> "$kh"
   cat >> "$cfg" <<CFG
-Host cache01 $cache_addr
+Host $cache_alias $cache_addr
   HostName $cache_addr
-  HostKeyAlias cache01
+  HostKeyAlias $cache_alias
   User $cache_user
   IdentityFile ~/.ssh/$cache_key
   IdentitiesOnly yes
@@ -123,7 +129,7 @@ Host cache01 $cache_addr
 CFG
   rendered_extra=1
 else
-  echo "note: cache01 is not rendered; $cache_secret does not exist yet (capture its host key after the first apply)" >&2
+  echo "note: the cache host is not rendered; $cache_secret does not exist yet (capture its host key after the first apply)" >&2
 fi
 
 cat >> "$cfg" <<CFG
