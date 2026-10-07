@@ -11,6 +11,10 @@ pve_api_identity_images_storage: local-lvm
 pve_api_identity_templates_storage: local
 pve_api_identity_guest_zone: "{{ (guest_network | default({})).zone | default('hlab') }}"
 pve_api_identity_guest_vnet: "{{ (guest_network | default({})).vnet | default('guests') }}"
+pve_api_identity_cache_vnet: "{{ (cache_network | default({})).vnet | default('') }}"
+pve_api_identity_cache_grants: >-
+  {{ [{'path': '/sdn/zones/' ~ pve_api_identity_guest_zone ~ '/' ~ pve_api_identity_cache_vnet, 'role': 'HomelabGuestNetwork'}]
+  if pve_api_identity_cache_vnet | length > 0 else [] }}
 
 pve_api_identity_roles:
   HomelabGuests:
@@ -43,7 +47,8 @@ pve_api_identity_roles:
   HomelabNetworkAdmin:
     - SDN.Allocate
     - SDN.Audit
-pve_api_identity_grants:
+pve_api_identity_grants: "{{ pve_api_identity_base_grants + pve_api_identity_cache_grants }}"
+pve_api_identity_base_grants:
   - path: "/pool/{{ pve_api_identity_pool }}"
     role: HomelabGuests
   - path: "/pool/{{ pve_api_identity_template_pool }}"
