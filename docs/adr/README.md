@@ -70,6 +70,9 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0027 | [Use the classic Proxmox firewall with a security group for guest egress](0027-use-the-classic-proxmox-firewall-with-a-security-group-for-guest-egress.md) | Accepted |
 | 0028 | [Block the Hyper-V socket transport in the PVE guest](0028-block-the-hyper-v-socket-transport-in-the-pve-guest.md) | Accepted |
 | 0029 | [Reach the Proxmox API through an SSH forward and skip TLS verification inside it](0029-reach-the-proxmox-api-through-an-ssh-forward-and-skip-tls-verification-inside-it.md) | Accepted |
-| 0030 | [Give guests a routed, masqueraded simple SDN zone with static addresses](0030-give-guests-a-routed-masqueraded-simple-sdn-zone-with-static-addresses.md) | Accepted |
+| 0030 | [Give guests a routed, source-NATed simple SDN zone with static addresses](0030-give-guests-a-routed-source-nated-simple-sdn-zone-with-static-addresses.md) | Accepted |
 | 0031 | [Prove guest isolation with a red-first run, paired controls and one run per restart phase](0031-prove-guest-isolation-with-a-red-first-run-paired-controls-and-one-run-per-restart-phase.md) | Accepted |
 | 0032 | [Reach the probe guests over SSH from the Proxmox host with a key that never leaves it](0032-reach-the-probe-guests-over-ssh-from-the-proxmox-host-with-a-key-that-never-leaves-it.md) | Accepted |
+| 0033 | [Keep one SOPS file per consumer and host, with one writer each](0033-keep-one-sops-file-per-consumer-and-host-with-one-writer-each.md) | Accepted |
+| 0034 | [Publish the requirements as a redacted copy of the operator's document](0034-publish-the-requirements-as-a-redacted-copy-of-the-operators-document.md) | Accepted |
+| 0035 | [Leave the storage definitions as the installer made them in Phase 2](0035-leave-the-storage-definitions-as-the-installer-made-them-in-phase-2.md) | Accepted |
