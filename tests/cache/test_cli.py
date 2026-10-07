@@ -130,6 +130,14 @@ class CliTests(unittest.TestCase):
             self.assertEqual(cli.main(args), 0)
         self.assertEqual(json.loads(out.getvalue())["status"], "miss")
 
+    def test_empty_cache_url_is_an_immediate_miss(self):
+        args = ["restore", "--kind", "nuget", "--root", str(self.repo)]
+        with mock.patch.dict(os.environ, {"CACHE_URL": ""}), redirect_stdout(StringIO()) as out:
+            os.environ.pop("BUILD_CACHE_STORE", None)
+            self.assertEqual(cli.main(args), 0)
+        record = json.loads(out.getvalue())
+        self.assertEqual((record["status"], record["detail"]), ("miss", "no store configured"))
+
 
 if __name__ == "__main__":
     unittest.main()
