@@ -93,6 +93,24 @@ class CheckerRules(unittest.TestCase):
         self.assertClean("ssh root@pve01.home.arpa now")
         self.assertFlags("ssh root@pve01.home.arpa.example.org now", "email")
 
+    def test_ipv6_global(self):
+        for line in ("peer 2606:4700:4700::1112 up", "to [2a00:1450:4001:81b::200e]:443", "addr 2001:4860:4860:0:0:0:0:8888"):
+            self.assertFlags(line, "ipv6-global")
+        for line in ("link fe80::1009:71ff:feba:d8a1%eth0:22", "ula fd00::1 and fc00::2", "doc 2001:db8::1", "doc 3fff::1",
+                     "loop ::1 and ::", "resolver 2606:4700:4700::1111 and 2606:4700:4700::1001", "at 08:04:39 today", "mac aa:bb:cc:dd:ee:ff", "mapped ::ffff:10.99.0.2", "multicast ff02::1"):
+            self.assertEqual({r for _, r in rules_of(line)} - {"ipv4-outside-lab"}, set(), line)
+
+    def test_ci_writer_credential(self):
+        self.assertFlags("auth ci-writer:" + "hunter2hunter2", "ci-writer-credential")
+        for line in ("auth ci-writer:<password>", "auth ci-writer:${PASSWORD}", "auth ci-writer:$PASSWORD",
+                     "user ci-writer: a service account", "key 'ci-writer:'", "ci-writer:"):
+            self.assertClean(line)
+
+    def test_bcrypt_hash(self):
+        self.assertFlags("htpasswd line ci-writer:$2" + "y$05$" + "a" * 20, "bcrypt-hash")
+        self.assertFlags("$2" + "b$12$x", "bcrypt-hash")
+        self.assertClean("price is $20 and $2 only")
+
     def test_operator_path(self):
         for line in ("see ~/.claude/plans/x", "/home/u/.CLAUDE/notes", "C:/tools/.claude", "dir .claude here"):
             self.assertFlags(line, "operator-path")
@@ -286,6 +304,7 @@ class TrackedAddressTests(unittest.TestCase):
                 "iac/role/defaults.yml": f"probe: {LEAK_IP}\n",
                 "tests/vectors.sh": "vec 9.9.9.9\n",
                 "iac/secrets/key.yml": f"host: {PRIVATE_LEAK_IP}\n",
+                "tests/evidence/test_vectors.py": "leak = '5.5.5.5'\n",
             },
             untracked={"iac/role/local.yml": "x: 4.4.4.4\n"},
         )
@@ -307,6 +326,11 @@ class TrackedAddressTests(unittest.TestCase):
         known = self.known("iac")
         self.assertNotIn(publish.ipaddress.ip_address(PRIVATE_LEAK_IP), known)
         self.assertEqual({(f.line, f.rule) for f in publish.scan_text(f"peer {PRIVATE_LEAK_IP}", known)}, {(1, "ipv4-outside-lab")})
+
+    def test_the_checkers_own_test_directory_is_never_a_source(self):
+        known = self.known("tests", "tests/evidence")
+        self.assertNotIn(publish.ipaddress.ip_address("5.5.5.5"), known)
+        self.assertEqual({(f.line, f.rule) for f in publish.scan_text("peer 5.5.5.5", known)}, {(1, "ipv4-outside-lab")})
 
     def test_only_the_named_directories_are_read(self):
         self.assertEqual({str(a) for a in self.known("tests")}, {"9.9.9.9"})
@@ -396,8 +420,20 @@ class MutationTests(unittest.TestCase):
          "def tracked_addresses(repo, dirs):\n    return frozenset()\n",
          "test_publish.TrackedAddressTests.test_address_in_a_tracked_file_is_allowed"),
         ("iac/secrets excluded",
-         'SECRETS_PREFIX = "iac/nothing-is-secret/"\n',
+         'EXCLUDED_PREFIXES = ("iac/nothing-is-secret/",)\n',
          "test_publish.TrackedAddressTests.test_address_only_under_iac_secrets_still_flags"),
+        ("tests/evidence excluded as a source",
+         'EXCLUDED_PREFIXES = ("iac/secrets/",)\n',
+         "test_publish.TrackedAddressTests.test_the_checkers_own_test_directory_is_never_a_source"),
+        ("global IPv6 rule",
+         "def _global_ipv6(token):\n    return False\n",
+         "test_publish.CheckerRules.test_ipv6_global"),
+        ("ci-writer credential rule",
+         'LINE_RULES["ci-writer-credential"] = re.compile(r"(?!x)x")\n',
+         "test_publish.CheckerRules.test_ci_writer_credential"),
+        ("bcrypt rule",
+         'LINE_RULES["bcrypt-hash"] = re.compile(r"(?!x)x")\n',
+         "test_publish.CheckerRules.test_bcrypt_hash"),
         ("allowed list requires a reason",
          "def load_allowed_addresses(path):\n"
          "    return frozenset(ipaddress.IPv4Address(l.split()[0]) for l in path.read_text().splitlines()"
