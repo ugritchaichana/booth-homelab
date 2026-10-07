@@ -63,3 +63,5 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0020 | [Retire the bootstrap, cache and Ansible assets of the previous host instead of porting them](0020-retire-the-bootstrap-cache-and-ansible-assets-of-the-previous-host-instead-of-porting-them.md) | Accepted |
 | 0021 | [Keep one inventory file as the single host data source](0021-keep-one-inventory-file-as-the-single-host-data-source.md) | Accepted |
 | 0022 | [Render the SSH config with the host key pinned from SOPS](0022-render-the-ssh-config-with-the-host-key-pinned-from-sops.md) | Accepted |
+| 0023 | [Run Ansible as a key-only automation user and harden sshd behind a dead-man](0023-run-ansible-as-a-key-only-automation-user-and-harden-sshd-behind-a-dead-man.md) | Accepted |
+| 0024 | [Test roles with Molecule on hosted runners and prove host changes locally](0024-test-roles-with-molecule-on-hosted-runners-and-prove-host-changes-locally.md) | Accepted |

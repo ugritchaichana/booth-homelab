@@ -1,0 +1,20 @@
+---
+- name: Apply the baseline to every host
+  hosts: all
+  become: true
+  pre_tasks:
+    - name: Measure the connection user
+      ansible.builtin.command: id -un
+      become: false
+      register: site_connection_user
+      changed_when: false
+
+    - name: Require the automation user as the connection user
+      ansible.builtin.assert:
+        that:
+          - site_connection_user.stdout == (automation_user | default('automation'))
+        fail_msg: site.yml must connect as the automation user; bootstrap.yml is the only play that connects as root
+  tasks:
+    - name: Apply the base role
+      ansible.builtin.include_role:
+        name: base

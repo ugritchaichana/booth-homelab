@@ -47,3 +47,42 @@ jobs:
             tofu -chdir="$dir" init -backend=false
             tofu -chdir="$dir" validate
           done
+
+  ansible-quality-gate:
+    name: Ansible Lint, Syntax & Molecule
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install the Hash-Pinned Ansible Toolchain
+        run: python -m pip install --require-hashes -r iac/ansible/requirements-ci.txt
+
+      - name: Install Pinned Collections
+        run: ansible-galaxy collection install -r iac/ansible/requirements.yml
+
+      - name: Lint (production profile)
+        run: ansible-lint --profile production iac/ansible
+
+      - name: Syntax-Check Every Playbook
+        run: |
+          count=0
+          for playbook in iac/ansible/playbooks/*.yml; do
+            [ -e "$playbook" ] || continue
+            echo "==> Syntax-checking $playbook"
+            ANSIBLE_CONFIG=iac/ansible/ansible.cfg ansible-playbook --syntax-check "$playbook"
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no playbook found under iac/ansible/playbooks"
+            exit 1
+          fi
+
+      - name: Molecule Converge, Idempotence and Verify (base role)
+        working-directory: iac/ansible/roles/base
+        run: molecule test
