@@ -77,6 +77,12 @@ for directive in (
     if directive not in lines:
         errors.append(f"unit lacks the line {directive!r}")
 
+want_pre = "ExecStartPre=/usr/local/lib/bazel-remote/verify-cas /var/lib/bazel-remote/data /var/lib/bazel-remote/quarantine 3 67108864"
+if want_pre not in lines:
+    errors.append(f"unit lacks the line {want_pre!r}")
+if not any(line.startswith("TimeoutStartSec=") for line in lines):
+    errors.append("unit lacks TimeoutStartSec for the sweep")
+
 if sentinel in text:
     errors.append("the writer password text reached the unit")
 if "{{" in text:
@@ -112,6 +118,10 @@ for task in tasks:
         errors.append(f"task {name!r} uses the password outside htpasswd stdin")
 if htpasswd_tasks != 2:
     errors.append(f"expected 2 htpasswd tasks, found {htpasswd_tasks}")
+
+sweep = [t for t in tasks if module_args(t)[0] == "ansible.builtin.copy" and module_args(t)[1].get("src") == "verify-cas"]
+if len(sweep) != 1 or sweep[0]["ansible.builtin.copy"].get("owner") != "root" or sweep[0]["ansible.builtin.copy"].get("mode") != "0755":
+    errors.append("the sweep must be installed once, root-owned, mode 0755")
 
 downloads = [t for t in tasks if module_args(t)[0] == "ansible.builtin.get_url"]
 if len(downloads) != 1 or downloads[0]["ansible.builtin.get_url"].get("checksum") != "sha256:{{ cache_service_sha256 }}":
@@ -157,6 +167,7 @@ mutate() {
 
 mutate "drop allow_unauthenticated_reads" templates/bazel-remote.service.j2 '/--allow_unauthenticated_reads/d'
 mutate "drop htpasswd_file" templates/bazel-remote.service.j2 '/--htpasswd_file/d'
+mutate "drop the sweep from the unit" templates/bazel-remote.service.j2 '/^ExecStartPre=/d'
 mutate "drop the grpc off switch" templates/bazel-remote.service.j2 '/--grpc_address none/d'
 mutate "loosen ProtectSystem" templates/bazel-remote.service.j2 's/^ProtectSystem=strict/ProtectSystem=full/'
 mutate "put the password in the unit" templates/bazel-remote.service.j2 '/^\[Install\]/i Environment=PW={{ cache_writer_password }}'
