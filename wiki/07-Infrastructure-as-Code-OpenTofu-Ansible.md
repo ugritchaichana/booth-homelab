@@ -11,7 +11,8 @@ The **Booth-homelab** Proxmox host is managed through declarative Infrastructure
 | `iac/tofu/stacks/proxmox-host/` | Root module for every host in the inventory; local, encrypted state. | ADR 0013, 0029 |
 | `iac/tofu/stacks/r15-probe/` | Throwaway probe guests for the guest isolation proof. | ADR 0031, 0032 |
 | `iac/tofu/modules/proxmox/sdn/` | Guest network: simple SDN zone, vnet and subnet. | ADR 0030 |
-| `iac/tofu/flavors.json` | Instance flavor catalog; nothing reads it yet. | ADR 0017 |
+| `iac/tofu/modules/flavor/` | Resolves a flavor name to cores, memory and disk, with ready VM and container size objects. | ADR 0017 |
+| `iac/tofu/flavors.json` | Instance flavor catalog read by `modules/flavor/`. | ADR 0017 |
 | `iac/secrets/` | SOPS-encrypted host and OpenTofu secrets. | ADR 0009 |
 | `scripts/iac/` | Wrappers `render-ssh-config.sh`, `ansible.sh` and `tofu.sh`. | ADR 0011, 0022 |
 
