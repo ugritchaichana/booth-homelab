@@ -34,18 +34,20 @@ Covered (Phases 1 to 4 of `docs/platform/requirements.md`, all with their DONE W
 - a Proxmox VE 9 VM inside Hyper-V on the Windows workstation, installed unattended, behind an internal switch, NAT and host-side port ACLs (ADR 0003, 0004, 0006, 0007);
 - the host baseline: key-only SSH, repositories, upgrade, firewall, API identity, OpenTofu state, guest network (ADR 0012, 0023, 0025 to 0030);
 - golden templates `lxc-runner` and `vm-docker` (ADR 0038 to 0044);
-- the build cache service `cache01` and its client wiring (ADR 0045 to 0051).
+- the build cache service `build-cache-debian-13` (SSH alias `build-cache`) and its client wiring (ADR 0045 to 0051);
+- guests sized by a cloud flavor, created by one command (ADR 0055).
 
-Not covered: Phases 5 to 8 are not built (runner pool controller, reusable workflows and cutover, observability and resilience, runbook timed rebuild and portability). The self-hosted CI path cannot run until the Phase 5 runners exist; the hosted fallback runs today (row 68, SDET CI run 37602620111). What is open, what the next phase needs first and the entry gates are in `docs/handoff/README.md`.
+Not covered: Phases 5 to 8 are not built (runner pool controller, reusable workflows and cutover, observability and resilience, runbook timed rebuild and portability). The self-hosted CI path cannot run until the Phase 5 runners exist; hosted runners carry CI today (row 68, hosted run with the cache disabled). What is open, what the next phase needs first and the entry gates are in `docs/handoff/README.md`.
 
 Where to look first:
 
 | Question | File |
 |---|---|
-| Why a choice was made | `docs/adr/` (0001 to 0053) |
+| Why a choice was made | `docs/adr/` (index in `docs/adr/README.md`) |
 | What was required and measured | `docs/platform/requirements.md` (the row numbers below are its rows) |
 | What broke on the real host | `docs/knowledge/real-host-defects.md` |
-| Which test proves what, and the command | `docs/knowledge/test-catalogue.md` |
+| Which test proves what, and the command | `docs/knowledge/test-catalogue.md`; coverage numbers in `docs/knowledge/coverage.md` |
+| Worked examples with real output | `docs/handoff/examples.md` |
 | Run transcripts | `docs/evidence/<phase>/INDEX.md` |
 | Hyper-V scripts in depth | `scripts/hyperv/README.md` |
 | Secrets files and their writers | `iac/secrets/README.md` |
@@ -54,23 +56,71 @@ Where to look first:
 
 ### 2.1 Workstation prerequisites
 
-| # | Step | Role | Command or check |
-|---|---|---|---|
-| 1 | Windows 11 Pro (or Server 2022+) with virtualization on in firmware and a WSL Debian 13 distribution | owner | `wsl.exe -l -v` lists the distribution. The WSL install itself has no script here. |
-| 2 | Install the pinned operator toolchain (apt packages, `tofu`, `sops`, `gitleaks`, `tflint`, `ansible-lint`, the Proxmox repository keyring, `proxmox-auto-install-assistant`); checksums are constants in the script and a mismatch installs nothing (ADR 0010) | operator (WSL), as root | `sudo bash scripts/bootstrap/operator-toolchain.sh`; a second run installs nothing and prints the version table |
-| 3 | Ansible Python toolchain and collections | operator (WSL) | `python3 -m venv ~/.venvs/homelab-ansible`, then `~/.venvs/homelab-ansible/bin/pip install --require-hashes -r iac/ansible/requirements-ci.txt`, then `ansible-galaxy collection install -r iac/ansible/requirements.yml` (put `~/.venvs/homelab-ansible/bin` first on `PATH`) |
-| 4 | Create the age identity, once, in the Windows profile; it is never printed or committed (ADR 0009). Keep an off-machine copy; without it every secret is unrecoverable | operator (WSL) | `age-keygen -o "<WSL form of %APPDATA%>/sops/age/keys.txt"` (the standard age command, no repo script; run only when the file does not exist). The repo scripts find this path by themselves; `build-auto-install-iso.sh` needs `export SOPS_AGE_KEY_FILE=<that path>` |
-| 5 | Use the repository's existing identity: restore the offline copy to the same path. For a fork or a new identity: put the new public key into `.sops.yaml`, delete the encrypted files under `iac/secrets/` and recreate each one by its writer (step 7) | owner | `iac/secrets/README.md`, "Recovery and rotation" |
-| 6 | Two ed25519 key pairs with the same file name `homelab_pve01_ed25519` (`ssh_key_name` in `iac/inventory/hosts.yml`): the Windows one is the root break-glass key and the proxy-hop key (ADR 0011), the WSL one is the automation key | operator | `ssh-keygen -t ed25519 -f "%USERPROFILE%\.ssh\homelab_pve01_ed25519"` in `cmd.exe`, and `ssh-keygen -t ed25519 -f ~/.ssh/homelab_pve01_ed25519` in WSL (standard OpenSSH, no repo script) |
-| 7 | Write the secret files that have the operator as writer: root password (`root_password`), operator public keys (`root_authorized_keys`, `root_authorized_keys_revoked`, `automation_authorized_keys`) and the host-routed prefixes (`host_routed_prefixes`, taken from `StaticDenyPrefix` of the local override `%LOCALAPPDATA%\homelab\pve01.local.psd1` once it exists, see 2.3 step 3) | operator (WSL) | `sops iac/secrets/hosts/pve01.sops.yaml`, `sops iac/secrets/hosts/pve01-access.sops.yaml`, `sops iac/secrets/hosts/pve01-network.sops.yaml` (the editor opens the decrypted file; a new file must match the path rule of `.sops.yaml`). The root password value is a fresh random one, never typed on a command line |
+1. Windows 11 Pro (or Server 2022+) with virtualization on in firmware and a WSL Debian 13 distribution. Role: owner. The WSL install itself has no script here.
 
-State root for OpenTofu, once: `sudo install -d -o "$USER" -m 0700 /var/lib/homelab/tofu` (operator, WSL).
+   ```bat
+   wsl.exe -l -v
+   ```
+
+   Expected: the distribution is listed.
+
+2. Install the pinned operator toolchain (apt packages, `tofu`, `sops`, `gitleaks`, `tflint`, `ansible-lint`, the Proxmox repository keyring, `proxmox-auto-install-assistant`). Checksums are constants in the script and a mismatch installs nothing (ADR 0010). Role: operator (WSL), as root.
+
+   ```sh
+   sudo bash scripts/bootstrap/operator-toolchain.sh
+   ```
+
+   Expected: a second run installs nothing and prints the version table.
+
+3. Ansible Python toolchain and collections. Role: operator (WSL). Put `~/.venvs/homelab-ansible/bin` first on `PATH`.
+
+   ```sh
+   python3 -m venv ~/.venvs/homelab-ansible
+   ~/.venvs/homelab-ansible/bin/pip install --require-hashes -r iac/ansible/requirements-ci.txt
+   ansible-galaxy collection install -r iac/ansible/requirements.yml
+   ```
+
+4. Create the age identity once, in the Windows profile; it is never printed or committed (ADR 0009). Keep an off-machine copy: without it every secret is unrecoverable. Role: operator (WSL). This is the standard age command, not a repo script; run it only when the file does not exist. The repo scripts find the path by themselves; `build-auto-install-iso.sh` needs `export SOPS_AGE_KEY_FILE=<that path>`.
+
+   ```sh
+   age-keygen -o "<WSL form of %APPDATA%>/sops/age/keys.txt"
+   ```
+
+5. Use the repository's existing identity by restoring the offline copy to the same path. For a fork or a new identity, put the new public key into `.sops.yaml`, delete the encrypted files under `iac/secrets/` and recreate each one by its writer (step 7). Role: owner. See `iac/secrets/README.md`, "Recovery and rotation".
+
+6. Two ed25519 key pairs with the same file name `homelab_pve01_ed25519` (`ssh_key_name` in `iac/inventory/hosts.yml`). The Windows one is the root break-glass key and the proxy-hop key (ADR 0011); the WSL one is the automation key. Role: operator. Standard OpenSSH, no repo script.
+
+   ```bat
+   ssh-keygen -t ed25519 -f "%USERPROFILE%\.ssh\homelab_pve01_ed25519"
+   ```
+
+   ```sh
+   ssh-keygen -t ed25519 -f ~/.ssh/homelab_pve01_ed25519
+   ```
+
+7. Write the secret files whose writer is the operator. Role: operator (WSL). The editor opens the decrypted file; a new file must match a path rule of `.sops.yaml`. The root password is a fresh random value, never typed on a command line.
+
+   - `iac/secrets/hosts/pve01.sops.yaml`: `root_password`
+   - `iac/secrets/hosts/pve01-access.sops.yaml`: `root_authorized_keys`, `root_authorized_keys_revoked`, `automation_authorized_keys` (public keys)
+   - `iac/secrets/hosts/pve01-network.sops.yaml`: `host_routed_prefixes`, taken from `StaticDenyPrefix` of the local override `%LOCALAPPDATA%\homelab\pve01.local.psd1` once it exists (2.3 step 3)
+
+   ```sh
+   sops iac/secrets/hosts/pve01.sops.yaml
+   sops iac/secrets/hosts/pve01-access.sops.yaml
+   sops iac/secrets/hosts/pve01-network.sops.yaml
+   ```
+
+State root for OpenTofu, once (operator, WSL):
+
+```sh
+sudo install -d -o "$USER" -m 0700 /var/lib/homelab/tofu
+```
 
 ### 2.2 Prepared install ISO
 
 | # | Step | Role | Command or check |
 |---|---|---|---|
-| 1 | Download the stock Proxmox VE 9.1-1 installer ISO (a 9.2 ISO is reported not to boot on Hyper-V Generation 2, ADR 0004, rows 11 and 30) and verify it against the publisher's `SHA256SUMS` and its signature by hand | operator | `sha256sum <iso>` equals the published value |
+| 1 | Download the stock Proxmox VE 9.1-1 installer ISO (a 9.2 ISO is reported not to boot on Hyper-V Generation 2, ADR 0004, row 11, 9.2 installer fails on Hyper-V; row 30, installer bug report) and verify it against the publisher's `SHA256SUMS` and its signature by hand | operator | `sha256sum <iso>` equals the published value |
 | 2 | Render the answer file from `iac/proxmox/answer.pve01.toml.tmpl` (root hash from SOPS through a pipe, MAC and addresses from `scripts/hyperv/pve01.psd1`), validate it and write the prepared ISO | operator (WSL) | `bash scripts/proxmox/build-auto-install-iso.sh --source-iso <stock iso> --pubkey-operator <Windows key .pub> --pubkey-automation <WSL key .pub> --output <WSL form of %LOCALAPPDATA%>/homelab/iso/<prepared>.iso` (add `--force` to overwrite). It prints `validate-answer exit=0` and the prepared ISO's sha256 |
 
 The prepared ISO holds the root-password hash: it is deleted after the install (2.3) and never copied elsewhere.
@@ -82,12 +132,21 @@ All lines are for `cmd.exe` at the repository root. Preview first, then the real
 | # | Step | Role | Command or check |
 |---|---|---|---|
 | 1 | Preview, changes nothing, writes no file | operator (Windows) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\New-PveHost.ps1 -ConfigPath scripts\hyperv\pve01.psd1 -InstallIso "%LOCALAPPDATA%\homelab\iso\<prepared>.iso" -InstallIsoSha256 <64 hex> -Install -PlanOnly` |
-| 2 | Real run, one elevated pass: host rights, folder and ACL, switch, NAT, VM, port ACLs, install, wait for power-off, eject the ISO, checkpoint `post-install`, start, wait for TCP 22, delete the ISO copy. Install 459 s, first cold boot 18.1 s (row 35). The transcript goes to `%LOCALAPPDATA%\homelab\logs\New-PveHost-<timestamp>.log` | owner (elevated prompt, accepts UAC) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\New-PveHost.ps1 -ConfigPath scripts\hyperv\pve01.psd1 -InstallIso "%LOCALAPPDATA%\homelab\iso\<prepared>.iso" -InstallIsoSha256 <64 hex> -Install` |
+| 2 | Real run, one elevated pass: host rights, folder and ACL, switch, NAT, VM, port ACLs, install, wait for power-off, eject the ISO, checkpoint `post-install`, start, wait for TCP 22, delete the ISO copy. Install 459 s, first cold boot 18.1 s (row 35, unattended install). The transcript goes to `%LOCALAPPDATA%\homelab\logs\New-PveHost-<timestamp>.log` | owner (elevated prompt, accepts UAC) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\New-PveHost.ps1 -ConfigPath scripts\hyperv\pve01.psd1 -InstallIso "%LOCALAPPDATA%\homelab\iso\<prepared>.iso" -InstallIsoSha256 <64 hex> -Install` |
 | 3 | Exit 2 means Hyper-V was just enabled and a Windows restart is needed (the script never reboots): restart, then repeat step 2. After the first run the local override file exists; copy its `StaticDenyPrefix` into `pve01-network.sops.yaml` (2.1 step 7) | owner | exit codes in `scripts/hyperv/README.md` |
 | 4 | Sign in again so the Hyper-V Administrators membership takes effect, then check | operator (Windows) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\Invoke-PveVm.ps1 -Action Status` |
-| 5 | Trust the host key once through the Windows OpenSSH client (compare the printed fingerprint with the install transcript), then store the public key as the pinned host key; there is no repo script for this one-time capture, it follows the pattern of 2.9 step 8 | operator | read `/etc/ssh/ssh_host_ed25519_key.pub` as `ssh_host_ed25519_public: <type> <key>` from the host through the Windows `ssh.exe` and pipe it to `sops encrypt --filename-override iac/secrets/hosts/pve01-ssh.sops.yaml ... --output iac/secrets/hosts/pve01-ssh.sops.yaml /dev/stdin` |
+| 5 | Trust the host key once through the Windows OpenSSH client (compare the fingerprint it prints with the install transcript), then store the public key as the pinned host key. No repo script; the block below the table combines the proxy command of `render-ssh-config.sh` with the pipeline of 2.9 step 8 and has no recorded run of its own. If the Windows client cannot prompt from WSL, run its `ssh.exe` part once in a Windows prompt, accept the key, then repeat | operator (WSL) | the block below the table |
 | 6 | Render the SSH config and the pinned `known_hosts` | operator (WSL) | `bash scripts/iac/render-ssh-config.sh` (it prints `rendered N host(s)`) |
 | 7 | Restore point before the first converge, with the VM stopped (ADR 0019) | operator (Windows) | `Invoke-PveVm.ps1 -Action Stop`, then `-Action Checkpoint -Name pre-converge`, then `-Action Start` (full command form in 3.1) |
+
+Step 5 command (WSL):
+
+```sh
+winhome="$(cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c 'echo %USERPROFILE%' | tr -d '\r' | tr '\\' '/')"
+/mnt/c/Windows/System32/OpenSSH/ssh.exe -i "$winhome/.ssh/homelab_pve01_ed25519" root@10.99.0.2 'cat /etc/ssh/ssh_host_ed25519_key.pub' \
+  | awk '{print "ssh_host_ed25519_public: " $1 " " $2}' \
+  | sops encrypt --filename-override iac/secrets/hosts/pve01-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/pve01-ssh.sops.yaml /dev/stdin
+```
 
 The isolation layer, the firewall rule and the limits of the port ACLs are described in `scripts/hyperv/README.md`; a checkpoint taken before a credential rotation still holds the old secrets (3.1).
 
@@ -96,10 +155,10 @@ The isolation layer, the firewall rule and the limits of the port ACLs are descr
 | # | Step | Role | Command or check |
 |---|---|---|---|
 | 1 | First contact as root: switch the Proxmox repositories, create the automation user | operator (WSL) | `bash scripts/iac/ansible.sh bootstrap.yml -e ansible_user=root` |
-| 2 | Steady state as the automation user: roles `base`, `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`, `pve_templates`. Run 1 of the upgrade and baseline took 254 s including the reboot into the new kernel (row 43) | operator (WSL) | `bash scripts/iac/ansible.sh site.yml` |
-| 3 | Idempotence: the second run must end `changed=0` (row 60) | operator (WSL) | `bash scripts/iac/ansible.sh site.yml` |
+| 2 | Steady state as the automation user: roles `base`, `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`, `pve_templates`. Run 1 of the upgrade and baseline took 254 s including the reboot into the new kernel (row 43, converge run) | operator (WSL) | `bash scripts/iac/ansible.sh site.yml` |
+| 3 | Idempotence: the second run must end `changed=0` (row 60, idempotence held) | operator (WSL) | `bash scripts/iac/ansible.sh site.yml` |
 
-- A converge applies pending upstream updates and reboots the host when the running kernel is not the boot default (role `pve_host`, decision D40). With runners present, drain the pool first or converge in a maintenance window.
+- A converge applies pending upstream updates and reboots the host when the running kernel is not the boot default (role `pve_host`, decision D40, package repository switch and upgrade). With runners present, drain the pool first or converge in a maintenance window.
 - The SSH hardening runs behind a dead-man timer that restores the previous access if a step fails (ADR 0023). If a run stops while the timer is armed, the next run refuses to start: inspect the host and `journalctl -t homelab-deadman`, then delete the `armed` marker (`iac/ansible/README.md`, "SSH change guard").
 - The first converge also starts the first build of every template class in the background, and the API token is written to `iac/secrets/tofu/pve01-api.sops.yaml` by the role. Commit the encrypted file.
 
@@ -126,7 +185,7 @@ $pve sysctl -n net.ipv4.ip_forward
 $pve cat /proc/sys/net/ipv4/conf/cache/forwarding
 ```
 
-Expected: every guest port `isolated on`, a SNAT rule for each guest subnet (the cache subnet rule is `-s 10.99.17.0/24 -o vmbr0` only, row 61), `ip_forward` 1, cache forwarding 1.
+Expected: every guest port `isolated on`, a SNAT rule for each guest subnet (the cache subnet rule is `-s 10.99.17.0/24 -o vmbr0` only, row 61, cache network), `ip_forward` 1, cache forwarding 1.
 
 ### 2.6 Guard and firewall checks
 
@@ -149,12 +208,12 @@ Build framework and per-step detail are in 3.3. From zero:
 | # | Step | Role | Command or check |
 |---|---|---|---|
 | 1 | The first converge (2.4) deployed the bundles and base images and started a build per class. Follow it | operator (WSL) | `$pve sudo journalctl -f -u 'homelab-template-build@*'` |
-| 2 | Every class has exactly one `current`; a build takes about 2 min 15 s (`lxc-runner`) and 3 min 5 s (`vm-docker`) (row 55) | operator (WSL) | `$pve sudo homelab-template status` exits 0 |
+| 2 | Every class has exactly one `current`; build times are in `docs/handoff/results.md` | operator (WSL) | `$pve sudo homelab-template status` exits 0 |
 | 3 | A failed or missing build is rebuilt with the unit | root on pve01 | `$pve sudo systemctl start --no-block homelab-template-build@lxc-runner.service` (or `vm-docker`) |
 
 ### 2.8 R15 verification (probe stack and `r15-verify.yml`)
 
-R15 is the isolation proof: runner-class guests must not reach management, other guests or private networks. The probe guests are two linked clones of the current templates (VMID 9101 container, 9102 VM, pool `homelab`; ADR 0031, 0032, 0044). The probe reaches its clones through a probe-only channel; templates stay sealed.
+R15 is the isolation proof: runner-class guests must not reach management, other guests or private networks. The probe guests are two linked clones of the current templates (`r15-probe-lxc-runner-v<N>`, VMID 9101; `r15-probe-vm-docker-v<N>`, VMID 9102; pool `homelab`; ADR 0031, 0032, 0044). The probe reaches its clones through a probe-only channel; templates stay sealed.
 
 | # | Step | Role | Command or check |
 |---|---|---|---|
@@ -163,31 +222,119 @@ R15 is the isolation proof: runner-class guests must not reach management, other
 | 3 | Create the ephemeral key and the vendor-data snippet on the host; it prints `TF_VAR_probe_ssh_public_key=...` | operator (WSL) | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen` |
 | 4 | Create the clones (run step 3 first or the VM clone fails to start) | operator (WSL) | `export TF_VAR_probe_ssh_public_key='ssh-ed25519 ...'`, then `bash scripts/iac/tofu.sh r15-probe pve01 init` and `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
 | 5 | Prove the clones are linked clones of the templates | operator (WSL) | `$pve sudo pct config 9101` and `$pve sudo qm config 9102` list no `template:`; `$pve sudo lvs -o lv_name,origin pve` shows an `origin` of `base-<template vmid>-disk-N` |
-| 6 | Run the baseline phase: every `PROBE` row holds and `SUMMARY` exits 0. Measured: `negatives_blocked=19/19 positives_ok=2/2 egress_curl=200` on runner clones with the cache path, `12/12 1/1` inside the cache container (row 66) | operator (WSL) | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>` |
+| 6 | Run the baseline phase: every `PROBE` row holds and `SUMMARY` exits 0. Counts at the reference end state are in `docs/handoff/results.md` | operator (WSL) | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>` |
 | 7 | Phases `red-first` (attended, stops the node firewall, a timer restarts it after 10 minutes), `after-pct-reboot`, `after-pve-reboot`, `after-host-reboot` | operator (WSL) | the same command with `-e r15_phase=<phase>`; order and reading in `tests/isolation/README.md` |
 | 8 | Tear down | operator (WSL) | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then `$pve sudo rm -f /root/.ssh/r15_probe_ed25519 /root/.ssh/r15_probe_ed25519.pub /var/lib/vz/snippets/r15-probe-vendor.yaml /var/lib/homelab/r15/known_hosts` |
 
 Read raw probe records only from the output file, never echo them to a terminal (`docs/knowledge/real-host-defects.md`, last row of phase 4). While a probe clone of template version N exists, retention refuses to delete version N: destroy the probe first.
 
-### 2.9 Cache service (`cache01`, VMID 9050, vnet `cache`)
+### 2.9 Cache service (`build-cache-debian-13`, VMID 9050, vnet `cache`)
 
-A bazel-remote container on its own routed vnet serves content-addressed caches to the runners through one firewall path, tcp 10.99.17.10:8080. Reads are anonymous; writes need the one writer credential, which only default-branch push jobs in the environment `cache-writer` receive (ADR 0045 to 0051).
+A bazel-remote container on its own routed vnet serves content-addressed caches to the runners through one firewall path, tcp 10.99.17.10:8080. Reads are anonymous; writes need the one writer credential, which only default-branch push jobs in the environment `cache-writer` receive (ADR 0045 to 0051). The inventory and SSH alias is `build-cache`; the host-key pin file keeps its name `iac/secrets/hosts/cache01-ssh.sops.yaml`. Role for every step: operator (WSL) unless named.
 
-| # | Step | Role | Command or check |
-|---|---|---|---|
-| 1 | Offline gate | operator (WSL) | `bash tests/isolation/test-cluster-fw-render.sh`, `bash tests/isolation/test-guest-fw-guard.sh`, `bash tests/isolation/test-r15-probe.sh`, `bash tests/isolation/test-r15-verify-cache.sh`, `ansible-lint --profile production iac/ansible` |
-| 2 | On a host that already runs guests, list guests on any bridge other than `guests` and `cache`; the guard stops them once its per-vnet policy is in place (ADR 0047). Skip on a fresh host | operator (WSL) | `$pve sudo grep -l 'bridge=vmbr0' /etc/pve/qemu-server/*.conf /etc/pve/lxc/*.conf` |
-| 3 | The converge (2.4) and the host stack (2.5) already rendered `guest-egress` with the cache accept first, the group `cache-ingress`, the guard policy `/etc/homelab/guest-firewall-guard-policy.json`, the `SDN.Use` grant on `/sdn/zones/hlab/cache` and the `cache` vnet. Rerun them only if one is missing | operator (WSL) | `bash scripts/iac/ansible.sh site.yml`, `bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode` |
-| 4 | Writer credential, once. It writes `iac/secrets/hosts/pve01-cache.sops.yaml` and sets the environment secret `CACHE_WRITER_PASSWORD` in `cache-writer` from stdin, printing names only. WSL needs a `gh` command (a wrapper that execs the Windows `gh.exe` with `WSLENV=GH_TOKEN/u` works). Commit the SOPS file | operator (WSL) | `bash scripts/iac/cache-writer-secret.sh --repo <owner>/<repository>` |
-| 5 | GitHub setting: Settings, Environments, `cache-writer`, Deployment branches and tags, Selected branches, `master`. Until it is set, any branch's workflow that names the environment receives the secret (ADR 0050) | owner | GitHub web settings, no command |
-| 6 | Create the container, stopped | operator (WSL) | `export TF_VAR_ssh_public_keys='["<automation public key>"]'`, then `bash scripts/iac/tofu.sh cache-service pve01 init`, `plan`, `apply` |
-| 7 | Run only the start-gate play, which reads back the container's firewall and starts it only if every setting holds | operator (WSL) | `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml -l pve01` |
-| 8 | Pin the container's host key through the root path on pve01, render the SSH config and test the login | operator (WSL) | `$pve sudo pct exec 9050 -- cat /etc/ssh/ssh_host_ed25519_key.pub \| awk '{print "ssh_host_ed25519_public: " $1 " " $2}' \| sops encrypt --filename-override iac/secrets/hosts/cache01-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/cache01-ssh.sops.yaml /dev/stdin`, then `bash scripts/iac/render-ssh-config.sh`, then `ssh -F ~/.config/homelab/ssh_config cache01 true` |
-| 9 | Converge the service; the second run must end `changed=0` | operator (WSL) | `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml` |
-| 10 | Verify from a guest on the runner subnet (the workstation is not admitted on 8080): anonymous `GET /cas/<sha256>` 404 then 200 after a write, anonymous `PUT` 401, writer `PUT` 200, a `PUT` whose body does not match its digest 500 with nothing stored, `/metrics` shows `bazel_remote_disk_cache_size_bytes_limit 8.589934592e+09` (row 62) | operator (WSL) | the transcript is `docs/evidence/phase4/cache-api.txt` |
-| 11 | R15 with the cache path: the baseline of 2.8 step 6 reaches the cache (positive) and drops its tcp/22 (negative); the container is probed from inside | operator (WSL) | `r15-verify.yml` probes the cache container automatically when the host entry has `cache_endpoint` |
+1. Offline gate.
 
-`site.yml` never touches `cache01`; `cache.yml` does.
+   ```sh
+   bash tests/isolation/test-cluster-fw-render.sh
+   bash tests/isolation/test-guest-fw-guard.sh
+   bash tests/isolation/test-r15-probe.sh
+   bash tests/isolation/test-r15-verify-cache.sh
+   ansible-lint --profile production iac/ansible
+   ```
+
+2. On a host that already runs guests, list guests on any bridge other than `guests` and `cache`; the guard stops them once its per-vnet policy is in place (ADR 0047). Skip on a fresh host.
+
+   ```sh
+   $pve sudo grep -l 'bridge=vmbr0' /etc/pve/qemu-server/*.conf /etc/pve/lxc/*.conf
+   ```
+
+3. The converge (2.4) and the host stack (2.5) already rendered `guest-egress` with the cache accept first, the group `cache-ingress`, the guard policy `/etc/homelab/guest-firewall-guard-policy.json`, the `SDN.Use` grant on `/sdn/zones/hlab/cache` and the `cache` vnet. Rerun them only if one is missing.
+
+   ```sh
+   bash scripts/iac/ansible.sh site.yml
+   bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode
+   ```
+
+4. Writer credential, once. The script writes `iac/secrets/hosts/pve01-cache.sops.yaml` and sets the environment secret `CACHE_WRITER_PASSWORD` in `cache-writer` from stdin, printing names only. Commit the SOPS file. WSL needs a `gh` command; this wrapper at `~/.local/bin/gh` execs the Windows client (adjust the path to your `gh.exe`):
+
+   ```sh
+   #!/bin/sh
+   export WSLENV="GH_TOKEN/u${WSLENV:+:$WSLENV}"
+   exec "/mnt/c/Program Files/GitHub CLI/gh.exe" "$@"
+   ```
+
+   ```sh
+   bash scripts/iac/cache-writer-secret.sh --repo <owner>/<repository>
+   ```
+
+5. Owner, GitHub setting, no command: Settings, Environments, `cache-writer`, Deployment branches and tags, Selected branches, `master`. Until it is set, any branch's workflow that names the environment receives the secret (`docs/handoff/limits-and-gaps.md`, first security gap).
+
+6. Create the container, stopped.
+
+   ```sh
+   export TF_VAR_ssh_public_keys='["<automation public key>"]'
+   bash scripts/iac/tofu.sh cache-service pve01 init
+   bash scripts/iac/tofu.sh cache-service pve01 plan
+   bash scripts/iac/tofu.sh cache-service pve01 apply
+   ```
+
+7. Run only the start-gate play, which reads back the container's firewall and starts it only if every setting holds.
+
+   ```sh
+   bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml -l pve01
+   ```
+
+8. Pin the container's host key through the root path on pve01, render the SSH config and test the login.
+
+   ```sh
+   $pve sudo pct exec 9050 -- cat /etc/ssh/ssh_host_ed25519_key.pub \
+     | awk '{print "ssh_host_ed25519_public: " $1 " " $2}' \
+     | sops encrypt --filename-override iac/secrets/hosts/cache01-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/cache01-ssh.sops.yaml /dev/stdin
+   bash scripts/iac/render-ssh-config.sh
+   ssh -F ~/.config/homelab/ssh_config build-cache true
+   ```
+
+   Expected: `rendered N host(s)` and the login exits 0.
+
+9. Converge the service; the second run must end `changed=0`.
+
+   ```sh
+   bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml
+   ```
+
+10. Verify from a guest on the runner subnet (the workstation is not admitted on 8080): anonymous `GET /cas/<sha256>` 404 then 200 after a write, anonymous `PUT` 401, writer `PUT` 200, a `PUT` whose body does not match its digest 500 with nothing stored, `/metrics` shows `bazel_remote_disk_cache_size_bytes_limit 8.589934592e+09` (row 62, cache API). The transcript is `docs/evidence/phase4/cache-api.txt`.
+
+11. R15 with the cache path: the baseline of 2.8 step 6 reaches the cache (positive) and drops its tcp/22 (negative); `r15-verify.yml` probes the cache container automatically when the host entry has `cache_endpoint`.
+
+`site.yml` never touches the cache container; `cache.yml` does.
+
+### 2.10 Create a guest from a flavor
+
+A guest sized by a cloud flavor from `iac/tofu/flavors.json` (ADR 0055). Role: operator (WSL). The guest is a linked clone of the `current` template of its class, created stopped, named `<role>-<class>-v<N>` (`N` is the cloned template version) and tagged `flavor-guest`, `flavor-<provider>-<instance>` and `src-<class>-v<N>`. A slot from 1 to 99 fixes its VMID (9500 plus the slot) and address (host 100 plus the slot of the guest subnet). A worked example with real output is in `docs/handoff/examples.md`.
+
+1. Plan without applying. The command adds the guest to `iac/tofu/stacks/guest/guests.yml`, then runs `init` and `plan`.
+
+   ```sh
+   bash scripts/iac/new-guest.sh --flavor aws/t3.medium --template lxc-runner --role demo
+   ```
+
+   Expected first line: `guest demo-lxc-runner on pve01: aws/t3.medium, lxc-runner, slot 1`, then a plan that only adds.
+
+2. Apply. The command applies with `-auto-approve`, then runs `plan -detailed-exitcode`; while the plan still shows changes it applies once more, and fails if the second plan still does. A container clone ignores the flavor disk size on its first apply, so the second apply is expected for `lxc-runner` (`docs/knowledge/real-host-defects.md`).
+
+   ```sh
+   bash scripts/iac/new-guest.sh --flavor aws/t3.medium --template lxc-runner --role demo --apply
+   ```
+
+3. Check the sizes on the host.
+
+   ```sh
+   $pve sudo pct config 9501
+   ```
+
+   Expected: `cores: 2`, `memory: 4096`, a `rootfs` of 30 GiB, the three tags and `bridge=guests,firewall=1`. For a VM use `$pve sudo qm config <vmid>`.
+
+To remove a guest, delete its entry from `guests.yml` and run `bash scripts/iac/tofu.sh guest pve01 apply`. Updating a role and class keeps its slot; omitting `--version` returns the guest to the current template.
 
 ## 3. Day-2 operations
 
@@ -198,7 +345,7 @@ Role: operator (Windows), non-elevated once the Hyper-V Administrators membershi
 | Action | Command suffix | Behavior |
 |---|---|---|
 | Status | `-Action Status` | state, reachability, adapter connection, ACL rule counts, foreign ACLs, egress interface, firewall rule |
-| Start | `-Action Start` | checks host RAM and the firewall rule (refuses unless `-Force`), refreshes the port ACLs, starts the VM, prints seconds until TCP 22 answers (about 16 s, row 45) |
+| Start | `-Action Start` | checks host RAM and the firewall rule (refuses unless `-Force`), refreshes the port ACLs, starts the VM, prints seconds until TCP 22 answers (about 16 s, row 45, checkpoint action) |
 | Refresh | `-Action Refresh` | running VM only: re-syncs the port ACLs after a VPN or default-route change; exit 1 and a disconnected adapter if the sync fails |
 | Stop | `-Action Stop` | graceful with a timeout; a hard power-off needs `-TurnOff -Force` |
 | Checkpoint | `-Action Checkpoint -Name <name>` | only while the VM is `Off`, the name unused, no DVD media attached, enough free disk (ADR 0019) |
@@ -215,7 +362,7 @@ Role: operator (Windows), non-elevated once the Hyper-V Administrators membershi
 bash scripts/iac/ansible.sh site.yml          # host baseline, role by role; second run changed=0
 ```
 
-A converge with pending kernel updates reboots the host: the cluster firewall, the guard and every guest stop and restart. After a reboot SSH answered at 43 s, the cache container ran at 45 s and its service at 49 s with data intact (row 67). Do it with the VM idle: no template build, no probe run, no runner job. Stop and take a checkpoint first (3.1) when the change is risky.
+A converge with pending kernel updates reboots the host: the cluster firewall, the guard and every guest stop and restart. After a reboot SSH answered at 43 s, the cache container ran at 45 s and its service at 49 s with data intact (row 67, reboot timings). Do it with the VM idle: no template build, no probe run, no runner job. Stop and take a checkpoint first (3.1) when the change is risky.
 
 ### 3.3 Golden templates
 
@@ -238,7 +385,7 @@ $pve sudo homelab-template rollback lxc-runner     # swaps current and previous;
 $pve sudo homelab-template repair lxc-runner       # re-tags from the root state after a failed tag move
 ```
 
-`class=<c> ERROR current-count=0` or `=2` means consumers refuse the class; `MISMATCH recorded=<n>` means tags differ from the root state, run `repair`. After a rollback the next build promotes on top of the rolled-back version. Running clones are not touched. Measured: two versions per class retained, one-command rollback (row 56).
+`class=<c> ERROR current-count=0` or `=2` means consumers refuse the class; `MISMATCH recorded=<n>` means tags differ from the root state, run `repair`. After a rollback the next build promotes on top of the rolled-back version. Running clones are not touched. Measured: two versions per class retained, one-command rollback (row 56, retention and rollback).
 
 Recover a failed build: read the marker (`$pve sudo ls /var/lib/homelab/templates/failed/`), then the cause (`$pve sudo journalctl -u homelab-template-build@<class>.service -n 200`, and `-u homelab-template-guest@build.service` for the guest step). Match the last line:
 
@@ -279,7 +426,7 @@ Bump the `vm-docker` class (`iac/ansible/roles/pve_templates/files/bundles/vm-do
 1. Engine: on a Debian 13 host run `apt-cache policy docker.io containerd runc` after `apt-get update`, then edit the `version:` of those three entries under `apt_packages`.
 2. Runner: take the `linux-x64` sha256 from the runner release notes, edit `version`, `url` and `sha256` of `actions_runner` (the version appears in the url twice), then check `curl -sLO <url>` against `sha256sum <file>`.
 3. `bash tests/isolation/test-template-content-vm.sh` must print `all passed`; commit, pull request, merge; the next rebuild picks it up (`$pve sudo homelab-template build vm-docker` builds now).
-4. Check the class on a clone with the R15 probe stack (2.8 steps 3 and 4), then, with `c` set to `$pve sudo ssh -i /root/.ssh/r15_probe_ed25519 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=accept-new debian@10.99.16.22`: `$c 'sudo docker run --rm hello-world'` prints "Hello from Docker!"; `$c "grep -cE 'svm|vmx' /proc/cpuinfo"` prints 0; `$c 'ls /opt/actions-runner/.runner /opt/actions-runner/.credentials'` reports both missing; `$c 'ss -ltn | grep -c :2375'` prints 0; `$c 'sudo -n -l -U runner'` says the runner user may not run sudo (row 59). Tear down as 2.8 step 8.
+4. Check the class on a clone with the R15 probe stack (2.8 steps 3 and 4), then, with `c` set to `$pve sudo ssh -i /root/.ssh/r15_probe_ed25519 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=accept-new debian@10.99.16.22`: `$c 'sudo docker run --rm hello-world'` prints "Hello from Docker!"; `$c "grep -cE 'svm|vmx' /proc/cpuinfo"` prints 0; `$c 'ls /opt/actions-runner/.runner /opt/actions-runner/.credentials'` reports both missing; `$c 'ss -ltn | grep -c :2375'` prints 0; `$c 'sudo -n -l -U runner'` says the runner user may not run sudo (row 59, clone isolation). Tear down as 2.8 step 8.
 
 Consume or pin a template (operator, WSL): a consumer never names a VMID; the module `iac/tofu/modules/proxmox/template-source` resolves the one template that carries the marker `homelab-template`, the class and the tag `current`, is a member of pool `templates` and lies in the class block, or the plan stops (ADR 0044).
 
@@ -295,15 +442,15 @@ Rollback by pin changes one consumer, needs no host access and survives a new bu
 
 ### 3.4 Cache: health, purge, rotation
 
-Role: operator, reaching `cache01` as root: `ssh -F ~/.config/homelab/ssh_config cache01`.
+Role: operator, reaching the cache container as root: `ssh -F ~/.config/homelab/ssh_config build-cache`.
 
 - Health: `systemctl status bazel-remote`; `journalctl -u bazel-remote -b | grep -E 'wait-for-address|verify-cas|Loaded'`. Every start runs `wait-for-address` (reads `/proc/net/fib_trie`; the unit's sandbox forbids netlink, so `ip` cannot be used there) and `verify-cas`, which hashes every blob and moves one whose content does not match its name to `/var/lib/bazel-remote/quarantine/`.
-- Size and eviction: budget 8 GiB (`--max_size 8`) on a 10 GiB volume, LRU eviction; metrics `bazel_remote_disk_cache_size_bytes` and `..._evicted_bytes_total` on `/metrics` (row 62).
+- Size and eviction: budget 8 GiB (`--max_size 8`) on a 10 GiB volume, LRU eviction; metrics `bazel_remote_disk_cache_size_bytes` and `..._evicted_bytes_total` on `/metrics` (row 62, cache API).
 - Hit counting: Prometheus `bazel_remote_incoming_requests_total{kind="ac"}` does not count pointer lookups when AC validation is disabled; count from the access log (`journalctl -u bazel-remote | grep ' /ac/'`, status 200 hit, 404 miss) or from the client stats.
 - Purge for a cold cache: `systemctl stop bazel-remote && find /var/lib/bazel-remote/data -mindepth 1 -delete && systemctl start bazel-remote`. Builds run cold until a default-branch push saves again.
 - Rotate the writer credential (operator, WSL), then converge: `bash scripts/iac/cache-writer-secret.sh --rotate --repo <owner>/<repository>`, then `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml`.
-- Disable: empty `CACHE_URL` in `.github/workflows/reusable-sdet-pipeline.yml`; every restore answers "miss: no store configured" and builds run cold. The hosted fallback already runs that way (row 68).
-- Evidence of behavior: 20 fresh-workspace runs on a runner-template clone, run 1 missed and saved, runs 2 to 20 hit every restore, dependencies 38/38 and outputs 19/19 (row 63).
+- Disable: empty `CACHE_URL` in `.github/workflows/reusable-sdet-pipeline.yml`; every restore answers "miss: no store configured" and builds run cold. Hosted runs already behave that way (row 68, hosted run with the cache disabled).
+- Measured behavior: `docs/handoff/results.md`.
 
 Client wiring (CI): `dotnet-build` restores `nuget` then `dotnet-outputs`; `angular-jest` restores `node_modules`; the two `*-cache-save` jobs write only on a push to the default branch, in environment `cache-writer`. Statuses in the job summary: restore `hit`, `miss`, `rejected` (digest mismatch or unsafe archive; the build runs cold), `error`; save `saved`, `skipped`, `refused` (401 or 403), `failed` (5xx). No status fails a job. Keys are content-addressed and outputs are restored only on an exact match (ADR 0049).
 
@@ -337,63 +484,62 @@ $pve sudo ls /var/lib/homelab/guest-firewall-guard/violations
 | a capitalised line with `vmid=<id> type=<t> run=<n>/<limit> (<error>)` | the guest's config could not be read; the run counts toward a limit of 3 (`pve_firewall_guard_*` in `iac/ansible/roles/pve_firewall/defaults/main.yml`), exit 4 | check `pvesh get` on the guest |
 | `ERROR cannot read the policy` or `cannot list guests`; no guest was stopped | the guard is blind, exit 4 | rerun `site.yml`; check `pvesh` |
 
-A container created before its firewall exists is flagged at once; create guests stopped and start them only after a firewall read-back (the cache container does, ADR 0047, row 62).
+A container created before its firewall exists is flagged at once; create guests stopped and start them only after a firewall read-back (the cache container does, ADR 0047, row 62, cache API).
 
 ## 4. Verification and evidence
 
 ### 4.1 Offline suites (no host)
 
-Operator (WSL), repository root, after step 3 of 2.1. CI runs the same checks (`docs/knowledge/test-catalogue.md` has one row per test file).
+Canonical command list; other pages link here. Operator (WSL), repository root, after step 3 of 2.1. CI runs the same checks (`docs/knowledge/test-catalogue.md` has what each test proves; `docs/knowledge/coverage.md` the coverage numbers).
 
 ```sh
-for t in tests/isolation/test-*.sh; do bash "$t" || break; done            # isolation, template and cache-service tests
+for t in tests/isolation/test-*.sh; do bash "$t" || break; done            # isolation, role, template, cache-service and guest-wrapper tests
 ansible-lint --profile production iac/ansible
 for p in iac/ansible/playbooks/*.yml; do ANSIBLE_CONFIG=iac/ansible/ansible.cfg ansible-playbook --syntax-check "$p"; done
 tofu fmt -check -recursive iac/tofu
 (cd iac/tofu/stacks && tflint --recursive --config "$PWD/../../../.tflint.hcl")
-export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
-for s in proxmox-host r15-probe cache-service; do tofu -chdir=iac/tofu/stacks/$s init -backend=false && tofu -chdir=iac/tofu/stacks/$s test; done
-PYTHONPATH=scripts/ci python3 -m unittest discover -s tests/cache -p "test_*.py"
+export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123      # any throwaway of 32 or more characters
+for s in proxmox-host r15-probe cache-service guest; do tofu -chdir=iac/tofu/stacks/$s init -backend=false && tofu -chdir=iac/tofu/stacks/$s test; done
+python3 -m pip install --require-hashes -r tests/cache/requirements-ci.txt
+python3 -m unittest discover -s tests/cache -p "test_*.py"
 python3 -m unittest discover -s tests/evidence -v
+python3 standard/tests/test_scorecard.py
 python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac
 bash tests/verify-affected-graph.sh
 ```
 
-`bash tests/cache/test_stale_binaries.sh` needs Linux and the .NET SDK 8. The Molecule scenario of the `base` role needs a Docker daemon, so it runs only in CI: `cd iac/ansible/roles/base && molecule test`. CI workflows: `iac-ci.yml`, `cache-ci.yml`, `evidence-ci.yml`, `affected-selector-ci.yml`.
+The Hyper-V module tests (Pester 5.7.1) need Windows; run them under both shells, from `cmd` at the repository root:
 
-What these prove is the logic and the unit files against fakes (`tests/isolation/lib/fake-pve.py`), not Proxmox's behavior. A defect found only on the host is listed in `docs/knowledge/real-host-defects.md`.
+```bat
+pwsh -NoProfile -File tests\hyperv\Invoke-HyperVTests.ps1 -PesterVersion 5.7.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\hyperv\Invoke-HyperVTests.ps1 -PesterVersion 5.7.1
+```
+
+`bash tests/cache/test_stale_binaries.sh` needs Linux and the .NET SDK 8. The Molecule scenario of the `base` role needs a Docker daemon, so it runs only in CI: `cd iac/ansible/roles/base && molecule test`. CI workflows: `iac-ci.yml`, `cache-ci.yml`, `evidence-ci.yml`, `affected-selector-ci.yml`, `hyperv-ci.yml`, `standard-scorecard.yml`, `secret-scan.yml`.
+
+What these prove is the logic and the unit files against fakes (`tests/isolation/lib/fake-pve.py`) and stubs, not Proxmox's or Hyper-V's behavior. A defect found only on the host is listed in `docs/knowledge/real-host-defects.md`.
 
 ### 4.2 Host proofs (real host)
 
 | Proof | Command | Passes when |
 |---|---|---|
-| Idempotence | `bash scripts/iac/ansible.sh site.yml` twice | second run `changed=0` (row 60) |
+| Idempotence | `bash scripts/iac/ansible.sh site.yml` twice | second run `changed=0` (row 60, idempotence held) |
 | Host stack drift | `bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode` | exit 0 |
 | Templates | `$pve sudo homelab-template status` | exit 0, one `current` per class |
 | Guard | `$pve sudo journalctl -u homelab-guest-firewall-guard.service -n 3 --no-pager` | ends `ok, N guest(s) checked` |
-| R15 isolation | 2.8 step 6 | `SUMMARY` exits 0; runner clones `negatives_blocked=19/19 positives_ok=2/2`, cache container `12/12 1/1` (row 66) |
-| Cache | 2.9 step 10 | the six API outcomes hold (row 62) |
-| Token boundary | provisioner token deletes or retags a template | 403; cloning it 200 (row 57) |
+| R15 isolation | 2.8 step 6 | `SUMMARY` exits 0; counts at the reference end state are in `docs/handoff/results.md` |
+| Cache | 2.9 step 10 | the six API outcomes hold (row 62, cache API) |
+| Token boundary | provisioner token deletes or retags a template | 403; cloning it 200 (row 57, template protection) |
 
 Two R15 rows stay not measured in every phase (a VPN peer's web service and a host in a harvested prefix): no positive control exists on the Windows side (`docs/knowledge/real-host-defects.md`, open findings).
 
 ### 4.3 Publishing evidence
 
-Role: operator who holds the raw run output, on the workstation, Linux or WSL with Python 3.11 or newer, at the repository root. The raw files, the value map and the credential mask stay outside the repository; only the published copies and the index are committed (ADR 0052; `docs/knowledge/README.md` has the rules and the reading guide).
+Role: operator who holds the raw run output, on the workstation, Linux or WSL with Python 3.11 or newer, at the repository root. The raw files, the value map and the credential mask stay outside the repository; only the published copies and the index are committed (ADR 0052). The publish command with every selection file, the file formats and the checker rules are in `docs/knowledge/README.md`. Check what is committed, as CI does:
 
 ```sh
-python3 scripts/evidence/publish.py --repo . \
-  --allow-addresses-from iac \
-  --map <value-map.json> \
-  --mask-script <mask-script.py> \
-  --deny-list <deny-list.txt> \
-  --raw-root plans=<directory holding the raw run folders> \
-  --raw-root logs=<directory holding the host transcripts> \
-  scripts/evidence/selection-phase1.json scripts/evidence/selection-phase2.json \
-  scripts/evidence/selection-phase3.json scripts/evidence/selection-phase4.json
+python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac
 ```
-
-Name one selection file to publish one phase. A file withheld by a checker flag or a credential-mask marker makes the exit code non-zero; a withheld file is never edited by hand: read its `file:line:rule` output, add the exact value to the map, run the same command again. From a linked worktree opened in WSL, export `GIT_DIR` and `GIT_WORK_TREE` first. Check what is committed, as CI does: `python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac`.
 
 ## 5. Troubleshooting
 
@@ -403,7 +549,7 @@ Symptom, cause, fix. The full list with pull requests is `docs/knowledge/real-ho
 |---|---|---|
 | `bootstrap.yml` or `site.yml` refuses to start, `armed` marker | an SSH-hardening run stopped while its dead-man was armed | inspect the host and `journalctl -t homelab-deadman`, delete the marker (2.4) |
 | `site.yml must connect as the automation user` | `-e ansible_user=root` left on a steady-state run | drop it; only `bootstrap.yml` connects as root |
-| Host rebooted during a converge | pending kernel update (decision D40, design) | expected; schedule converges in a window (3.2) |
+| Host rebooted during a converge | pending kernel update (decision D40, package repository switch and upgrade) | expected; schedule converges in a window (3.2) |
 | Firewall check fires the dead-man on a clean config | a compile check read `ignore <chain>` lines as errors | fixed in the role; if it recurs, read `restore finished rc=0` in the journal and the check patterns |
 | Probe VM create returns 403 | token lacked `Datastore.Audit` on the disk storage, or a tag was set on create | fixed in the role; never widen the token, the probe declares no tags |
 | `unsafe characters in the Windows local application data path` on the second `apply` | the state copy path had a backslash | fixed: `tofu.sh` converts with `wslpath` |
