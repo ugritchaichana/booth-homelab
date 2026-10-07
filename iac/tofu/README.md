@@ -3,7 +3,7 @@
 | Path | Purpose |
 |---|---|
 | `stacks/proxmox-host/` | The host root module; `var.host` selects an inventory entry, so another host is data, not code. Declares the guest network: the `guests` vnet and, when the host entry has `cache_network`, the `cache` vnet. Run it through the wrapper `scripts/iac/tofu.sh` (see its README). |
-| `stacks/cache-service/` | The unprivileged container `cache01` on the `cache` vnet that hosts the build cache; created stopped and started by Ansible after a firewall read-back (ADR 0045, 0048). |
+| `stacks/cache-service/` | The unprivileged container `build-cache-debian-13` (tags `build-cache`, `src-debian-13`) on the `cache` vnet that hosts the build cache; `build-cache` is its inventory and SSH alias; created stopped and started by Ansible after a firewall read-back (ADR 0045, 0048). |
 | `stacks/r15-probe/` | Throwaway container and VM, linked clones of the golden templates, that carry the guest firewall policy for the R15 isolation proof; applied only during the proof and destroyed after it (ADR 0031, 0044). Its firewall policy comes from `iac/policy/runner-class.yml`. |
 | `stacks/guest/` | Guests sized by a flavor name, linked clones of the golden templates, listed in `stacks/guest/guests.yml` and created by `scripts/iac/new-guest.sh` (ADR 0055). |
 | `modules/proxmox/sdn/` | A simple SDN zone, vnets with `isolate_ports`, and subnets with SNAT, static addressing and no DHCP (ADR 0030, 0045). |
@@ -30,16 +30,8 @@ bash scripts/iac/new-guest.sh --flavor aws/t3.medium --template lxc-runner --rol
 
 ## Checks without a host
 
-The stack's state encryption needs a passphrase of at least 32 characters for `test`; use a throwaway one:
+The commands are in [RUNBOOK.md, Offline suites (no host)](../../RUNBOOK.md#41-offline-suites-no-host): `tofu fmt`, `tflint`, then per stack `init -backend=false` and `test`, with a throwaway `TF_VAR_state_passphrase` of at least 32 characters (state encryption needs it for `test`). Run the per-stack pair for every directory under `stacks/` (`proxmox-host`, `cache-service`, `r15-probe`, `guest`).
 
-```sh
-export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
-tofu fmt -check -recursive iac/tofu
-(cd iac/tofu/stacks && tflint --recursive --config "$PWD/../../../.tflint.hcl")
-tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false
-tofu -chdir=iac/tofu/stacks/proxmox-host test
-```
-
-Repeat the last two lines for `cache-service`, `r15-probe` and `guest`. Each stack's `tests/` holds `tofu test` files with a mocked provider: the policy of the network objects, the overlap and range rejections, a two-host plan from `tests/fixtures/hosts.yml`, the fail-closed template lookup and the exact firewall groups. `docs/knowledge/test-catalogue.md` lists what each file proves.
+Each stack's `tests/` holds `tofu test` files with a mocked provider: the policy of the network objects, the overlap and range rejections, a two-host plan from `tests/fixtures/hosts.yml`, the fail-closed template lookup and the exact firewall groups. `docs/knowledge/test-catalogue.md` lists what each file proves.
 
 CI finds root modules by layout, so a new stack is a new directory under `stacks/`. Per-guest firewall options and rules belong to the stack that creates the guest, except for clones, which inherit them from the template (ADR 0025, 0044).

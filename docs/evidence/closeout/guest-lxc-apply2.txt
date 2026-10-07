@@ -1,0 +1,5 @@
+apply2 exit=0
+proxmox_virtual_environment_container.guest["demo"]: Modifications complete after 23s [id=9501]
+Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+third plan exit=0
+rootfs: acl=0,size=32212254720,quota=0,replicate=0,volume=local-lvm:vm-9501-disk-0

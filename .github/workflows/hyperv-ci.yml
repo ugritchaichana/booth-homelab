@@ -36,16 +36,18 @@ jobs:
           fetch-depth: 1
 
       - name: Install Pester 5.7.1
-        shell: ${{ matrix.shell }}
+        shell: pwsh
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          $install = "`$ErrorActionPreference = 'Stop'; Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck"
+          if ('${{ matrix.shell }}' -eq 'powershell') { $install = "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null; " + $install }
+          & ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -Command $install
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run tests with code coverage
-        shell: ${{ matrix.shell }}
-        run: >
-          & tests/hyperv/Invoke-HyperVTests.ps1 -PesterVersion 5.7.1
-          -CoveragePath "$env:RUNNER_TEMP/hyperv-coverage-${{ matrix.shell }}.xml"
+        shell: pwsh
+        run: |
+          & ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests/hyperv/Invoke-HyperVTests.ps1 -PesterVersion 5.7.1 -CoveragePath "$env:RUNNER_TEMP/hyperv-coverage-${{ matrix.shell }}.xml"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload coverage report
         if: always()

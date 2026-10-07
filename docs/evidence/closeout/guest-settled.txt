@@ -1,0 +1,6 @@
+apply exit=0
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+settled plan exit=0
+No changes. Your infrastructure matches the configuration.
+fmt-ok
+[32mSuccess![0m[0m 25 passed, 0 failed.

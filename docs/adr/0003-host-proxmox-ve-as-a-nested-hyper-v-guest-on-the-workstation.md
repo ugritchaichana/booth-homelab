@@ -26,8 +26,8 @@ Run Proxmox VE 9 as a Generation 2 Hyper-V VM named `pve01` with nested virtuali
 ## Rationale and trade-offs
 
 - Hyper-V needs no second hypervisor, which matches the product documentation that nested virtualization is a Hyper-V feature: https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/nested-virtualization.
-- 20 GiB leaves about 4.5 GiB for Windows at the measured load, at the edge of the 4 GiB free-RAM signal; the owner chose it over the operator's 16 GiB recommendation. 128 GiB leaves about 28 GiB free after the ISOs. Raise only with load-test evidence.
-- Start on demand frees the RAM when the pool is not needed. The operator had recommended autostart; the owner preferred on demand. Speed targets are measured with the VM running.
+- 20 GiB leaves about 4.5 GiB for Windows at the measured load, at the edge of the 4 GiB free-RAM signal. 128 GiB leaves about 28 GiB free after the ISOs. Raise only with load-test evidence.
+- Start on demand frees the RAM when the pool is not needed. Speed targets are measured with the VM running.
 - Static memory is a choice, not a Hyper-V requirement for nested KVM; the Microsoft text covers Hyper-V inside the guest.
 - Measured result (2026-10-06): `svm` count 12, `/dev/kvm` present, `kvm_amd nested` = 1, `systemd-detect-virt` = microsoft, with Memory Integrity on. Nested KVM works, so a VM-based Docker runner class is available (ADR 0015). Cold start: TCP 22 answered 18.1 s after `Start-VM` (#58).
 - After the D40 role (ADR 0005, #59) the host runs pve-manager 9.2.21 on kernel 7.0.14-20-pve; nested KVM was re-tested and still passes (`svm` 12, `/dev/kvm`, `nested` = 1).

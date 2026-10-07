@@ -23,7 +23,7 @@ Install everything in WSL Debian through one idempotent script, `scripts/bootstr
 
 - Debian archive packages come from apt (`scripts/bootstrap/operator-toolchain.sh:16`).
 - `tofu`, `sops` and `gitleaks` are release binaries with the version and sha256 hard-coded as constants (`scripts/bootstrap/operator-toolchain.sh:4-9`); `verify_sha256` aborts before anything is installed (`:51-56`). No checksum file is fetched at run time.
-- The `tofu` version equals the IaC CI pin (`.github/workflows/iac-ci.yml:30`) and the `gitleaks` version equals the secret-scan pin (`.github/workflows/secret-scan.yml:22-26`), so the operator and CI run the same tools.
+- The `tofu` version equals the IaC CI pin (`.github/workflows/iac-ci.yml`, `tofu_version`) and the `gitleaks` version equals the secret-scan pin (`.github/workflows/secret-scan.yml:22-26`), so the operator and CI run the same tools.
 - Before each pin was set, the publisher's checksum file was verified once with `cosign` against its signature bundle. The script does not run `cosign`.
 - The Proxmox archive keyring is accepted only when its sha256 equals the value the Proxmox documentation publishes (`:10-12`, `:115-123`); URL: https://pve.proxmox.com/wiki/Package_Repositories.
 - The Proxmox repository is pinned at priority 1 (`:130-132`). Per apt_preferences(5) a priority-1 version is installed only when no other version is available, so the repository supplies `proxmox-auto-install-assistant` and cannot replace a Debian package.

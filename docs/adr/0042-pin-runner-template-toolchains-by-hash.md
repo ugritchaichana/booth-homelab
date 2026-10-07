@@ -7,7 +7,7 @@
 
 ## Context
 
-The self-hosted path of the CI workflow never runs `setup-dotnet` or `setup-node`: those steps only run on the hosted fallback (`.github/workflows/reusable-sdet-pipeline.yml:102-106,153-157` and the angular job's fallback step). A runner clone must therefore already carry .NET SDK 8.0, Node 22 and the tools the workflow scripts call (`git`, `curl`, `jq`, `tar`, `zstd`, `zip`, `unzip`, `file`, `diff`).
+The self-hosted path of the CI workflow never runs `setup-dotnet` or `setup-node`: those steps only run on the hosted fallback (the `(Fallback Runner)` steps of `.github/workflows/reusable-sdet-pipeline.yml`, gated on `needs.select-runner.outputs.hosted`). A runner clone must therefore already carry .NET SDK 8.0, Node 22 and the tools the workflow scripts call (`git`, `curl`, `jq`, `tar`, `zstd`, `zip`, `unzip`, `file`, `diff`).
 
 A template is cloned into every runner, so a poisoned or silently changed toolchain reaches every CI job and the cache writer keys on master pushes. The security review of the template builder ranks provenance as a build-failing rule, not advice.
 

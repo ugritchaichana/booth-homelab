@@ -1,0 +1,14 @@
+== cache-service pre-apply: Plan: 0 to add, 1 to change, 0 to destroy. | hostname lines: 0
+   apply rc=0 Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+   settled plan exit=0
+== r15-probe pre-apply: Plan: 0 to add, 2 to change, 0 to destroy. | hostname lines: 0
+   apply rc=1 │ Error: while adding VM 9102 to pool homelab: error updating pool: received an HTTP 403 response - Reason: Permission check failed (/pool/homelab, Pool.Allocate)
+   settled plan exit=2
+9050 hostname: build-cache-debian-13 tags: build-cache;src-debian-13  status: running
+9101 hostname: r15-probe-lxc-runner-v6 tags: r15-probe;src-lxc-runner-v6  status: running
+9102 name: r15-probe-vm nameserver: 1.1.1.1 tags: r15-probe  status: running
+active
+pre: Plan: 0 to add, 1 to change, 0 to destroy. 0 pool lines
+apply rc=0 Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+settled plan exit=0
+9102 name: r15-probe-vm-docker-v7 nameserver: 1.1.1.1 tags: r15-probe;src-vm-docker-v7  status: running

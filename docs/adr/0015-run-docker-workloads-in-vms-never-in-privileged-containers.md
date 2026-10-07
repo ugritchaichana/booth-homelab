@@ -9,7 +9,7 @@
 
 The platform serves a public repository, so runner jobs can execute code the owner did not write. The owner wants a Docker-capable runner class as a baseline capability, even though the repository's own tests use no Docker today (`git grep` for Testcontainers, a Docker client and `docker run` over `apps`, `scripts/apps` and `tests` returned 0 lines on 2026-10-06; test packages are xunit and coverlet only).
 
-The tree still carries the earlier approach: containers with `nesting = true` and `keyctl = true` running Docker (`iac/tofu/main.tf:35`, `iac/ansible/roles/runner_dotnet/`). Proxmox states: "We do not support Docker containers on top of LXC containers" (https://forum.proxmox.com/threads/docker-integration.175870, read 2026-09-30). A privileged container shares the host kernel with whatever the job runs.
+The tree still carries the earlier approach: containers with `nesting = true` and `keyctl = true` running Docker (`iac/tofu/main.tf:35`, `iac/ansible/roles/runner_dotnet/`; both removed, ADR 0020). Proxmox states: "We do not support Docker containers on top of LXC containers" (https://forum.proxmox.com/threads/docker-integration.175870, read 2026-09-30). A privileged container shares the host kernel with whatever the job runs.
 
 Before 2026-10-06 it was unknown whether nested KVM works on this machine (mobile Zen 3 CPU, Hyper-V as the outer hypervisor, Memory Integrity on).
 

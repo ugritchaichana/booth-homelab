@@ -1,28 +1,10 @@
 # Isolation tests
 
-Every `test-*.sh` file is plain Bash, takes no argument, exits non-zero on the first broken expectation and runs in the `iac-ci.yml` Ansible job (CI, no host). What each one proves, with its happy, bad and edge cases: `docs/knowledge/test-catalogue.md`.
+Every `test-*.sh` file is plain Bash, takes no argument, exits non-zero on the first broken expectation and runs in the `iac-ci.yml` Ansible job (CI, no host). What each one proves, with its happy, bad and edge cases: [`docs/knowledge/test-catalogue.md`](../../docs/knowledge/test-catalogue.md).
 
 | File | Purpose |
 |---|---|
 | `r15-probe.sh` | Runs inside a probe guest or the cache container: one `PROBE` line per target, one `SUMMARY`, exit 0 only if every measured row holds. Not a CI test. |
-| `test-r15-probe.sh` | Runs `r15-probe.sh` with a stubbed `timeout`, `curl`, `id` and `ip`, plus real sockets and a real timeout, including the cache rows and the cache-container scope. |
-| `test-r15-verify-cache.sh` | Syntax-checks `r15-verify.yml` and renders its commands: the cache address reaches both runner probes, the probe runs inside the cache container, the cleanup sits in an `always` section, and a new probe generation never meets the previous host keys. |
-| `test-cluster-fw-render.sh` | Renders `cluster.fw.j2` and checks the deny set against an RFC list, the rule order and, with a cache endpoint, the cache accept. |
-| `test-guest-fw-guard.sh` | Runs the guest firewall guard against a fake `pvesh`: violators are stopped, compliant guests, templates and other nodes are left alone, per-vnet policy for the guests and cache vnets. |
-| `test-pve-api-identity-grants.sh` | Checks that `VM.Clone` is granted only on the templates pool and that the vnet grants match the expected set. |
-| `test-role-pve-host.sh` | Runs the `pve_host` tasks against fake modules and command stubs (`lib/role-fakes.sh`): the three repositories (enterprise off, `pve-no-subscription` on, all signed by the keyring, suite override), the cache refresh only on a change, the full upgrade, the reboot conditions, the boot-kernel choice (pin, version order, empty list), the failure after a reboot, and the nested-KVM assert on each bad reading. |
-| `test-role-hyperv-guest.sh` | Runs the `hyperv_guest` tasks the same way: the `install hv_sock /bin/false` drop-in (one line per module), the unload, and the asserts that stop the play for an installed or running KVP, VSS or file-copy daemon, a loaded blocked module and a modprobe plan that would load it. |
-| `test-template-build.sh` | Runs the template orchestrator against fakes of `pvesh`, `qm`, `pct`, `lvs` and `systemctl` (`lib/fake-pve.py`): one case per pre-start attribute, promotion, rollback, retention, the pass-marker gate, the thresholds. |
-| `test-template-guest-step.sh` | Runs the non-root guest step against a fake `ssh`: the connection options, the size and marker checks, the seal as the last connection, the manifest diff, the key cleanup. |
-| `test-template-finalize.sh` | Runs the in-guest `finalize.sh`, `seal.sh` and `run.sh` on a fake root: cleanup, planted secrets, the allowlist, the pass marker, the seal, Ansible with `-c local`. |
-| `test-template-units.sh` | Checks the shipped guest unit keeps `IPAddressDeny=any`, a non-root `User=` and the sandbox set, with mutations that must fail, and that the rendered configuration follows `runner-class.yml`. |
-| `test-template-content.sh`, `test-template-content-vm.sh` | Lint the class bundles (`lib/lint-template-content.py`): every artifact pinned by hash, no TCP daemon socket in the `vm-docker` class. |
-| `test-cache-service-role.sh` | Checks the rendered `bazel-remote` unit and the role's pins, and that the writer password never appears in a unit. |
-| `test-cache-start-gate.sh` | The cache container is started only after its firewall reads back compliant. |
-| `test-cache-verify-cas.sh` | A blob whose content does not match its name is quarantined, not served. |
-| `test-cache-wait-for-address.sh` | The start waits for the configured address using the routing table file, not `ip`. |
-| `test-cache-writer-secret.sh` | `cache-writer-secret.sh` stores the credential through SOPS and GitHub, never on a command line or in output. |
-| `test-render-ssh-config.sh` | Renders the SSH config in a fake repository with a stub `sops`: the cache host alias, its `HostKeyAlias` and its `known_hosts` name come from the one inventory entry and agree, the alias follows an inventory rename, and a second cache host is rejected. |
 | `targets.example.env` | Row format with documentation addresses. Copy to `targets.env`, which git ignores. |
 
 ## Targets file
@@ -39,7 +21,7 @@ One row per target: `label=scope kind host port expect expect_red control`.
 
 ## Procedure
 
-Exact commands are in `iac/tofu/stacks/r15-probe/README.md` (keygen, apply, teardown) and `RUNBOOK.md` section 11. In order:
+Exact commands are in `iac/tofu/stacks/r15-probe/README.md` (keygen, apply, teardown) and `RUNBOOK.md`, Build from zero, R15 verification. In order:
 
 1. Run `Test-R15Controls.ps1`, copy the `True` rows into the `control` column.
 2. `red-first` (attended: it stops the node firewall; a timer restarts it after 10 minutes if the play dies, and the run refuses while any non-probe guest is running), then `baseline`, then restart the container and run `after-pct-reboot`, then `after-pve-reboot`, then `after-host-reboot`:
@@ -52,12 +34,7 @@ bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15
 
 ## Checks without a host
 
-```sh
-bash -n tests/isolation/r15-probe.sh
-for t in tests/isolation/test-*.sh; do bash "$t"; done
-```
-
-The render tests need `ansible`; install the pinned toolchain from `iac/ansible/README.md` first.
+Run `bash -n tests/isolation/r15-probe.sh` and every `test-*.sh` (first command of [RUNBOOK.md, Offline suites (no host)](../../RUNBOOK.md#41-offline-suites-no-host)). The render tests need `ansible`; install the pinned toolchain from `iac/ansible/README.md` first.
 
 ## What a green run does not show
 
