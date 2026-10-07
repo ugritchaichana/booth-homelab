@@ -1,11 +1,11 @@
 ---
 guests:
   pve01:
-    runner-lxc:
+    demo:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 3
-    runner-vm:
+    smoke:
       flavor: aws/t3.medium
       template_class: vm-docker
       slot: 3
