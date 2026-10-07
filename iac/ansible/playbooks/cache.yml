@@ -1,0 +1,15 @@
+---
+- name: Prepare the cache container for Ansible
+  hosts: cache
+  gather_facts: false
+  tasks:
+    - name: Install python3 when the template lacks it
+      ansible.builtin.raw: test -x /usr/bin/python3 || (apt-get update -qq && apt-get install -y -qq --no-install-recommends python3)
+      changed_when: false
+
+- name: Configure the build cache service
+  hosts: cache
+  tasks:
+    - name: Apply the cache_service role
+      ansible.builtin.include_role:
+        name: cache_service

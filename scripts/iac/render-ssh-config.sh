@@ -85,6 +85,47 @@ Host $name $addr
 CFG
 done
 
+cache_secret="iac/secrets/hosts/cache01-ssh.sops.yaml"
+cache_inventory="$repo/iac/inventory/cache.yml"
+cache_jump="pve01"
+rendered_extra=0
+if [ -f "$repo/$cache_secret" ]; then
+  cache_row="$(python3 - "$inventory" "$cache_inventory" "$cache_jump" <<'PY'
+import ipaddress, re, sys, yaml
+hosts = yaml.safe_load(open(sys.argv[1]))["all"]["children"]["pve_hosts"]["hosts"]
+cache = yaml.safe_load(open(sys.argv[2]))["all"]["children"]["cache"]["hosts"]["cache01"]
+addr = str(ipaddress.ip_address(hosts[sys.argv[3]]["cache_endpoint"]["address"]))
+user = cache["ansible_user"]
+key = cache["ssh_key_name"]
+for value, pattern in ((user, r"[a-z_][a-z0-9_-]{0,31}"), (key, r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")):
+    if not re.fullmatch(pattern, value):
+        sys.exit("invalid cache01 value")
+print("\t".join([addr, user, key]))
+PY
+)" || die "cannot read cache01 from $cache_inventory and cache_endpoint of $cache_jump in $inventory"
+  IFS=$'\t' read -r cache_addr cache_user cache_key <<<"$cache_row"
+  pub="$(cd "$repo" && sops -d --extract '["ssh_host_ed25519_public"]' "$cache_secret")" || die "cannot decrypt $cache_secret"
+  read -r keytype keydata _ <<<"$pub"
+  [ "$keytype" = "ssh-ed25519" ] && [ -n "$keydata" ] || die "$cache_secret does not hold an ssh-ed25519 public key"
+  printf '%s %s %s\n' "cache01" "$keytype" "$keydata" >> "$kh"
+  cat >> "$cfg" <<CFG
+Host cache01 $cache_addr
+  HostName $cache_addr
+  HostKeyAlias cache01
+  User $cache_user
+  IdentityFile ~/.ssh/$cache_key
+  IdentitiesOnly yes
+  StrictHostKeyChecking yes
+  CheckHostIP no
+  UserKnownHostsFile "$out/known_hosts"
+  ProxyJump $cache_jump
+
+CFG
+  rendered_extra=1
+else
+  echo "note: cache01 is not rendered; $cache_secret does not exist yet (capture its host key after the first apply)" >&2
+fi
+
 cat >> "$cfg" <<CFG
 Host *
   StrictHostKeyChecking yes
@@ -95,4 +136,4 @@ CFG
 mv "$cfg" "$out/ssh_config"
 mv "$kh" "$out/known_hosts"
 trap - EXIT
-echo "rendered ${#rows[@]} host(s) into $out"
+echo "rendered $((${#rows[@]} + rendered_extra)) host(s) into $out"

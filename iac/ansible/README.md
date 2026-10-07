@@ -16,6 +16,8 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `roles/pve_api_identity/` | OpenTofu's API user, roles, the `homelab` and `templates` pools, ACLs and privilege-separated token. |
 | `roles/pve_firewall/` | `cluster.fw`, `host.fw` and the firewall dead-man. |
 | `roles/pve_templates/` | Golden template build framework: the `homelab-template` root orchestrator (`build`, `rollback`, `status`), the non-root sandboxed guest-facing step and its units, the in-guest `finalize.sh`. Class content and the timer come in later changes (ADR 0038, 0039, 0040; `RUNBOOK.md` section 9). |
+| `playbooks/cache.yml` | Build cache service on `cache01` (inventory `iac/inventory/cache.yml`, reached through pve01): python3 bootstrap, then the `cache_service` role. Run with `-i iac/inventory/hosts.yml -i iac/inventory/cache.yml`; `site.yml` never touches it. |
+| `roles/cache_service/` | bazel-remote pinned by version and sha256, service user, htpasswd with one writer, hardened systemd unit (ADR 0048, ADR 0050). |
 
 ## Toolchain
 
