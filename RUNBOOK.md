@@ -527,7 +527,7 @@ What these prove is the logic and the unit files against fakes (`tests/isolation
 | Host stack drift | `bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode` | exit 0 |
 | Templates | `$pve sudo homelab-template status` | exit 0, one `current` per class |
 | Guard | `$pve sudo journalctl -u homelab-guest-firewall-guard.service -n 3 --no-pager` | ends `ok, N guest(s) checked` |
-| R15 isolation | 2.8 step 6 | `SUMMARY` exits 0; runner clones `negatives_blocked=19/19 positives_ok=2/2`, cache container `12/12 1/1` (row 66, R15 with the cache path) |
+| R15 isolation | 2.8 step 6 | `SUMMARY` exits 0; counts at the reference end state are in `docs/handoff/results.md` |
 | Cache | 2.9 step 10 | the six API outcomes hold (row 62, cache API) |
 | Token boundary | provisioner token deletes or retags a template | 403; cloning it 200 (row 57, template protection) |
 

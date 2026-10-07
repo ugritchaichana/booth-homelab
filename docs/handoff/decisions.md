@@ -104,7 +104,7 @@ The full list is the [ADR index](../adr/README.md); the one-row-per-decision log
 |---|---|
 | [ADR 0016](../adr/0016-scale-ci-with-an-ephemeral-runner-pool-and-overflow-to-hosted-runners.md) | An ephemeral pool with a controller, overflowing to hosted runners, removes the untrusted-execution blocker and keeps the laptop optional |
 
-## Open decisions
+## Open and close-out decisions
 
 | Decision | State | Input |
 |---|---|---|

@@ -58,6 +58,7 @@ The speed goal (faster than the hosted baseline) is not measured on the new plat
 4. [build-from-zero.md](build-from-zero.md), [examples.md](examples.md), then [operations.md](operations.md).
 5. [testing.md](testing.md) and [results.md](results.md).
 6. [porting.md](porting.md) for a bare-metal target, then [next-phases.md](next-phases.md).
+7. [standard/README.md](../../standard/README.md) for the scorecard that scores all of it.
 
 Sources: [requirements.md](../platform/requirements.md), [RUNBOOK.md](../../RUNBOOK.md), [real-host defects](../knowledge/real-host-defects.md), [test catalogue](../knowledge/test-catalogue.md).
 
