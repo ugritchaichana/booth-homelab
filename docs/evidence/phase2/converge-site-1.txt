@@ -1,0 +1,461 @@
+
+PLAY [Apply the baseline to every host] ****************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [pve01]
+
+TASK [Measure the connection user] *********************************************
+ok: [pve01]
+
+TASK [Require the automation user as the connection user] **********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the base role] *****************************************************
+included: base for pve01
+
+TASK [base : Assert test mode is a real boolean and only on a container connection] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Read the dead-man timer state] ************************************
+ok: [pve01]
+
+TASK [base : Refuse to run while a dead-man timer is armed] ********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Look for a stale dead-man marker] *********************************
+ok: [pve01]
+
+TASK [base : Refuse to run with a stale dead-man marker and no timer] **********
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Assert the automation identity inputs] ****************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Install sudo] *****************************************************
+ok: [pve01]
+
+TASK [base : Create the automation user] ***************************************
+ok: [pve01]
+
+TASK [base : Authorize only the automation keys] *******************************
+ok: [pve01]
+
+TASK [base : Grant passwordless sudo through a validated drop-in] **************
+ok: [pve01]
+
+TASK [base : Install chrony] ***************************************************
+ok: [pve01]
+
+TASK [base : Configure the time sources] ***************************************
+changed: [pve01]
+
+TASK [base : Enable chrony] ****************************************************
+ok: [pve01]
+
+TASK [base : Create the journald drop-in directory] ****************************
+changed: [pve01]
+
+TASK [base : Cap the persistent and volatile journal] **************************
+changed: [pve01]
+
+TASK [base : Apply pending handlers before the SSH change] *********************
+
+RUNNING HANDLER [base : Restart chrony] ****************************************
+changed: [pve01]
+
+RUNNING HANDLER [base : Restart journald] **************************************
+changed: [pve01]
+
+TASK [base : Assert the SSH hardening inputs] **********************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Install the SSH server] *******************************************
+ok: [pve01]
+
+TASK [base : Keep the SSH server enabled and running] **************************
+ok: [pve01]
+
+TASK [base : Install the boot-time dead-man unit] ******************************
+changed: [pve01]
+
+TASK [base : Enable the boot-time dead-man unit] *******************************
+changed: [pve01]
+
+TASK [base : Read the current SSH drop-in] *************************************
+ok: [pve01]
+
+TASK [base : Read the current root authorized keys without following a link] ***
+ok: [pve01]
+
+TASK [base : Resolve the root authorized keys file that holds the keys] ********
+ok: [pve01]
+
+TASK [base : Preview the SSH drop-in change] ***********************************
+changed: [pve01]
+
+TASK [base : Preview the root key restriction] *********************************
+changed: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmHHyrP8ciEVn2cPYz8n43B4kfZ6sGGDVZKEowbRwej pve01-operator-windows)
+
+TASK [base : Preview the root key revocation] **********************************
+changed: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEANBAu7R74mRL2B/qtUUx1mXyHj7pY/l+IrKQcFOJ/q pve01-automation-wsl)
+
+TASK [base : Look for the root SSH directory] **********************************
+ok: [pve01]
+
+TASK [base : Assert the root SSH directory exists before arming] ***************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Record whether an SSH change is pending] **************************
+ok: [pve01]
+
+TASK [base : Log in as the automation user and run sudo] ***********************
+ok: [pve01]
+
+TASK [base : Recreate the dead-man state directory] ****************************
+ok: [pve01] => (item=absent)
+changed: [pve01] => (item=directory)
+
+TASK [base : Back up the current SSH drop-in] **********************************
+skipping: [pve01]
+
+TASK [base : Back up the current root authorized keys] *************************
+changed: [pve01]
+
+TASK [base : Write the dead-man restore script] ********************************
+changed: [pve01]
+
+TASK [base : Mark the dead-man as armed for the next boot] *********************
+changed: [pve01]
+
+TASK [base : Clear any failed dead-man unit] ***********************************
+ok: [pve01]
+
+TASK [base : Arm the dead-man] *************************************************
+changed: [pve01]
+
+TASK [base : Restrict the break-glass root keys to the management source] ******
+changed: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmHHyrP8ciEVn2cPYz8n43B4kfZ6sGGDVZKEowbRwej pve01-operator-windows)
+
+TASK [base : Revoke the retired root keys] *************************************
+changed: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEANBAu7R74mRL2B/qtUUx1mXyHj7pY/l+IrKQcFOJ/q pve01-automation-wsl)
+
+TASK [base : Read the root key file after the edit] ****************************
+ok: [pve01]
+
+TASK [base : Assert each kept root key appears once with its source restriction] ***
+ok: [pve01] => (item=pve01-operator-windows) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmHHyrP8ciEVn2cPYz8n43B4kfZ6sGGDVZKEowbRwej pve01-operator-windows",
+    "msg": "All assertions passed"
+}
+
+TASK [base : Assert no revoked root key remains] *******************************
+ok: [pve01] => (item=pve01-automation-wsl) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEANBAu7R74mRL2B/qtUUx1mXyHj7pY/l+IrKQcFOJ/q pve01-automation-wsl",
+    "msg": "All assertions passed"
+}
+
+TASK [base : Install the SSH hardening drop-in] ********************************
+changed: [pve01]
+
+TASK [base : Validate the merged SSH configuration] ****************************
+ok: [pve01]
+
+TASK [base : Reload the SSH server] ********************************************
+changed: [pve01]
+
+TASK [base : Log in again as the automation user and run sudo] *****************
+ok: [pve01]
+
+TASK [base : Read the effective SSH settings] **********************************
+ok: [pve01]
+
+TASK [base : Assert the effective SSH settings] ********************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Read the dead-man timer] ******************************************
+ok: [pve01]
+
+TASK [base : Look for the dead-man fired marker] *******************************
+ok: [pve01]
+
+TASK [base : Assert the dead-man did not fire] *********************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Remove the armed marker before cancelling the timer] **************
+changed: [pve01]
+
+TASK [base : Cancel the dead-man] **********************************************
+changed: [pve01]
+
+TASK [base : Remove the dead-man state] ****************************************
+changed: [pve01]
+
+PLAY [Configure the Proxmox hosts] *********************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [pve01]
+
+TASK [Measure the connection user] *********************************************
+ok: [pve01]
+
+TASK [Require the automation user as the connection user] **********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the Hyper-V guest role] ********************************************
+included: hyperv_guest for pve01
+
+TASK [hyperv_guest : Block the vsock transport from loading] *******************
+changed: [pve01]
+
+TASK [hyperv_guest : Unload the blocked modules] *******************************
+changed: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Read installed packages] **********************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read services] ********************************************
+ok: [pve01]
+
+TASK [hyperv_guest : Assert no host-integration daemon is installed or running] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [hyperv_guest : Read the loaded kernel modules] ***************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read what modprobe would do for each blocked module] ******
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Assert the blocked modules are not loaded and cannot load] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the Proxmox host role] *********************************************
+included: pve_host for pve01
+
+TASK [pve_host : Disable the pve-enterprise repository] ************************
+ok: [pve01]
+
+TASK [pve_host : Disable the ceph enterprise repository] ***********************
+ok: [pve01]
+
+TASK [pve_host : Enable the pve-no-subscription repository] ********************
+ok: [pve01]
+
+TASK [pve_host : Refresh the apt cache after a repository change] **************
+skipping: [pve01]
+
+TASK [pve_host : Refresh the apt cache and apply a full upgrade] ***************
+ASYNC OK on pve01: jid=j871544810982.3205
+ok: [pve01]
+
+TASK [pve_host : Check for a pending reboot marker] ****************************
+ok: [pve01]
+
+TASK [pve_host : Read the running kernel] **************************************
+ok: [pve01]
+
+TASK [pve_host : Find the kernel that boots by default] ************************
+ok: [pve01]
+
+TASK [pve_host : Assert a boot default kernel was found] ***********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_host : Reboot when the running kernel is not the boot default] *******
+skipping: [pve01]
+
+TASK [pve_host : Read the kernel the host runs after any reboot] ***************
+ok: [pve01]
+
+TASK [pve_host : Assert the host runs its boot default kernel] *****************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_host : Read the nested virtualisation parameter] *********************
+ok: [pve01] => (item=/sys/module/kvm_amd/parameters/nested)
+ok: [pve01] => (item=/sys/module/kvm_intel/parameters/nested)
+
+TASK [pve_host : Count the CPU virtualisation flags] ***************************
+ok: [pve01]
+
+TASK [pve_host : Assert nested KVM is available] *******************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Check the Hyper-V guest block again after the possible reboot] ***********
+included: hyperv_guest for pve01
+
+TASK [hyperv_guest : Block the vsock transport from loading] *******************
+ok: [pve01]
+
+TASK [hyperv_guest : Unload the blocked modules] *******************************
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Read installed packages] **********************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read services] ********************************************
+ok: [pve01]
+
+TASK [hyperv_guest : Assert no host-integration daemon is installed or running] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [hyperv_guest : Read the loaded kernel modules] ***************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read what modprobe would do for each blocked module] ******
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Assert the blocked modules are not loaded and cannot load] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the OpenTofu API identity role] ************************************
+included: pve_api_identity for pve01
+
+TASK [pve_api_identity : Assert the identity cannot manage identities or the host] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_api_identity : Read the Proxmox users] *******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Create the provisioning user without a password] ******
+changed: [pve01]
+
+TASK [pve_api_identity : Read the Proxmox roles] *******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Create the missing roles] *****************************
+changed: [pve01] => (item=HomelabGuests)
+changed: [pve01] => (item=HomelabDisks)
+changed: [pve01] => (item=HomelabTemplates)
+changed: [pve01] => (item=HomelabNodeDownload)
+changed: [pve01] => (item=HomelabGuestNetwork)
+changed: [pve01] => (item=HomelabNetworkAdmin)
+
+TASK [pve_api_identity : Replace the privileges of roles that differ] **********
+skipping: [pve01] => (item=HomelabGuests) 
+skipping: [pve01] => (item=HomelabDisks) 
+skipping: [pve01] => (item=HomelabTemplates) 
+skipping: [pve01] => (item=HomelabNodeDownload) 
+skipping: [pve01] => (item=HomelabGuestNetwork) 
+skipping: [pve01] => (item=HomelabNetworkAdmin) 
+skipping: [pve01]
+
+TASK [pve_api_identity : Read the resource pools] ******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Create the resource pool] *****************************
+changed: [pve01]
+
+TASK [pve_api_identity : Read the tokens of the provisioning user] *************
+ok: [pve01]
+
+TASK [pve_api_identity : Find the current token] *******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Assert an existing token is privilege-separated] ******
+skipping: [pve01]
+
+TASK [pve_api_identity : Count the stored secret characters] *******************
+skipping: [pve01]
+
+TASK [pve_api_identity : Assert the stored secret is present] ******************
+skipping: [pve01]
+
+TASK [pve_api_identity : Remove the token before rotating it] ******************
+skipping: [pve01]
+
+TASK [pve_api_identity : Create the privilege-separated token] *****************
+changed: [pve01]
+
+TASK [pve_api_identity : Keep the token secret in memory] **********************
+ok: [pve01]
+
+TASK [pve_api_identity : Assert the new token is the expected one] *************
+ok: [pve01]
+
+TASK [pve_api_identity : Look for the secret file] *****************************
+ok: [pve01 -> localhost]
+
+TASK [pve_api_identity : Create the secret file holding only the token id] *****
+[ERROR]: Task failed: Module failed: non-zero return code
+Origin: <user-home>/Desktop/Project/_wt-tofu-stack/iac/ansible/roles/pve_api_identity/tasks/token.yml:105:7
+
+103       register: pve_api_identity_secret_file
+104
+105     - name: Create the secret file holding only the token id
+          ^ column 7
+
+fatal: [pve01 -> localhost]: FAILED! => {"changed": true, "cmd": ["sops", "encrypt", "--filename-override", "iac/secrets/tofu/pve01-api.sops.yaml", "--input-type", "yaml", "--output-type", "yaml", "--output", "iac/secrets/tofu/pve01-api.sops.yaml", "/dev/stdin"], "delta": "0:00:00.032422", "end": "2026-10-07 05:55:05.128321", "msg": "non-zero return code", "rc": 3, "start": "2026-10-07 05:55:05.095899", "stderr": "Could not open output file for writing: open iac/secrets/tofu/pve01-api.sops.yaml: no such file or directory", "stderr_lines": ["Could not open output file for writing: open iac/secrets/tofu/pve01-api.sops.yaml: no such file or directory"], "stdout": "", "stdout_lines": []}
+
+TASK [pve_api_identity : Remove the token created in this run so the next run can create it again] ***
+changed: [pve01]
+
+TASK [pve_api_identity : Stop after a failed token bootstrap] ******************
+[ERROR]: Task failed: Action failed: The token bootstrap failed and the token was removed; check the sops key access and run again
+Origin: <user-home>/Desktop/Project/_wt-tofu-stack/iac/ansible/roles/pve_api_identity/tasks/token.yml:173:7
+
+171       failed_when: false
+172
+173     - name: Stop after a failed token bootstrap
+          ^ column 7
+
+fatal: [pve01]: FAILED! => {"changed": false, "msg": "The token bootstrap failed and the token was removed; check the sops key access and run again"}
+
+PLAY RECAP *********************************************************************
+pve01                      : ok=109  changed=29   unreachable=0    failed=1    skipped=8    rescued=1    ignored=0   
+

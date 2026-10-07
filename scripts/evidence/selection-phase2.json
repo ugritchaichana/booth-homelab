@@ -95,6 +95,21 @@
       "src": "plans:booth-homelab-phase2/r15/r15-after-host-reboot-vm.txt",
       "dest": "docs/evidence/phase2/r15-after-host-reboot-vm.txt",
       "proves": "Row 52: R15 after a laptop reboot, VM"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/converge-site-1.txt",
+      "dest": "docs/evidence/phase2/converge-site-1.txt",
+      "proves": "Row 46: first site converge fails closed, the token bootstrap fails and its rescue removes the token (failed=1, rescued=1)"
+    },
+    {
+      "src": "plans:booth-homelab-phase2/converge-site-2.txt",
+      "dest": "docs/evidence/phase2/converge-site-2.txt",
+      "proves": "Row 46: second site converge stops on a failed task (failed=1) before the fix"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/sshd-baseline.txt",
+      "dest": "docs/evidence/phase2/sshd-baseline-2026-10-07.txt",
+      "proves": "Row 47: effective sshd settings (root by key only, password and keyboard-interactive off) and a refused root password login; re-measured 2026-10-07"
     }
   ]
 }

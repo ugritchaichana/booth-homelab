@@ -35,6 +35,11 @@
       "src": "logs:r15-test5-elevated-20261007-002415.txt",
       "dest": "docs/evidence/phase1/r15-test5-elevated-20261007-002415.txt",
       "proves": "Row 42: port ACLs alone block the host rows while the Windows Firewall rule is disabled"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/checkpoint-refusals.txt",
+      "dest": "docs/evidence/phase1/checkpoint-refusals-2026-10-07.txt",
+      "proves": "Row 45: a checkpoint is refused while the VM runs and for an invalid name (exit 1 each), checkpoint count unchanged; re-measured 2026-10-07"
     }
   ]
 }

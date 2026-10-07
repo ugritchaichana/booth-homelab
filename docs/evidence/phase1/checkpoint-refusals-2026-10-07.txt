@@ -1,0 +1,12 @@
+== 2026-10-07 19:24:51 +07:00 Get-VM pve01
+Name    State
+----    -----
+pve01 Running
+== snapshots before: 3
+== Invoke-PveVm.ps1 -Action Checkpoint -Name closeout-refusal-check
+[FAIL] VM is Running; a checkpoint is taken only while the VM is Off (a running VM keeps memory state in the checkpoint). Run -Action Stop first.
+exit=1
+== Invoke-PveVm.ps1 -Action Checkpoint -Name Bad_Name
+[FAIL] checkpoint needs -Name: 1 to 63 characters, lowercase letters, digits and hyphens, starting with a letter or digit.
+exit=1
+== snapshots after: 3
