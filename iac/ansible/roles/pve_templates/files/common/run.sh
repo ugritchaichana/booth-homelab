@@ -6,6 +6,10 @@ root="${FINALIZE_ROOT:-}"
 here="$(cd "$(dirname "$0")" && pwd)"
 installed_ansible=0
 
+if command -v cloud-init >/dev/null 2>&1; then
+  cloud-init status --wait >/dev/null 2>&1 || true
+fi
+
 if ! command -v ansible-playbook >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
