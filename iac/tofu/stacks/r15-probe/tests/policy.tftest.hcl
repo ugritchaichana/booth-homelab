@@ -1,16 +1,46 @@
 mock_provider "proxmox" {}
 
-override_resource {
-  target = proxmox_download_file.lxc_template
+override_data {
+  target = module.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates
   values = {
-    id = "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
+    members = [
+      { id = "lxc/9202", node_name = "pve01", type = "lxc", vm_id = 9202, datastore_id = "" },
+      { id = "lxc/9203", node_name = "pve01", type = "lxc", vm_id = 9203, datastore_id = "" },
+      { id = "qemu/9302", node_name = "pve01", type = "qemu", vm_id = 9302, datastore_id = "" },
+      { id = "qemu/9303", node_name = "pve01", type = "qemu", vm_id = 9303, datastore_id = "" },
+    ]
   }
 }
 
-override_resource {
-  target = proxmox_download_file.image
+override_data {
+  target = module.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates
   values = {
-    id = "local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2"
+    members = [
+      { id = "lxc/9202", node_name = "pve01", type = "lxc", vm_id = 9202, datastore_id = "" },
+      { id = "lxc/9203", node_name = "pve01", type = "lxc", vm_id = 9203, datastore_id = "" },
+      { id = "qemu/9302", node_name = "pve01", type = "qemu", vm_id = 9302, datastore_id = "" },
+      { id = "qemu/9303", node_name = "pve01", type = "qemu", vm_id = 9303, datastore_id = "" },
+    ]
+  }
+}
+
+override_data {
+  target = module.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all
+  values = {
+    containers = [
+      { name = "tmpl-lxc-runner-v1", node_name = "pve01", status = "stopped", tags = ["homelab-template", "lxc-runner", "v1", "previous"], template = true, vm_id = 9202 },
+      { name = "tmpl-lxc-runner-v2", node_name = "pve01", status = "stopped", tags = ["homelab-template", "lxc-runner", "v2", "current"], template = true, vm_id = 9203 },
+    ]
+  }
+}
+
+override_data {
+  target = module.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all
+  values = {
+    vms = [
+      { name = "tmpl-vm-docker-v1", node_name = "pve01", status = "stopped", tags = ["homelab-template", "vm-docker", "v1", "previous"], template = true, vm_id = 9302 },
+      { name = "tmpl-vm-docker-v2", node_name = "pve01", status = "stopped", tags = ["homelab-template", "vm-docker", "v2", "current"], template = true, vm_id = 9303 },
+    ]
   }
 }
 
@@ -119,49 +149,6 @@ run "addresses_dns_and_ipfilter_follow_the_guest_subnet" {
   }
 }
 
-run "container_template_comes_from_the_official_mirror_with_its_checksum" {
-  command = plan
-
-  assert {
-    condition     = proxmox_download_file.lxc_template.url == "http://download.proxmox.com/images/system/debian-13-standard_13.6-1_amd64.tar.zst" && proxmox_download_file.lxc_template.content_type == "vztmpl"
-    error_message = "The container template must be downloaded as vztmpl from the official template mirror."
-  }
-
-  assert {
-    condition     = proxmox_download_file.lxc_template.checksum_algorithm == "sha512" && proxmox_download_file.lxc_template.checksum == "4c0c27ca6ceab5ef0b84db57825a00f26157ef1854bafe97297813e1cbe8ecb8cc9c453cab6b3b0efe1ba193a50c47ece1e41d950e411b8730b835b71e9e754b"
-    error_message = "The template download must carry the pinned SHA512."
-  }
-
-  assert {
-    condition     = proxmox_virtual_environment_container.probe.operating_system[0].template_file_id == "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
-    error_message = "The container must use the downloaded template."
-  }
-}
-
-run "image_is_pinned_to_a_dated_directory_with_its_checksum" {
-  command = plan
-
-  assert {
-    condition     = proxmox_download_file.image.url == "https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-genericcloud-amd64-20261001-2618.qcow2" && proxmox_download_file.image.content_type == "import"
-    error_message = "The image must come from a dated directory and use the import content type."
-  }
-
-  assert {
-    condition     = proxmox_download_file.image.checksum_algorithm == "sha512" && length(proxmox_download_file.image.checksum) == 128
-    error_message = "The image download must carry its SHA512 checksum."
-  }
-}
-
-run "latest_directory_is_rejected" {
-  command = plan
-
-  variables {
-    image_directory = "latest"
-  }
-
-  expect_failures = [var.image_directory]
-}
-
 run "a_private_key_is_rejected" {
   command = plan
 
@@ -180,6 +167,44 @@ run "address_outside_the_host_subnet_is_rejected" {
     inventory_file = "../proxmox-host/tests/fixtures/hosts.yml"
   }
 
+  override_data {
+    target = module.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all
+    values = {
+      containers = [
+        { name = "tmpl-lxc-runner-v2", node_name = "example-pve02", status = "stopped", tags = ["homelab-template", "lxc-runner", "v2", "current"], template = true, vm_id = 9203 },
+      ]
+    }
+  }
+
+  override_data {
+    target = module.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all
+    values = {
+      vms = [
+        { name = "tmpl-vm-docker-v2", node_name = "example-pve02", status = "stopped", tags = ["homelab-template", "vm-docker", "v2", "current"], template = true, vm_id = 9303 },
+      ]
+    }
+  }
+
+  override_data {
+    target = module.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates
+    values = {
+      members = [
+        { id = "lxc/9203", node_name = "example-pve02", type = "lxc", vm_id = 9203, datastore_id = "" },
+        { id = "qemu/9303", node_name = "example-pve02", type = "qemu", vm_id = 9303, datastore_id = "" },
+      ]
+    }
+  }
+
+  override_data {
+    target = module.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates
+    values = {
+      members = [
+        { id = "lxc/9203", node_name = "example-pve02", type = "lxc", vm_id = 9203, datastore_id = "" },
+        { id = "qemu/9303", node_name = "example-pve02", type = "qemu", vm_id = 9303, datastore_id = "" },
+      ]
+    }
+  }
+
   expect_failures = [
     proxmox_virtual_environment_container.probe,
     proxmox_virtual_environment_vm.probe,
@@ -192,5 +217,51 @@ run "no_tags_at_create_because_a_pool_scoped_token_cannot_inherit_them" {
   assert {
     condition     = proxmox_virtual_environment_container.probe.tags == null && proxmox_virtual_environment_vm.probe.tags == null
     error_message = "Tags are checked on /vms/<id> without the pool, so a pool-scoped token cannot set them at create time."
+  }
+}
+
+run "guests_clone_linked_from_the_resolved_templates" {
+  command = plan
+
+  assert {
+    condition     = one(proxmox_virtual_environment_container.probe.clone).vm_id == 9203 && one(proxmox_virtual_environment_container.probe.clone).full == false
+    error_message = "The container must be a linked clone (full = false) of the lxc-runner template tagged current, VMID 9203."
+  }
+
+  assert {
+    condition     = one(proxmox_virtual_environment_vm.probe.clone).vm_id == 9303 && one(proxmox_virtual_environment_vm.probe.clone).full == false
+    error_message = "The VM must be a linked clone (full = false) of the vm-docker template tagged current, VMID 9303."
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_container.probe.pool_id == "homelab" && proxmox_virtual_environment_vm.probe.pool_id == "homelab"
+    error_message = "Clones must land in pool homelab, never in the templates pool."
+  }
+
+  assert {
+    condition     = length(proxmox_virtual_environment_container.probe.operating_system) == 0 && length(proxmox_virtual_environment_vm.probe.disk) == 1 && one(proxmox_virtual_environment_vm.probe.disk).import_from == null
+    error_message = "A clone must not also name a downloaded image."
+  }
+}
+
+run "a_pin_changes_the_clone_source" {
+  command = plan
+
+  variables {
+    template_pins = { "lxc-runner" = 1, "vm-docker" = 1 }
+  }
+
+  assert {
+    condition     = one(proxmox_virtual_environment_container.probe.clone).vm_id == 9202 && one(proxmox_virtual_environment_vm.probe.clone).vm_id == 9302
+    error_message = "With pin 1 per class the clones must come from the v1 templates, 9202 and 9302, not from current."
+  }
+}
+
+run "template_sources_output_reports_the_resolved_vmids" {
+  command = plan
+
+  assert {
+    condition     = output.template_sources["lxc-runner"] == 9203 && output.template_sources["vm-docker"] == 9303
+    error_message = "template_sources must report the resolved VMID per class."
   }
 }

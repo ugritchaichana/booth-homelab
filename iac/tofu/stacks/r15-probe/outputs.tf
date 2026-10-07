@@ -8,6 +8,6 @@ output "guests" {
   }
 }
 
-output "image_url" {
-  value = local.image_url
+output "template_sources" {
+  value = { for class, source in module.template_source : class => source.vmid }
 }
