@@ -86,3 +86,18 @@ pve_templates_config:
   manifest_max_bytes: "{{ pve_templates_manifest_max_bytes }}"
   timeouts: "{{ pve_templates_timeouts }}"
   classes: "{{ pve_templates_classes }}"
+
+pve_templates_base_image_dirs:
+  vztmpl: /var/lib/vz/template/cache
+  import: /var/lib/vz/import
+pve_templates_base_images:
+  lxc-runner:
+    url: http://download.proxmox.com/images/system/debian-13-standard_13.6-1_amd64.tar.zst
+    sha512: 4c0c27ca6ceab5ef0b84db57825a00f26157ef1854bafe97297813e1cbe8ecb8cc9c453cab6b3b0efe1ba193a50c47ece1e41d950e411b8730b835b71e9e754b
+  vm-docker:
+    url: https://cloud.debian.org/images/cloud/trixie/20261001-2618/debian-13-genericcloud-amd64-20261001-2618.qcow2
+    sha512: f46f0671a6e5bdec5291ab8972bae2f10e5408c2f64a74078f11efc2f06a436a9d0313ed50e0472542eeabf780e9f7c792ac0a314c6c20507fcd9fd81b468c3d
+
+pve_templates_snippets_content: snippets
+pve_templates_weekly_unit: homelab-template-weekly
+pve_templates_weekly_timeout: 12h
