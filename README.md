@@ -63,7 +63,7 @@ Every number cites a row of [`docs/platform/requirements.md`](docs/platform/requ
 | Cache hit ratio, unchanged lockfile, 20 fresh-workspace runs | dependencies 38/38, outputs 19/19 on runs 2 to 20 | row 63 |
 | R15 negatives blocked, runner clones, with the cache path | 19/19 negatives, 2/2 positives; unchanged after a `pve01` reboot | row 66 |
 | R15 negatives blocked, cache container | 12/12 negatives, 1/1 positive | row 66 |
-| Golden template build | about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | row 55 |
+| Golden template build | about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | row 55; [build log](docs/evidence/phase3/build-weekly-3.txt), [timer-fired builds](docs/evidence/phase3/journal-timer-fired.txt) |
 | `pve01` reboot to cache service ready | SSH at 43 s, container at 45 s, service at 49 s | row 67 |
 | Stale-binary test (red first) | stale variant detected, new design fresh | row 64, cache CI run 37592628530 |
 
