@@ -159,7 +159,7 @@ resource "proxmox_virtual_environment_vm" "guest" {
   }
 
   lifecycle {
-    ignore_changes = [started]
+    ignore_changes = [started, pool_id]
 
     precondition {
       condition     = each.value.address != null && cidrcontains(local.guest_network.cidr, each.value.address) && each.value.address != local.guest_network.gateway
