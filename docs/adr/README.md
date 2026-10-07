@@ -59,3 +59,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0016 | [Scale CI with an ephemeral runner pool and overflow to hosted runners](0016-scale-ci-with-an-ephemeral-runner-pool-and-overflow-to-hosted-runners.md) | Accepted |
 | 0017 | [Size templates by generic cloud flavors](0017-size-templates-by-generic-cloud-flavors.md) | Accepted |
 | 0018 | [Manage several machines as independent hosts in one inventory](0018-manage-several-machines-as-independent-hosts-in-one-inventory.md) | Accepted |
+| 0019 | [Take restore points of the PVE VM only while it is Off](0019-take-restore-points-of-the-pve-vm-only-while-it-is-off.md) | Accepted |

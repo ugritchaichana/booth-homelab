@@ -5,7 +5,7 @@ Creates one nested-virtualization VM, `pve01`, on a Windows 11 Pro (or Server 20
 | File | Role |
 |---|---|
 | `New-PveHost.ps1` | Elevated, one-time setup: host rights (optional), folder + ACL, switch, NAT, VM, isolation, optional unattended install. `-PlanOnly`, `-Uninstall`, `-ShowPrefixes`. Never reboots, never self-elevates. |
-| `Invoke-PveVm.ps1` | Day-to-day, non-elevated: `-Action Start`, `Stop`, `Status`, `Refresh`. |
+| `Invoke-PveVm.ps1` | Day-to-day, non-elevated: `-Action Start`, `Stop`, `Status`, `Refresh`, `Checkpoint`. |
 | `HomelabHyperV.psm1` | Shared functions (config loading, CIDR math, port ACL plan and sync, firewall rule, rights checks). |
 | `pve01.psd1` | All names, sizes, addresses, MAC, ports, thresholds. Another host gets its own `.psd1` via `-ConfigPath`. |
 
@@ -53,6 +53,24 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\Invoke-Pv
 - `Refresh` is for a running VM only: it syncs the port ACLs and exits 0 when the VM is Off. It never starts the VM and never reconnects a disconnected adapter. If the sync fails, the adapter is disconnected (fail closed) and the exit code is 1.
 - `Stop` is graceful with a timeout; a hard power-off needs `-TurnOff -Force`.
 - `Status` reports state, reachability, adapter connection, rule counts, foreign ACLs, egress interface and the firewall rule.
+
+### Checkpoint
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\Invoke-PveVm.ps1 -Action Checkpoint -Name <name>
+```
+
+`<name>` is 1 to 63 lowercase letters, digits or hyphens, starting with a letter or digit. It exits 1 and takes no checkpoint when:
+- the VM is not `Off` (stop it first with `-Action Stop`);
+- a checkpoint with that name already exists;
+- any DVD drive of the VM still has media attached;
+- the free space on the VM's drive is already below `MinFreeDiskAfterGrowthGiB`.
+
+Stopped-only because a standard checkpoint of a running VM stores its memory state on disk, and the VM type here is `Standard` (ADR 0019). After `Checkpoint-VM` the action polls for the checkpoint by id for up to 15 s (the list can lag the call), reads it back and requires its state to be `Off` with no media recorded; otherwise it removes that checkpoint and exits 1.
+
+The worst case is printed as a `[WARN]` line, not a refusal: each checkpoint freezes the current disk and starts a new layer that can grow to the full disk size, so free space minus the disk size may be below the floor. `Remove-VMSnapshot` merges a layer back; remove a restore point once the step it protects is verified.
+
+There is no restore action. Restore with Hyper-V Manager or `Restore-VMSnapshot`, then start the VM only with `-Action Start`: it re-syncs the port ACLs before `Start-VM`, which a start from Hyper-V Manager skips. A checkpoint taken before a credential rotation still holds the rotated-away secrets and restoring it makes them live again, so take a fresh checkpoint after every rotation and remove the older ones.
 
 **Required before any runner registers: a scheduled task that runs `Refresh` on network change** (event log `Microsoft-Windows-NetworkProfile/Operational`, event 10000, per-user, no elevation). It is not created by these scripts; it needs its own review. Until it exists, a VPN or default-route change while the VM runs is picked up only by a manual `Refresh` or `Start`.
 
