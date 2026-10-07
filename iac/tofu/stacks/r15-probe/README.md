@@ -15,7 +15,7 @@ A throwaway unprivileged container and a VM on the guest vnet, created only to p
 | Tags | none: Proxmox checks tag permission on `/vms/<id>` without the pool, so a pool-scoped token cannot set tags when it creates a guest |
 | Start | created stopped, `start_on_boot` on; `r15-verify.yml` starts them |
 
-The security group is created by the `pve_firewall` role (ADR 0025), so run `site.yml` first, and at least one version of each class must be built (`homelab-template build <class>` on the host). Nothing is downloaded by this stack, so a destroy no longer needs `Datastore.Allocate` (ADR 0035 teardown gap). Changing the clone source or `full` replaces the guest (`ForceNew` in the provider), so a promotion of a new template version replaces the probe guests on the next apply. Not measured: whether the token may read pool `templates` (the module lists its members) and whether the clones accept the control channel; see ADR 0044.
+The security group is created by the `pve_firewall` role (ADR 0025), so run `site.yml` first, and at least one version of each class must be built (`homelab-template build <class>` on the host). Nothing is downloaded by this stack, so a destroy no longer needs `Datastore.Allocate` (ADR 0035 teardown gap). Changing the clone source or `full` replaces the guest (`ForceNew` in the provider), so a promotion of a new template version replaces the probe guests on the next apply. Measured on the host: the token lists the members of pool `templates` and the clones accept the control channel (requirements rows 57 to 59; ADR 0044).
 
 ## Run
 

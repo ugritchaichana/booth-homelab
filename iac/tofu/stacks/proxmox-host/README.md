@@ -1,6 +1,6 @@
 # proxmox-host stack
 
-One root module for every Proxmox host in `iac/inventory/hosts.yml`. `var.host` selects the entry, so a new host is an inventory row, not new code. The guest network comes from `modules/proxmox/sdn` (ADR 0030).
+One root module for every Proxmox host in `iac/inventory/hosts.yml`. `var.host` selects the entry, so a new host is an inventory row, not new code. The guest network comes from `modules/proxmox/sdn` (ADR 0030): the vnet `guests` and, when the entry has `cache_network`, the vnet `cache` (ADR 0045).
 
 ## Run
 
@@ -26,9 +26,11 @@ bridge -d link show | grep -A1 'master guests'        # every guest port: isolat
 sudo iptables -t nat -S POSTROUTING | grep 10.99.16.0/24   # the SNAT rule for the guest subnet
 sysctl -n net.ipv4.ip_forward                         # 1
 ip -4 -o addr show guests                             # exactly the gateway, 10.99.16.1
+cat /proc/sys/net/ipv4/conf/cache/forwarding          # 1, when the cache vnet is declared
+sudo iptables -t nat -S POSTROUTING | grep 10.99.17.0/24   # SNAT out of vmbr0 only
 ```
 
-The first two are the only proof that `isolate_ports` and `snat` took effect on the kernel; the plan only shows the API objects (ADR 0030).
+The SNAT and isolation lines are the only proof that `isolate_ports` and `snat` took effect on the kernel; the plan only shows the API objects (ADR 0030). A second apply must end with `plan -detailed-exitcode` returning 0.
 
 ## Where things live
 

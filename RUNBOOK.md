@@ -1,933 +1,427 @@
-# Production RunBook: Homelab SDET & IaC Testing Rig
-
-**Standard:** Continuous Testing Infrastructure Specification  
-**Status:** Active  
-**Revision:** Phase 2 Complete (Dual-Runner .NET 8 + Angular Jest Rig Live)  
-**Target Environments:**
-- **Environment A (Live Active Rig):** Windows 11 Workstation / AMD Ryzen 5 5600X / 32GB RAM / Hyper-V Nested Proxmox VE 8.4.0
-- **Environment B (Target Baremetal Rig):** Dedicated x86_64 Node (Multi-Core 14C/18T Architecture / 16GB+ RAM / Wi-Fi & Ethernet)  
-**Network Topography:** Restricted Network / CGNAT $\rightarrow$ Tailscale WireGuard Mesh $\rightarrow$ In-Memory Virtual Bus (`vmbr1`)
-
----
-
-## Table of Contents
-
-1. [Executive Architecture & Dual-Environment Matrix](#1-executive-architecture--dual-environment-matrix)
-2. [Environment A Operations: Live Workstation Hyper-V & Nested Proxmox](#2-environment-a-operations-live-workstation-hyper-v--nested-proxmox)
-3. [Environment B Operations: Baremetal Bootstrapping (Dedicated Node)](#3-environment-b-operations-baremetal-bootstrapping-dedicated-node)
-4. [Container Fleet Architecture & Runner Lifecycle](#4-container-fleet-architecture--runner-lifecycle)
-5. [MinIO S3 Remote Cache Administration & Disaster Recovery (CT 104)](#5-minio-s3-remote-cache-administration--disaster-recovery-ct-104)
-   - [5.1 Bucket Hierarchy & TTL Policies](#51-bucket-hierarchy--ttl-policies)
-   - [5.2 Disaster Recovery & Bucket Re-initialization SOP](#52-disaster-recovery--bucket-re-initialization-sop)
-   - [5.3 Cache Purge for Cold Build Benchmarking](#53-cache-purge-for-cold-build-benchmarking)
-   - [5.4 Enterprise Credential Hardening & Rotation SOP](#54-enterprise-credential-hardening--rotation-sop)
-   - [5.5 Enterprise Password Complexity Standards (NIST SP 800-63B / CIS)](#55-enterprise-password-complexity-standards-nist-sp-800-63b--cis)
-6. [CI/CD Pipeline Integration & GitHub Workflows](#6-cicd-pipeline-integration--github-workflows)
-7. [Ephemeral Runner Lifecycle & Zero-Trace Decommissioning (IaC)](#7-ephemeral-runner-lifecycle--zero-trace-decommissioning-iac)
-8. [Troubleshooting, Empirical Traps & Incident Decision Trees](#8-troubleshooting-empirical-traps--incident-decision-trees)
-9. [Golden Templates (Phase 3 build framework)](#9-golden-templates-phase-3-build-framework)
-
----
-
-## 1. Executive Architecture & Dual-Environment Matrix
-
-The Homelab architecture is engineered for seamless operation across two complementary environments, sharing identical container configurations, CI/CD pipelines, and remote caching layers:
-
-### Dual-Environment Comparison Matrix
-
-| Dimension | Environment A (Live Active Workstation) | Environment B (Target Baremetal Node) |
-| :--- | :--- | :--- |
-| **Primary Role** | Active Dev/Test & Autonomous Verification Rig | Dedicated Standalone SDET Homelab Server |
-| **Host Hardware** | AMD Ryzen 5 5600X (6C/12T), 32 GB DDR4 | Modern Multi-Core x86_64 Node (14C/18T Hybrid), 16 GB+ RAM |
-| **Hypervisor Layer** | Windows 11 Pro Hyper-V (Gen 2 VM: `Proxmox-Lab`) | Proxmox VE 8.4 Baremetal on Debian 12 Minimal |
-| **Virtualization Mode** | Nested AMD-V Virtualization Passthrough | Baremetal KVM / Kernel 6.8+ Enterprise Stack |
-| **Network Uplink** | Hyper-V Internal NAT Switch (`172.29.16.1/20`) | Wi-Fi / Ethernet Adapter via Routed NAT |
-| **Mesh Access** | Tailscale Mesh IP: `100.121.209.85:8006` | Tailscale Mesh IP (Subnet Router `10.99.10.0/24`) |
-| **Internal Bridges** | `vmbr0` (`10.99.10.1`), `vmbr1` (`10.99.20.1`) | `vmbr0` (`10.99.10.1`), `vmbr1` (`10.99.20.1`) |
-| **Storage Subsystem** | 50 GB VHDX (Ext4 LVM-Thin) | 512 GB PCIe Gen4 NVMe (Ext4 LVM-Thin — ZFS Banned) |
-
-### Internal Network Topography
-
-```
-[ Tailscale Mesh / LAN Clients ]
-               │
-               ▼ (Port 8006 / SSH / Port 9001 Console)
-   ┌────────────────────────────────────────────────────────┐
-   │ Proxmox VE Host (Hyper-V VM or Baremetal Node)         │
-   │ Host IP: 100.121.209.85 (Tailscale) / 172.29.21.44     │
-   ├────────────────────────────────────────────────────────┤
-   │ Management Subnet: vmbr0 (10.99.10.1/24)               │
-   │ Virtual Bus Subnet: vmbr1 (10.99.20.1/24)              │
-   │                                                        │
-   │  ┌─────────────────┐ ┌─────────────────┐ ┌──────────┐ │
-   │  │ CT 102          │ │ CT 103          │ │ CT 104   │ │
-   │  │ gha-runner-01   │ │ gha-runner-ang..│ │ minio-s3 │ │
-   │  │ (.NET 8 Runner) │ │ (Angular Jest)  │ │ (Cache)  │ │
-   │  │ 10.99.20.101    │ │ 10.99.20.103    │ │ 10.99.20.20│
-   │  └────────┬────────┘ └────────┬────────┘ └────▲─────┘ │
-   │           │                   │               │       │
-   │           └───────────────────┴───────────────┘       │
-   │              Fast In-Memory Cache I/O (>800 MiB/s)    │
-   └────────────────────────────────────────────────────────┘
-```
-
----
-
-## 2. Environment A Operations: Live Workstation Hyper-V & Nested Proxmox
-
-Used for controlling, managing, and recovering the hypervisor host on the active Windows 11 workstation:
-
-### 2.1 Hyper-V VM Lifecycle Commands (PowerShell Administrator)
-
-```powershell
-# 1. Check VM status
-Get-VM "Proxmox-Lab"
-
-# 2. Start hypervisor VM
-Start-VM "Proxmox-Lab"
-
-# 3. Save VM state for fast suspension
-Save-VM "Proxmox-Lab"
-
-# 4. Stop Proxmox gracefully
-Stop-VM "Proxmox-Lab"
-
-# 5. Verify Nested AMD-V Virtualization (must always be True)
-Get-VMProcessor "Proxmox-Lab" | Select-Object VMName, ExposeVirtualizationExtensions
-
-# 6. Enable Nested Virtualization if disabled
-Set-VMProcessor -VMName "Proxmox-Lab" -ExposeVirtualizationExtensions $true
-
-# 7. Verify and enable MAC Address Spoofing (required for virtual bridges vmbr0/vmbr1)
-Get-VMNetworkAdapter "Proxmox-Lab" | Set-VMNetworkAdapter -MacAddressSpoofing On
-```
-
-### 2.2 Host Endpoint Access
-
-- **Proxmox Web GUI:**
-  - Via Tailscale Mesh: `https://100.121.209.85:8006/`
-  - Via Hyper-V Internal NAT: `https://172.29.21.44:8006/`
-- **MinIO Web Console:**
-  - Via Tailscale Mesh: `http://100.121.209.85:9001/`
-  - Via Hyper-V Internal NAT: `http://172.29.21.44:9001/`
-- **Host Credentials:**
-  - Username: `root` (Realm: `root@pam`)
-  - Password: `[SECURE_VAULT]` (Injected via `PVE_PASS` environment variable)
-  - PVE AI API Token ID: `root@pam!ai_agent`
-  - PVE AI API Token Secret: `[SECURE_VAULT]` (Injected via `PVE_TOKEN_SECRET` environment variable)
-
-> [!WARNING]
-> **Host Credential Security Advisory:**  
-> Plaintext passwords and API tokens must never be committed to git. Always inject credentials via environment variables and local vaults adhering to [Section 5.5 Enterprise Password Complexity Standards](#55-enterprise-password-complexity-standards-nist-sp-800-63b--cis).
-
-### 2.3 Non-Interactive Host Execution via Python Paramiko
-
-> [!IMPORTANT]
-> **DO NOT run `ssh root@100.121.209.85` directly in Windows PowerShell:** The command hangs indefinitely on an interactive password prompt.  
-> Always use Python Paramiko for deterministic, non-interactive execution:
-
-```python
-import paramiko
-
-def exec_pve(cmd: str) -> str:
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('100.121.209.85', username='root', password='[LOCAL_VAULT_PW]')
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-    out = stdout.read().decode('utf-8', errors='ignore')
-    err = stderr.read().decode('utf-8', errors='ignore')
-    ssh.close()
-    return out if out else f"STDERR: {err}"
-
-# Usage examples:
-# print(exec_pve("pct list"))
-# print(exec_pve("pct status 102"))
-```
-
----
-
-## 3. Environment B Operations: Baremetal Bootstrapping (Dedicated Node)
-
-Used when migrating and bootstrapping the infrastructure onto a dedicated baremetal host node (e.g. x86_64 Mini-PC or Server Node with 16GB+ RAM):
-
-### Step 3.1: Prepare Bootable USB & Bootstrap Bundle
-
-```powershell
-# 1. Run .NET Transitive Dependency Graph verification before packaging
-powershell -ExecutionPolicy Bypass -File tests/verify-affected-graph.ps1
-
-# 2. Package bootstrap bundle to USB drive (auto-converts line endings to LF)
-powershell -ExecutionPolicy Bypass -File scripts/host-bootstrap/make-usb-pack.ps1 -TargetUsbDrive "E:\"
-```
-Resulting archive on USB: `pve-bootstrap-bundle.tar.gz`
-
-### Step 3.2: Install Debian 12 Minimal on Baremetal Node
-
-1. Create a Debian 12 Netinst bootable USB using Rufus (select **DD Image** mode).
-2. Enter BIOS (press `F2` or `Del` at power-on):
-   - **Disable Secure Boot** (Critical: prevents Proxmox kernel `bad shim signature` boot halts).
-   - Set Function Key Behavior to Standard.
-3. Proceed with Debian 12 installation:
-   - Connect Wi-Fi or Ethernet cable.
-   - **Partitioning:** Select **Guided LVM (Ext4)** (*NEVER select ZFS to prevent ARC memory starvation on 16GB RAM*).
-   - **Software Selection:** Uncheck all desktop environments; select ONLY **SSH server** and **standard system utilities** (No Desktop GUI).
-
-### Step 3.3: Run Bootstrap Stage 1 (Pre-Reboot)
-
-```bash
-sudo -i
-mkdir -p /mnt/usb
-mount /dev/sdb1 /mnt/usb
-cd /mnt/usb/host-bootstrap
-chmod +x *.sh
-
-# Execute Stage 1
-./bootstrap.sh --stage=1
-```
-
-**Stage 1 Execution Scope:**
-- `00-preflight-check.sh`: Verifies multi-core CPU threads, RAM $\ge 14\text{GB}$, Wi-Fi interface (`wlo1`), confirms non-ZFS filesystem.
-- `01-setup-hosts-and-repos.sh`: Configures `/etc/hosts` pointing to `10.99.10.1`, adds PVE 8.x No-Subscription repo, fetches GPG key with checksum verification (`7da6fe34168...`), installs `firmware-iwlwifi`.
-- `02-install-pve-kernel.sh`: Installs `proxmox-default-kernel` (Kernel 6.8+ for full hardware scheduler support) and updates GRUB.
-
-### Step 3.4: Reboot and Run Bootstrap Stage 2 (Post-Reboot)
-
-```bash
-# Reboot into PVE Kernel
-reboot
-
-# After reboot, verify kernel version:
-uname -r # Expected: 6.8.x-pve
-
-# Execute Stage 2
-cd /mnt/usb/host-bootstrap
-./bootstrap.sh --stage=2
-```
-
-**Stage 2 Execution Scope:**
-- `03-install-pve-core.sh`: Configures Postfix non-interactively, installs `proxmox-ve` and `chrony`, purges legacy Debian 6.1 kernel, removes `os-prober`.
-- `04-configure-routed-network.sh`: Detects network interface (`wlo1`), writes Routed NAT configuration to `/etc/network/interfaces`, sets up IP forwarding and masquerading for `10.99.10.0/24` and `10.99.20.0/24`, and adds PREROUTING port forwards for MinIO S3 API (9000) and Web Console (9001).
-- `05-apply-hardware-stability.sh`: Disables lid close suspension (`HandleLidSwitch=ignore`), installs persistent Wi-Fi power-save kill switch service (`wifi-powersave-off.service`), enables `net.ipv4.ip_forward = 1`.
-- `06-install-tailscale.sh`: Installs Tailscale, connects to mesh network with advertised subnet routes and Tailscale SSH enabled.
-
----
-
-## 4. Container Fleet Architecture & Runner Lifecycle
-
-### 4.1 Active Container Fleet
-
-| VMID | Hostname | IP Address | Resource Limit | Role & Toolchain | Systemd Service Daemon |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **CT 102** | `gha-runner-01` | `10.99.20.101` | 3 vCPU / 4.0 GB RAM / 20 GB Disk | **.NET 8 CI Runner**<br>Labels: `[self-hosted, linux, proxmox, dotnet]`<br>Toolchain: .NET 8.0.425, Docker-in-LXC (`nesting=1,keyctl=1`), `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service` |
-| **CT 103** | `gha-runner-angular` | `10.99.20.103` | 2 vCPU / 1.5 GB RAM / 12 GB Disk | **Angular Jest Runner**<br>Labels: `[self-hosted, linux, proxmox, angular]`<br>Toolchain: Node.js 20.20.2 LTS, npm 10.8.2, Pure Headless jsdom, `mc`, `zstd` | `actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service` |
-| **CT 104** | `minio-s3` | `10.99.20.20` | 2 vCPU / 2.0 GB RAM / 15 GB Disk | **Distributed Remote Cache**<br>API: `:9000` / Console: `:9001`<br>Buckets: `build-cache`, `sdet-test-artifacts` | `minio.service` |
-
-### 4.2 Runner Daemon Lifecycle Management
-
-Execute these commands on the Proxmox Host via Paramiko or terminal console:
-
-```bash
-# 1. Check runner daemon service status
-pct exec 102 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service --no-pager
-pct exec 103 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service --no-pager
-
-# 2. Restart runner daemons to flush stuck worker processes
-pct exec 102 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
-pct exec 103 -- systemctl restart actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service
-
-# 3. Tail live runner logs
-pct exec 102 -- journalctl -u actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service -n 50 --no-pager
-```
-
-### 4.3 Runner Token Rotation & Re-enrollment SOP
-
-> [!NOTE]
-> GitHub Registration Tokens expire after 60 minutes. If re-enrolling or recovering an offline runner:
-
-```bash
-# 1. Fetch fresh registration token via GitHub CLI
-RUNNER_TOKEN=$(gh api --method POST \
-  -H "Accept: application/vnd.github+json" \
-  /repos/ugritchaichana/booth-homelab/actions/runners/registration-token \
-  --jq .token)
-echo "Obtained token: $RUNNER_TOKEN"
-
-# 2. Re-enroll CT 102 (.NET Runner):
-pct exec 102 -- bash -c "
-  cd /home/runner/actions-runner
-  sudo ./svc.sh stop || true
-  sudo ./svc.sh uninstall || true
-  su - runner -c 'cd /home/runner/actions-runner && ./config.sh --url https://github.com/ugritchaichana/booth-homelab --token $RUNNER_TOKEN --name gha-runner-01 --labels self-hosted,linux,proxmox,dotnet --unattended --replace'
-  sudo ./svc.sh install runner
-  sudo ./svc.sh start
-"
-
-# 3. Re-enroll CT 103 (Angular Jest Runner):
-pct exec 103 -- bash -c "
-  cd /home/runner/actions-runner
-  sudo ./svc.sh stop || true
-  sudo ./svc.sh uninstall || true
-  su - runner -c 'cd /home/runner/actions-runner && ./config.sh --url https://github.com/ugritchaichana/booth-homelab --token $RUNNER_TOKEN --name gha-runner-angular --labels self-hosted,linux,proxmox,angular --unattended --replace'
-  sudo ./svc.sh install runner
-  sudo ./svc.sh start
-"
-```
-
-#### Ephemeral mode (opt-in, unverified)
-
-Not exercised against the live host. Default provisioning is unchanged; `RUNNER_MODE` unset or `persistent` keeps the persistent runner (`config.sh` + `svc.sh install`).
-
-With `RUNNER_MODE=ephemeral` a provisioner skips `config.sh` and the runner service, snapshots the stopped CT as `clean`, and installs a PVE-host supervisor (`homelab-ephemeral-runner@<CT>.service`). The supervisor loops: roll back to `clean`, start the CT, mint a single-use JIT runner config, run one job, repeat. The admin token stays on the host and never enters the CT.
-
-Owner steps:
-
-1. Create a fine-grained token restricted to this repository with Administration read/write.
-2. On the PVE host as root, create `/etc/homelab/runner-supervisor.env` (mode 0600) holding `GITHUB_RUNNER_ADMIN_TOKEN='<token>'`. Never put the token on a command line or in the repo.
-3. Re-provision with the mode set (`RUNNER_MODE=ephemeral python scripts/proxmox/provision-runner.py`, likewise `provision-angular-runner.py`; Windows cmd: `set RUNNER_MODE=ephemeral` first). The provisioner enables the supervisor only if the env file already exists; otherwise it prints the remaining step.
-4. Delete the old persistent runner registrations under repository Settings > Actions > Runners.
-
-Stop: `systemctl disable --now homelab-ephemeral-runner@102` (or `@103`), then re-provision without `RUNNER_MODE` to return to persistent mode.
-
-Before enabling, note that `reusable-sdet-pipeline.yml` reuses the build job workspace in later jobs (`clean: false`), which a fresh-per-job runner does not keep.
-
-### 4.4 Direct In-Container Test Execution (Offline Manual Debugging)
-
-Execute tests directly inside the containers without triggering GitHub Actions:
-
-```bash
-# Run .NET 8 Unit & Integration Tests in CT 102:
-pct exec 102 -- su - runner -c "
-  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/backend
-  dotnet test SdetTestingRig.sln --configuration Release --logger 'console;verbosity=normal'
-"
-
-# Run Angular Jest Standalone Tests in CT 103 (19 Tests / 4 Suites):
-pct exec 103 -- su - runner -c "
-  cd /home/runner/actions-runner/_work/booth-homelab/booth-homelab/apps/frontend
-  npx jest --ci --colors --coverage
-"
-```
-
----
-
-## 5. MinIO S3 Remote Cache Administration & Disaster Recovery (CT 104)
-
-> Retired: this MinIO cache belonged to the previous host and no workflow uses it any more. The build cache is section 12 (ADRs 0045–0051). This section is removed in the documentation pass.
-
-### 5.1 Bucket Hierarchy & TTL Policies
-
-```
-minio/build-cache/
-├── branches/
-│   └── master/
-│       ├── <commit_sha>.tar.zst   (.NET build cache - ~73 MiB)
-│       └── latest.tar.zst         (Latest pointer for cache restoration)
-└── npm/
-    └── node_modules.tar.zst       (Angular dependencies cache - ~28 MiB)
-
-minio/sdet-test-artifacts/
-├── backend/<run_id>/              (.trx test reports & coverage)
-└── frontend/<run_id>/             (Jest coverage reports)
-```
-
-### 5.2 Disaster Recovery & Bucket Re-initialization SOP
-
-If CT 104 is reprovisioned or cache data is purged:
-
-```bash
-# 1. Verify MinIO Server is running
-pct exec 104 -- rc-service minio status
-
-# 2. Configure a temporary admin alias on CT 102 (step 7 removes it; runners never hold root credentials)
-pct exec 102 -- mc alias set minio-admin http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-
-# 3. Create all required buckets
-pct exec 102 -- mc mb -p minio-admin/build-cache
-pct exec 102 -- mc mb -p minio-admin/sdet-test-artifacts
-
-# 4. Keep buckets private (no anonymous access; runners use scoped IAM accounts)
-pct exec 102 -- mc anonymous set none minio-admin/build-cache
-pct exec 102 -- mc anonymous set none minio-admin/sdet-test-artifacts
-
-# 5. Set lifecycle policy to auto-expire files older than 7 days (prevents disk bloat)
-pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/build-cache
-pct exec 102 -- mc ilm rule add --expire-days 7 minio-admin/sdet-test-artifacts
-
-# 6. Verify upload/download over vmbr1 Virtual Bus
-pct exec 102 -- bash -c "
-  echo 'healthcheck' > /tmp/hc.txt
-  mc cp /tmp/hc.txt minio-admin/build-cache/healthcheck.txt
-  mc cp minio-admin/build-cache/healthcheck.txt /tmp/hc-download.txt
-  cat /tmp/hc-download.txt
-  mc rm minio-admin/build-cache/healthcheck.txt
-"
-
-# 7. Re-create the scoped IAM users, policies and runner reader aliases (the script also removes the admin alias)
-python scripts/proxmox/configure_iam_cache_accounts.py
-```
-
-### 5.3 Cache Purge for Cold Build Benchmarking
-
-```bash
-# Purge all .NET and npm caches (needs the temporary admin alias; the runner reader and writer cannot delete):
-pct exec 102 -- mc alias set minio-admin http://10.99.20.20:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-pct exec 102 -- mc rm --recursive --force minio-admin/build-cache/branches/master/
-pct exec 102 -- mc rm --recursive --force minio-admin/build-cache/npm/
-pct exec 102 -- mc alias remove minio-admin
-
-# Verify bucket is empty:
-pct exec 102 -- mc ls minio/build-cache/
-```
-
-### 5.4 Enterprise Credential Hardening & Rotation SOP
-
-> [!WARNING]
-> **Credential Hardening Disclaimer:**  
-> All administrative credentials on CT 104 and Proxmox VE must be rotated and securely injected via environment variables. Never use default or predictable credentials in any shared or production environment.
-
-#### Step 1: Rotate MinIO Root Administrative Credentials
-To rotate root credentials on CT 104 (Alpine LXC):
-```bash
-# 1. Generate strong credentials adhering to the password standard
-NEW_ROOT_USER="minio_admin_$(openssl rand -hex 4)"
-NEW_ROOT_PASS="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9!@#$%^&*()-_+=' | head -c 24)"
-
-# 2. Update MinIO environment file on CT 104
-pct exec 104 -- sh -c "cat <<EOF > /etc/conf.d/minio
-MINIO_VOLUMES=\"/var/lib/minio/data\"
-MINIO_OPTS=\"--address :9000 --console-address :9001\"
-MINIO_ROOT_USER=\"$NEW_ROOT_USER\"
-MINIO_ROOT_PASSWORD=\"$NEW_ROOT_PASS\"
-EOF"
-
-# 3. Restart MinIO service daemon
-pct exec 104 -- rc-service minio restart
-
-# 4. Update MinIO client alias on test runners (CT 102 and CT 103)
-pct exec 102 -- mc alias set minio http://10.99.20.20:9000 "$NEW_ROOT_USER" "$NEW_ROOT_PASS"
-pct exec 103 -- mc alias set minio http://10.99.20.20:9000 "$NEW_ROOT_USER" "$NEW_ROOT_PASS"
-```
-
-#### Step 2: Provision Granular IAM Service Accounts (Least Privilege)
-Never distribute root administrative credentials to CI/CD runners. Instead, create scoped IAM Service Accounts:
-```bash
-# Create read-only service account for PR workflows
-pct exec 102 -- mc admin user add minio sdet_pr_reader StrongPrReaderP@ss123!
-pct exec 102 -- mc admin policy attach minio readonly --user sdet_pr_reader
-
-# Create read-write service account for master pipeline
-pct exec 102 -- mc admin user add minio sdet_ci_writer StrongCiWriterP@ss456!
-pct exec 102 -- mc admin policy attach minio readwrite --user sdet_ci_writer
-```
-
-### 5.5 Enterprise Password Complexity Standards (NIST SP 800-63B / CIS)
-
-All passwords, service keys, and access tokens used across the homelab infrastructure must comply with the following cryptographic and entropy standards:
-
-| Criteria | Administrative / Root Accounts | CI/CD Service Accounts & API Keys |
-| :--- | :--- | :--- |
-| **Minimum Length** | **$\ge 20$ characters** | **$\ge 32$ characters** (or 256-bit entropy) |
-| **Character Classes** | $\ge 4$ classes: `[A-Z]`, `[a-z]`, `[0-9]`, `[!@#$%^&*()-_+=[{]}\|:;,.<>?~]` | Cryptographically secure pseudo-random (`openssl rand -base64 32`) |
-| **Banned Patterns** | Dictionary words, leetspeak (`P@ssw0rd`), sequential runs (`123456`, `qwerty`), project names (`booth`, `minio`, `proxmox`) | Shared secrets, hardcoded repository commits |
-| **Rotation Cadence** | On team personnel change or suspected credential leak | 90 days or automated dynamic rotation |
-| **Storage Standard** | Password vault / Secret manager (Bitwarden, Vault, KeePassXC) | GitHub Actions Encrypted Secrets / Environment Variables |
-
----
-
-## 6. CI/CD Pipeline Integration & GitHub Workflows
-
-### 6.1 Workflow Architecture & Job Graph
-
-The CI/CD pipeline is structured as a modular DAG reusable dispatch action:
-- `.github/workflows/sdet-ci.yml`: Entry point listening for `push`, `pull_request`, and `workflow_dispatch` events.
-- `.github/workflows/reusable-sdet-pipeline.yml`: Core execution DAG structured into compact stages:
-
-```mermaid
-flowchart TD
-    Start([Push / PR / Dispatch]) --> Telemetry["CI / Telemetry\n(CT 102)"]
-    Telemetry --> BuildDotnet["CI / Build (.NET)\n(CT 102)"]
-    Telemetry --> TestAngular["CI / Test (Angular)\n(CT 103 - Parallel)"]
-    BuildDotnet --> TestDotnet["CI / Test (.NET)\n(CT 102)"]
-    TestDotnet --> CacheDotnet["CI / Cache (.NET)\n(CT 102)"]
-    CacheDotnet --> Report["CI / Report\n(CT 102)"]
-    TestAngular --> Report
-    Report --> End([Workflow Success])
-```
-
-### 6.2 Pipeline Control via GitHub CLI
-
-```bash
-# Trigger manual pipeline execution (Workflow Dispatch):
-gh workflow run sdet-ci.yml --repo ugritchaichana/booth-homelab
-
-# List 3 most recent pipeline runs:
-gh run list --repo ugritchaichana/booth-homelab -L 3
-
-# View latest run summary:
-gh run view --repo ugritchaichana/booth-homelab
-
-# Inspect detailed job logs:
-gh run view <run_id> --job=<job_id> --log --repo ugritchaichana/booth-homelab
-```
-
-### 6.3 Automation Safeguards
-
-- **PR Labeler (`.github/workflows/pr-labeler.yml`):** Automatically attaches labels (`backend`, `frontend`, `infrastructure`, `sdet`) based on modified paths.
-- **Reviewer Guard (`.github/workflows/pr-reviewer-guard.yml`):** Automatically removes Copilot reviewers from PRs.
-- **Wiki Auto-Sync (`.github/workflows/wiki-sync.yml`):** Automatically synchronizes `wiki/` documentation to GitHub Wiki on pushes to `master`.
-
----
-
-## 7. Ephemeral Runner Lifecycle & Zero-Trace Decommissioning (IaC)
-
-For Phase 3 ephemeral runner provisioning:
-
-### 7.1 Golden templates
-
-Retired: the container sanitization and `pct template` steps that stood here belonged to the previous host. Golden templates are built, verified, promoted and rolled back by the template framework, section 9 (ADR 0038 to ADR 0041).
-
-### 7.2 OpenTofu Ephemeral Runner Provisioning
-
-The OpenTofu root module that provisioned runners was replaced by the stacks under `iac/tofu/stacks/`, so `iac/tofu` itself is no longer a root module and `tofu apply` there does nothing. The ephemeral pool design is ADR 0016. Until the runner stack exists, the only stacks are `iac/tofu/stacks/proxmox-host` and `iac/tofu/stacks/r15-probe`, run through the wrapper (see `iac/tofu/README.md`):
-
-```bash
-bash scripts/iac/tofu.sh proxmox-host pve01 plan
-```
-
-### 7.3 Zero-Trace Decommissioning (Complete Host Reclamation)
-
-When decommissioning the SDET rig to repurpose the host:
-
-```bash
-# 1. Backup Golden Template to external drive (Zstandard compressed)
-mkdir -p /mnt/external_backup
-mount /dev/sdX1 /mnt/external_backup
-vzdump 9001 --compress zstd --dumpdir /mnt/external_backup/
-
-# 2. Destroy containers and reclaim all storage
-pct stop 102 && pct destroy 102
-pct stop 103 && pct destroy 103
-pct stop 104 && pct destroy 104
-pct destroy 9001
-
-# 3. Confirm clean storage status
-pvesm status
-```
-
----
-
-## 8. Troubleshooting, Empirical Traps & Incident Decision Trees
-
-### 8.1 The 6 Empirical Traps & Hard-Learned Solutions
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│ THE 6 EMPIRICAL TRAPS & HARD-LEARNED SOLUTIONS                                  │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│ 1. OPENSSH INTERACTIVE PROMPT HANG:                                              │
-│    Windows PowerShell running 'ssh root@...' hangs on the password prompt.       │
-│    --> Always use Python Paramiko with explicit credentials.                     │
-│                                                                                  │
-│ 2. COMPOSITE ACTION CHECKOUT ORDERING:                                           │
-│    Do not invoke './.github/actions/...' before 'actions/checkout@v4'.           │
-│    New runners do not have action YAML files on disk before checkout.            │
-│    --> The first step of every job must always be actions/checkout@v4.           │
-│                                                                                  │
-│ 3. CONTAINER FILE INJECTION:                                                     │
-│    Files in /tmp on Proxmox Host are not visible inside LXC containers.          │
-│    --> Exclusively use 'pct push <vmid> <host_path> <container_path>'.           │
-│                                                                                  │
-│ 4. DEBIAN 12 USRMERGE BINARY PATH:                                               │
-│    MinIO Client is at /bin/mc, which is a symlink to /usr/bin/mc.                │
-│    --> Always resolve paths dynamically: $(command -v mc || echo '/usr/bin/mc') │
-│                                                                                  │
-│ 5. ANGULAR JEST PURE HEADLESS MEMORY CEILING:                                    │
-│    Never install Chrome, Chromium, or Playwright inside CT 103.                  │
-│    --> Use pure jsdom + jest-preset-angular to maintain a 1.5GB RAM ceiling.     │
-│                                                                                  │
-│ 6. .NET DOMAIN CURRENCY ASSERTION:                                               │
-│    In Core.Domain, Money.Currency defaults to "USD", not "THB".                  │
-│    --> Never assert "THB" unless explicitly passed to constructor.               │
-└──────────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 8.2 Comprehensive Incident Response Decision Tree
-
-```mermaid
-flowchart TD
-    Issue["Issue Detected in SDET Rig"] --> Triage{"What is the symptom?"}
-
-    Triage -- "Runner Shows Offline on GitHub" --> R1["Check Container & Daemon Status"]
-    R1 --> R2["Run: pct list\nAre CT 102/103 running?"]
-    R2 -- "Stopped" --> R3["Run: pct start 102 && pct start 103"]
-    R2 -- "Running" --> R4["Check: systemctl status actions.runner..."]
-    R4 -- "Failed / Exited" --> R5["Fetch fresh token with 'gh api .../registration-token'\nRun Re-enroll SOP (Section 4.3)"]
-
-    Triage -- "CI/CD Cache Miss Loop or Connection Refused" --> C1["Inspect MinIO (CT 104)"]
-    C1 --> C2["Run: pct exec 104 -- rc-service minio status"]
-    C2 -- "Down" --> C3["Run: pct exec 104 -- rc-service minio restart"]
-    C2 -- "Up" --> C4["Test: pct exec 102 -- mc ls minio/build-cache/\nVerify alias and buckets exist (Section 5.2)"]
-
-    Triage -- "Cannot Access Proxmox Web GUI :8006" --> N1["Verify Host Connectivity"]
-    N1 --> N2{"Which Environment?"}`
-    N2 -- "Env A (Workstation)" --> N3["Check Hyper-V: Get-VM 'Proxmox-Lab'\nIf stopped: Start-VM 'Proxmox-Lab'"]
-    N2 -- "Env B (Baremetal Node)" --> N4["Check Wi-Fi Captive Portal & Sleep\nRun: systemctl status wifi-powersave-off"]
-    N3 --> N5["Check Tailscale:\ntailscale status (Verify 100.121.209.85 is online)"]
-    N4 --> N5
-
-    Triage -- "System Sluggish / Linux OOM Warning" --> M1["Inspect RAM Headroom"]
-    M1 --> M2["Run: free -h on Host"]
-    M2 --> M3{"Is ZFS in Use?"}
-    M3 -- "Yes" --> M4["Cap ZFS ARC:\necho 2147483648 > /sys/module/zfs/parameters/zfs_arc_max"]
-    M3 -- "No" --> M5["Reduce CT 102 RAM cap or stop idle containers"]
-```
-
----
-
-## 9. Golden Templates (Phase 3 build framework)
-
-Two classes of runner template are built on the Proxmox host and cloned later by the runner stack: `lxc-runner` (VMID block 9200-9299) and `vm-docker` (VMID block 9300-9399). Decisions: [ADR 0038](docs/adr/0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) (how a build runs), [ADR 0039](docs/adr/0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) (storage, retention, verification), [ADR 0040](docs/adr/0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) (versions, the `current` tag, rollback), [ADR 0036](docs/adr/0036-keep-templates-in-their-own-pool-and-let-the-provisioner-token-only-clone-them.md) (pool and clone-only privilege).
-
-Every command below that starts with `$pve` runs from the operator's WSL shell. The host user is the automation user, which uses `sudo` for root (ADR 0023). On the host, root is the only identity that builds, promotes and rolls back; the API token cannot delete or retag a template.
+# Runbook
+
+How to build the platform from zero and operate it day to day. Every step names who performs it and the exact command.
+
+| Role | Meaning |
+|---|---|
+| owner | The person who accepts the Windows elevation prompt and holds the GitHub repository settings. |
+| operator (Windows) | The same person's non-elevated Windows prompt (`cmd.exe`). |
+| operator (WSL) | The WSL Debian shell, at the repository root. |
+| root on pve01 | A shell on the Proxmox VE VM with `sudo`, reached from WSL as `$pve sudo ...`. |
+| CI | A GitHub Actions workflow in this repository. |
+
+Convention for every WSL step that reaches the host:
 
 ```sh
 pve="ssh -F ~/.config/homelab/ssh_config pve01"
 ```
 
-### 9.1 Prerequisites
+The host account is the key-only automation user, which uses `sudo` for root (ADR 0023). The API token cannot delete or retag a template; root is the only identity that builds, promotes and rolls back templates (ADR 0036, ADR 0040).
 
-| Step | Who and where | Command or check |
+## Contents
+
+1. What this runbook covers
+2. Build from zero
+3. Day-2 operations
+4. Verification and evidence
+5. Troubleshooting
+6. Retired
+
+## 1. What this runbook covers
+
+Covered (Phases 1 to 4 of `docs/platform/requirements.md`, all with their DONE WHEN met):
+
+- a Proxmox VE 9 VM inside Hyper-V on the Windows workstation, installed unattended, behind an internal switch, NAT and host-side port ACLs (ADR 0003, 0004, 0006, 0007);
+- the host baseline: key-only SSH, repositories, upgrade, firewall, API identity, OpenTofu state, guest network (ADR 0012, 0023, 0025 to 0030);
+- golden templates `lxc-runner` and `vm-docker` (ADR 0038 to 0044);
+- the build cache service `cache01` and its client wiring (ADR 0045 to 0051).
+
+Not covered: Phases 5 to 8 are not built (runner pool controller, reusable workflows and cutover, observability and resilience, runbook timed rebuild and portability). The self-hosted CI path cannot run until the Phase 5 runners exist; the hosted fallback runs today (row 68, SDET CI run 37602620111). What is open, what the next phase needs first and the entry gates are in `docs/handoff/README.md`.
+
+Where to look first:
+
+| Question | File |
+|---|---|
+| Why a choice was made | `docs/adr/` (0001 to 0053) |
+| What was required and measured | `docs/platform/requirements.md` (the row numbers below are its rows) |
+| What broke on the real host | `docs/knowledge/real-host-defects.md` |
+| Which test proves what, and the command | `docs/knowledge/test-catalogue.md` |
+| Run transcripts | `docs/evidence/<phase>/INDEX.md` |
+| Hyper-V scripts in depth | `scripts/hyperv/README.md` |
+| Secrets files and their writers | `iac/secrets/README.md` |
+
+## 2. Build from zero
+
+### 2.1 Workstation prerequisites
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | Windows 11 Pro (or Server 2022+) with virtualization on in firmware and a WSL Debian 13 distribution | owner | `wsl.exe -l -v` lists the distribution. The WSL install itself has no script here. |
+| 2 | Install the pinned operator toolchain (apt packages, `tofu`, `sops`, `gitleaks`, `tflint`, `ansible-lint`, the Proxmox repository keyring, `proxmox-auto-install-assistant`); checksums are constants in the script and a mismatch installs nothing (ADR 0010) | operator (WSL), as root | `sudo bash scripts/bootstrap/operator-toolchain.sh`; a second run installs nothing and prints the version table |
+| 3 | Ansible Python toolchain and collections | operator (WSL) | `python3 -m venv ~/.venvs/homelab-ansible`, then `~/.venvs/homelab-ansible/bin/pip install --require-hashes -r iac/ansible/requirements-ci.txt`, then `ansible-galaxy collection install -r iac/ansible/requirements.yml` (put `~/.venvs/homelab-ansible/bin` first on `PATH`) |
+| 4 | Create the age identity, once, in the Windows profile; it is never printed or committed (ADR 0009). Keep an off-machine copy; without it every secret is unrecoverable | operator (WSL) | `age-keygen -o "<WSL form of %APPDATA%>/sops/age/keys.txt"` (the standard age command, no repo script; run only when the file does not exist). The repo scripts find this path by themselves; `build-auto-install-iso.sh` needs `export SOPS_AGE_KEY_FILE=<that path>` |
+| 5 | Use the repository's existing identity: restore the offline copy to the same path. For a fork or a new identity: put the new public key into `.sops.yaml`, delete the encrypted files under `iac/secrets/` and recreate each one by its writer (step 7) | owner | `iac/secrets/README.md`, "Recovery and rotation" |
+| 6 | Two ed25519 key pairs with the same file name `homelab_pve01_ed25519` (`ssh_key_name` in `iac/inventory/hosts.yml`): the Windows one is the root break-glass key and the proxy-hop key (ADR 0011), the WSL one is the automation key | operator | `ssh-keygen -t ed25519 -f "%USERPROFILE%\.ssh\homelab_pve01_ed25519"` in `cmd.exe`, and `ssh-keygen -t ed25519 -f ~/.ssh/homelab_pve01_ed25519` in WSL (standard OpenSSH, no repo script) |
+| 7 | Write the secret files that have the operator as writer: root password (`root_password`), operator public keys (`root_authorized_keys`, `root_authorized_keys_revoked`, `automation_authorized_keys`) and the host-routed prefixes (`host_routed_prefixes`, taken from `StaticDenyPrefix` of the local override `%LOCALAPPDATA%\homelab\pve01.local.psd1` once it exists, see 2.3 step 3) | operator (WSL) | `sops iac/secrets/hosts/pve01.sops.yaml`, `sops iac/secrets/hosts/pve01-access.sops.yaml`, `sops iac/secrets/hosts/pve01-network.sops.yaml` (the editor opens the decrypted file; a new file must match the path rule of `.sops.yaml`). The root password value is a fresh random one, never typed on a command line |
+
+State root for OpenTofu, once: `sudo install -d -o "$USER" -m 0700 /var/lib/homelab/tofu` (operator, WSL).
+
+### 2.2 Prepared install ISO
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | Download the stock Proxmox VE 9.1-1 installer ISO (a 9.2 ISO is reported not to boot on Hyper-V Generation 2, ADR 0004, rows 11 and 30) and verify it against the publisher's `SHA256SUMS` and its signature by hand | operator | `sha256sum <iso>` equals the published value |
+| 2 | Render the answer file from `iac/proxmox/answer.pve01.toml.tmpl` (root hash from SOPS through a pipe, MAC and addresses from `scripts/hyperv/pve01.psd1`), validate it and write the prepared ISO | operator (WSL) | `bash scripts/proxmox/build-auto-install-iso.sh --source-iso <stock iso> --pubkey-operator <Windows key .pub> --pubkey-automation <WSL key .pub> --output <WSL form of %LOCALAPPDATA%>/homelab/iso/<prepared>.iso` (add `--force` to overwrite). It prints `validate-answer exit=0` and the prepared ISO's sha256 |
+
+The prepared ISO holds the root-password hash: it is deleted after the install (2.3) and never copied elsewhere.
+
+### 2.3 The PVE VM (Hyper-V)
+
+All lines are for `cmd.exe` at the repository root. Preview first, then the real run.
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | Preview, changes nothing, writes no file | operator (Windows) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\New-PveHost.ps1 -ConfigPath scripts\hyperv\pve01.psd1 -InstallIso "%LOCALAPPDATA%\homelab\iso\<prepared>.iso" -InstallIsoSha256 <64 hex> -Install -PlanOnly` |
+| 2 | Real run, one elevated pass: host rights, folder and ACL, switch, NAT, VM, port ACLs, install, wait for power-off, eject the ISO, checkpoint `post-install`, start, wait for TCP 22, delete the ISO copy. Install 459 s, first cold boot 18.1 s (row 35). The transcript goes to `%LOCALAPPDATA%\homelab\logs\New-PveHost-<timestamp>.log` | owner (elevated prompt, accepts UAC) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\New-PveHost.ps1 -ConfigPath scripts\hyperv\pve01.psd1 -InstallIso "%LOCALAPPDATA%\homelab\iso\<prepared>.iso" -InstallIsoSha256 <64 hex> -Install` |
+| 3 | Exit 2 means Hyper-V was just enabled and a Windows restart is needed (the script never reboots): restart, then repeat step 2. After the first run the local override file exists; copy its `StaticDenyPrefix` into `pve01-network.sops.yaml` (2.1 step 7) | owner | exit codes in `scripts/hyperv/README.md` |
+| 4 | Sign in again so the Hyper-V Administrators membership takes effect, then check | operator (Windows) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\Invoke-PveVm.ps1 -Action Status` |
+| 5 | Trust the host key once through the Windows OpenSSH client (compare the printed fingerprint with the install transcript), then store the public key as the pinned host key; there is no repo script for this one-time capture, it follows the pattern of 2.9 step 8 | operator | read `/etc/ssh/ssh_host_ed25519_key.pub` as `ssh_host_ed25519_public: <type> <key>` from the host through the Windows `ssh.exe` and pipe it to `sops encrypt --filename-override iac/secrets/hosts/pve01-ssh.sops.yaml ... --output iac/secrets/hosts/pve01-ssh.sops.yaml /dev/stdin` |
+| 6 | Render the SSH config and the pinned `known_hosts` | operator (WSL) | `bash scripts/iac/render-ssh-config.sh` (it prints `rendered N host(s)`) |
+| 7 | Restore point before the first converge, with the VM stopped (ADR 0019) | operator (Windows) | `Invoke-PveVm.ps1 -Action Stop`, then `-Action Checkpoint -Name pre-converge`, then `-Action Start` (full command form in 3.1) |
+
+The isolation layer, the firewall rule and the limits of the port ACLs are described in `scripts/hyperv/README.md`; a checkpoint taken before a credential rotation still holds the old secrets (3.1).
+
+### 2.4 Host converge
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | First contact as root: switch the Proxmox repositories, create the automation user | operator (WSL) | `bash scripts/iac/ansible.sh bootstrap.yml -e ansible_user=root` |
+| 2 | Steady state as the automation user: roles `base`, `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`, `pve_templates`. Run 1 of the upgrade and baseline took 254 s including the reboot into the new kernel (row 43) | operator (WSL) | `bash scripts/iac/ansible.sh site.yml` |
+| 3 | Idempotence: the second run must end `changed=0` (row 60) | operator (WSL) | `bash scripts/iac/ansible.sh site.yml` |
+
+- A converge applies pending upstream updates and reboots the host when the running kernel is not the boot default (role `pve_host`, decision D40). With runners present, drain the pool first or converge in a maintenance window.
+- The SSH hardening runs behind a dead-man timer that restores the previous access if a step fails (ADR 0023). If a run stops while the timer is armed, the next run refuses to start: inspect the host and `journalctl -t homelab-deadman`, then delete the `armed` marker (`iac/ansible/README.md`, "SSH change guard").
+- The first converge also starts the first build of every template class in the background, and the API token is written to `iac/secrets/tofu/pve01-api.sops.yaml` by the role. Commit the encrypted file.
+
+### 2.5 OpenTofu host stack (guest network)
+
+Role: operator (WSL). The wrapper opens the SSH forward, decrypts secrets into the `tofu` process only and keeps encrypted state on the WSL filesystem (ADR 0013, ADR 0029).
+
+```sh
+bash scripts/iac/tofu.sh proxmox-host pve01 init-passphrase     # once; writes iac/secrets/tofu/pve01-state.sops.yaml, commit it
+bash scripts/iac/tofu.sh proxmox-host pve01 init
+bash scripts/iac/tofu.sh proxmox-host pve01 plan
+bash scripts/iac/tofu.sh proxmox-host pve01 apply
+bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode     # must return 0
+```
+
+`apply` and `destroy` first run `sudo -n ifquery --check -a` on the host and refuse on drift, because the SDN applier reloads the whole network config. The plan creates the `guests` vnet and the `cache` vnet (inventory `guest_network` and `cache_network`).
+
+Verify on the host, read-only (`$pve`):
+
+```sh
+$pve bridge -d link show
+$pve sudo iptables -t nat -S POSTROUTING
+$pve sysctl -n net.ipv4.ip_forward
+$pve cat /proc/sys/net/ipv4/conf/cache/forwarding
+```
+
+Expected: every guest port `isolated on`, a SNAT rule for each guest subnet (the cache subnet rule is `-s 10.99.17.0/24 -o vmbr0` only, row 61), `ip_forward` 1, cache forwarding 1.
+
+### 2.6 Guard and firewall checks
+
+Role: operator (WSL). The converge installs the firewall groups `guest-egress` and `cache-ingress`, writes `cluster.fw` and `host.fw` behind a dead-man, and arms the guard timer (ADR 0025, 0027, 0037, 0047).
+
+```sh
+$pve sudo systemctl is-active homelab-guest-firewall-guard.timer
+$pve sudo journalctl -u homelab-guest-firewall-guard.service -n 3 --no-pager
+$pve sudo sed -n '/^\[group/,$p' /etc/pve/firewall/cluster.fw
+$pve sudo pveum acl list
+bash tests/isolation/test-cluster-fw-render.sh
+```
+
+Expected: `active`; the last guard line `guest-firewall-guard: ok, N guest(s) checked on pve01`; both groups present; `/pool/templates` carries `HomelabTemplateClone`; the render test passes. Reading the guard output is in 3.6.
+
+### 2.7 Golden templates
+
+Build framework and per-step detail are in 3.3. From zero:
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | The first converge (2.4) deployed the bundles and base images and started a build per class. Follow it | operator (WSL) | `$pve sudo journalctl -f -u 'homelab-template-build@*'` |
+| 2 | Every class has exactly one `current`; a build takes about 2 min 15 s (`lxc-runner`) and 3 min 5 s (`vm-docker`) (row 55) | operator (WSL) | `$pve sudo homelab-template status` exits 0 |
+| 3 | A failed or missing build is rebuilt with the unit | root on pve01 | `$pve sudo systemctl start --no-block homelab-template-build@lxc-runner.service` (or `vm-docker`) |
+
+### 2.8 R15 verification (probe stack and `r15-verify.yml`)
+
+R15 is the isolation proof: runner-class guests must not reach management, other guests or private networks. The probe guests are two linked clones of the current templates (VMID 9101 container, 9102 VM, pool `homelab`; ADR 0031, 0032, 0044). The probe reaches its clones through a probe-only channel; templates stay sealed.
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | Storage `local` allows snippets | operator (WSL) | `$pve sudo pvesm status --content snippets` lists `local` |
+| 2 | Windows-side paired controls: copy `tests/isolation/targets.example.env` to `tests/isolation/targets.env` (git ignores it), fill it, then run the controls and copy the `True` rows into the `control` column | operator (Windows) | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\Test-R15Controls.ps1` |
+| 3 | Create the ephemeral key and the vendor-data snippet on the host; it prints `TF_VAR_probe_ssh_public_key=...` | operator (WSL) | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen` |
+| 4 | Create the clones (run step 3 first or the VM clone fails to start) | operator (WSL) | `export TF_VAR_probe_ssh_public_key='ssh-ed25519 ...'`, then `bash scripts/iac/tofu.sh r15-probe pve01 init` and `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
+| 5 | Prove the clones are linked clones of the templates | operator (WSL) | `$pve sudo pct config 9101` and `$pve sudo qm config 9102` list no `template:`; `$pve sudo lvs -o lv_name,origin pve` shows an `origin` of `base-<template vmid>-disk-N` |
+| 6 | Run the baseline phase: every `PROBE` row holds and `SUMMARY` exits 0. Measured: `negatives_blocked=19/19 positives_ok=2/2 egress_curl=200` on runner clones with the cache path, `12/12 1/1` inside the cache container (row 66) | operator (WSL) | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>` |
+| 7 | Phases `red-first` (attended, stops the node firewall, a timer restarts it after 10 minutes), `after-pct-reboot`, `after-pve-reboot`, `after-host-reboot` | operator (WSL) | the same command with `-e r15_phase=<phase>`; order and reading in `tests/isolation/README.md` |
+| 8 | Tear down | operator (WSL) | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then `$pve sudo rm -f /root/.ssh/r15_probe_ed25519 /root/.ssh/r15_probe_ed25519.pub /var/lib/vz/snippets/r15-probe-vendor.yaml /var/lib/homelab/r15/known_hosts` |
+
+Read raw probe records only from the output file, never echo them to a terminal (`docs/knowledge/real-host-defects.md`, last row of phase 4). While a probe clone of template version N exists, retention refuses to delete version N: destroy the probe first.
+
+### 2.9 Cache service (`cache01`, VMID 9050, vnet `cache`)
+
+A bazel-remote container on its own routed vnet serves content-addressed caches to the runners through one firewall path, tcp 10.99.17.10:8080. Reads are anonymous; writes need the one writer credential, which only default-branch push jobs in the environment `cache-writer` receive (ADR 0045 to 0051).
+
+| # | Step | Role | Command or check |
+|---|---|---|---|
+| 1 | Offline gate | operator (WSL) | `bash tests/isolation/test-cluster-fw-render.sh`, `bash tests/isolation/test-guest-fw-guard.sh`, `bash tests/isolation/test-r15-probe.sh`, `bash tests/isolation/test-r15-verify-cache.sh`, `ansible-lint --profile production iac/ansible` |
+| 2 | On a host that already runs guests, list guests on any bridge other than `guests` and `cache`; the guard stops them once its per-vnet policy is in place (ADR 0047). Skip on a fresh host | operator (WSL) | `$pve sudo grep -l 'bridge=vmbr0' /etc/pve/qemu-server/*.conf /etc/pve/lxc/*.conf` |
+| 3 | The converge (2.4) and the host stack (2.5) already rendered `guest-egress` with the cache accept first, the group `cache-ingress`, the guard policy `/etc/homelab/guest-firewall-guard-policy.json`, the `SDN.Use` grant on `/sdn/zones/hlab/cache` and the `cache` vnet. Rerun them only if one is missing | operator (WSL) | `bash scripts/iac/ansible.sh site.yml`, `bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode` |
+| 4 | Writer credential, once. It writes `iac/secrets/hosts/pve01-cache.sops.yaml` and sets the environment secret `CACHE_WRITER_PASSWORD` in `cache-writer` from stdin, printing names only. WSL needs a `gh` command (a wrapper that execs the Windows `gh.exe` with `WSLENV=GH_TOKEN/u` works). Commit the SOPS file | operator (WSL) | `bash scripts/iac/cache-writer-secret.sh --repo <owner>/<repository>` |
+| 5 | GitHub setting: Settings, Environments, `cache-writer`, Deployment branches and tags, Selected branches, `master`. Until it is set, any branch's workflow that names the environment receives the secret (ADR 0050) | owner | GitHub web settings, no command |
+| 6 | Create the container, stopped | operator (WSL) | `export TF_VAR_ssh_public_keys='["<automation public key>"]'`, then `bash scripts/iac/tofu.sh cache-service pve01 init`, `plan`, `apply` |
+| 7 | Run only the start-gate play, which reads back the container's firewall and starts it only if every setting holds | operator (WSL) | `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml -l pve01` |
+| 8 | Pin the container's host key through the root path on pve01, render the SSH config and test the login | operator (WSL) | `$pve sudo pct exec 9050 -- cat /etc/ssh/ssh_host_ed25519_key.pub \| awk '{print "ssh_host_ed25519_public: " $1 " " $2}' \| sops encrypt --filename-override iac/secrets/hosts/cache01-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/cache01-ssh.sops.yaml /dev/stdin`, then `bash scripts/iac/render-ssh-config.sh`, then `ssh -F ~/.config/homelab/ssh_config cache01 true` |
+| 9 | Converge the service; the second run must end `changed=0` | operator (WSL) | `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml` |
+| 10 | Verify from a guest on the runner subnet (the workstation is not admitted on 8080): anonymous `GET /cas/<sha256>` 404 then 200 after a write, anonymous `PUT` 401, writer `PUT` 200, a `PUT` whose body does not match its digest 500 with nothing stored, `/metrics` shows `bazel_remote_disk_cache_size_bytes_limit 8.589934592e+09` (row 62) | operator (WSL) | the transcript is `docs/evidence/phase4/cache-api.txt` |
+| 11 | R15 with the cache path: the baseline of 2.8 step 6 reaches the cache (positive) and drops its tcp/22 (negative); the container is probed from inside | operator (WSL) | `r15-verify.yml` probes the cache container automatically when the host entry has `cache_endpoint` |
+
+`site.yml` never touches `cache01`; `cache.yml` does.
+
+## 3. Day-2 operations
+
+### 3.1 The VM: start, stop, status, checkpoint
+
+Role: operator (Windows), non-elevated once the Hyper-V Administrators membership is active. Prefix every line with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\hyperv\Invoke-PveVm.ps1`.
+
+| Action | Command suffix | Behavior |
 |---|---|---|
-| Framework installed | operator, WSL | `bash scripts/iac/ansible.sh site.yml -l pve01`, then a second run must end `changed=0` |
-| Pool `templates` and the clone-only role exist | operator, WSL | `$pve sudo pveum acl list` shows `/pool/templates` with `HomelabTemplateClone` |
-| Firewall group `guest-egress` and the guard timer exist | operator, WSL | `$pve sudo systemctl is-active homelab-guest-firewall-guard.timer` prints `active` |
-| Base images are on `local` | operator, WSL | the file names are `base` of each class in `iac/ansible/roles/pve_templates/defaults/main.yml`; check with `$pve sudo pvesm list local` |
-| Class content (the class `playbook.yml`) is installed under `/usr/local/share/homelab-template/bundles/<class>/` | operator, WSL | delivered by the class content changes; until then a build uses the minimal common playbook, which installs no toolchain and only describes the guest in the manifest |
-| Free space | operator, WSL | `$pve sudo lvs -o lv_name,data_percent,metadata_percent pve/data` and `$pve df -h /var/lib/vz`; a build refuses above the thresholds in `pve_templates_thresholds` |
+| Status | `-Action Status` | state, reachability, adapter connection, ACL rule counts, foreign ACLs, egress interface, firewall rule |
+| Start | `-Action Start` | checks host RAM and the firewall rule (refuses unless `-Force`), refreshes the port ACLs, starts the VM, prints seconds until TCP 22 answers (about 16 s, row 45) |
+| Refresh | `-Action Refresh` | running VM only: re-syncs the port ACLs after a VPN or default-route change; exit 1 and a disconnected adapter if the sync fails |
+| Stop | `-Action Stop` | graceful with a timeout; a hard power-off needs `-TurnOff -Force` |
+| Checkpoint | `-Action Checkpoint -Name <name>` | only while the VM is `Off`, the name unused, no DVD media attached, enough free disk (ADR 0019) |
 
-### 9.2 Build a version
+- There is no restore action. Restore with Hyper-V Manager or `Restore-VMSnapshot`, then start only with `-Action Start`: it re-syncs the port ACLs, a start from Hyper-V Manager does not. Remove a restore point (`Remove-VMSnapshot`) once the step it protects is verified.
+- A checkpoint taken before a credential rotation still holds the rotated-away secrets and restoring it makes them live again: take a fresh checkpoint after every rotation and remove the older ones.
+- Known gap: a scheduled task that runs `Refresh` on network change is required before any runner registers and is not created by the scripts (`scripts/hyperv/README.md`). Until it exists, a VPN or default-route change while the VM runs is picked up only by a manual `Refresh` or `Start`.
+- After docking or a network switch, a default route on another interface denies all guest egress (fail closed): edit `EgressInterfaceAlias` in the local override, then `Refresh`.
+- Rollback of the whole VM setup (owner, elevated): `New-PveHost.ps1 -ConfigPath scripts\hyperv\pve01.psd1 -Uninstall`; add `-PlanOnly` to list what would go.
+
+### 3.2 Converge and the reboot caveat
+
+```sh
+bash scripts/iac/ansible.sh site.yml          # host baseline, role by role; second run changed=0
+```
+
+A converge with pending kernel updates reboots the host: the cluster firewall, the guard and every guest stop and restart. After a reboot SSH answered at 43 s, the cache container ran at 45 s and its service at 49 s with data intact (row 67). Do it with the VM idle: no template build, no probe run, no runner job. Stop and take a checkpoint first (3.1) when the change is risky.
+
+### 3.3 Golden templates
+
+Classes: `lxc-runner` (VMID block 9200-9299) and `vm-docker` (9300-9399). A build is run by root on the host; the sandboxed guest step does the in-guest work (ADR 0038). Retention keeps `current` and `previous` (ADR 0039). A weekly timer rebuilds both classes; a build of a class also starts after a converge that changed its `versions.yml` (ADR 0041).
+
+Build, role root on pve01 (use the unit, not the bare command, so a failure marker is written):
 
 ```sh
 $pve sudo systemctl start --no-block homelab-template-build@lxc-runner.service      # or vm-docker
 $pve sudo journalctl -f -u homelab-template-build@lxc-runner.service -u homelab-template-guest@build.service -u homelab-template-guest@verify.service
 ```
 
-Use the unit rather than the bare command: the unit writes the failure marker through `OnFailure=`. The same build by hand is `$pve sudo homelab-template build lxc-runner`.
+Journal order on success: `PREFLIGHT ok`, `BUILD start ... version=v<N>`, `READBACK ok ... before first start`, `GATE ok ... manifest_sha256=...`, `VERIFY ok clone=<id> is a linked clone`, `PROMOTED class=... v<old> -> v<new>`, `RETENTION`. A failure ends with `FAILED` or `REFUSED` and the reason.
 
-What the journal shows, in order: `PREFLIGHT ok` (thin-pool and storage numbers), `LEFTOVER` (a guest from a crashed build, destroyed), `BUILD start ... version=v<N> vmid=<id>`, `READBACK ok ... before first start` (every network, firewall and guest-shape attribute matched), `START`, the guest step's lines (`guest-step: MANIFEST-DIFF ...`), `GATE ok ... manifest_sha256=...`, `READBACK ok ... template`, `VERIFY ok clone=<id> is a linked clone`, `TAGS`, `PROMOTED class=... v<old> -> v<new>`, `RETENTION destroyed|kept`. A failure ends with `FAILED` or `REFUSED` and the reason.
+Status, rollback, repair (root on pve01):
 
-### 9.3 Status
+```sh
+$pve sudo homelab-template status                  # exit 0 only when every class has exactly one current
+$pve sudo homelab-template rollback lxc-runner     # swaps current and previous; running again swaps back
+$pve sudo homelab-template repair lxc-runner       # re-tags from the root state after a failed tag move
+```
+
+`class=<c> ERROR current-count=0` or `=2` means consumers refuse the class; `MISMATCH recorded=<n>` means tags differ from the root state, run `repair`. After a rollback the next build promotes on top of the rolled-back version. Running clones are not touched. Measured: two versions per class retained, one-command rollback (row 56).
+
+Recover a failed build: read the marker (`$pve sudo ls /var/lib/homelab/templates/failed/`), then the cause (`$pve sudo journalctl -u homelab-template-build@<class>.service -n 200`, and `-u homelab-template-guest@build.service` for the guest step). Match the last line:
+
+| Line says | Action |
+|---|---|
+| `REFUSED thin pool ... is above` or `storage local has ... GiB free` | free space, rebuild; thresholds are `pve_templates_thresholds` in `iac/ansible/roles/pve_templates/defaults/main.yml` (thin pool 70 percent, local 8 GiB free) |
+| `REFUSED another homelab-template run holds the lock` | a build is running: `$pve sudo systemctl status homelab-template-build@<class>.service` |
+| `pre-start read-back differs: ...` | fix the named setting in the role or `iac/policy/runner-class.yml`, converge, rebuild |
+| `pass marker ... missing`, `guest-step: in-guest run.sh exited`, `SCAN FAILED` | read the guest-step lines above it, fix the class content, rebuild |
+| `not a linked clone` or `clone check differs` | rebuild |
+| `promotion recorded in state but the tag move failed` | `$pve sudo homelab-template repair <class>`, then `status` |
+
+Leftover guests need no manual cleanup: the next build destroys any non-template guest in the class block.
+
+Timer and last build: `$pve systemctl list-timers homelab-template-weekly.timer`, `$pve sudo journalctl -u 'homelab-template-build@*' -u homelab-template-weekly.service --since "7 days ago"`, `$pve systemctl list-units 'homelab-template-failure@*' --all`. A failed build leaves a `homelab-template-failure@<class>` run while the weekly service still ends green.
+
+Where things live on pve01: `/usr/local/sbin/homelab-template`, `/etc/homelab-template/config.json` (rendered, do not edit), root state `/var/lib/homelab/templates/<class>.json`, manifests `/var/lib/homelab/templates/manifests/<class>/v<N>.json`, failure markers `/var/lib/homelab/templates/failed/<class>`.
+
+Bump a base image pin (operator, WSL; then converge as root through Ansible):
+
+1. Take the new file name and its sha512 from the vendor index (`SHA512SUMS` beside the Debian cloud image; the Proxmox template mirror index). Debian images use a dated directory, never `latest`.
+2. Edit `pve_templates_base_images` (`url`, `sha512`) and `base:` in `pve_templates_classes` in `iac/ansible/roles/pve_templates/defaults/main.yml`; the role asserts the url file name equals the base volume name.
+3. Pull request and merge, then `bash scripts/iac/ansible.sh site.yml -l pve01`. The old image stays on the host until removed by hand, after the class built from the new one.
+4. Bump the class `versions.yml` when the new image should produce a new template; the converge starts that build.
+
+Bump a pinned toolchain in `lxc-runner` (operator with write access, branch and pull request). Edit only `iac/ansible/roles/pve_templates/files/bundles/lxc-runner/versions.yml` (plus `scan-allowlist.txt` when the scan asks). Each bump changes `version`, `url` and the hash together.
+
+1. .NET SDK (`dotnet_sdk_8`, `dotnet_sdk_10`): `curl -fsSL https://builds.dotnet.microsoft.com/dotnet/release-metadata/8.0/releases.json -o releases-8.0.json` (use `10.0` for the other), then `jq -r '.releases[0].sdk.files[] | select(.rid=="linux-x64" and (.name|test("tar.gz"))) | .url, .hash' releases-8.0.json`. The hash is sha512. Check the downloaded file with `sha512sum`. `dotnet_sdk_8` has an `end_of_support` date (2026-11-10); remove it and its playbook assert in a pull request after the repository stops targeting 8.0.x.
+2. Node 22 (`nodejs`): `curl -fsSLO https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt` and `SHASUMS256.txt.asc`; read the version from the file names and pin the exact version, never the `latest-v22.x` path. Verify `gpg --verify SHASUMS256.txt.asc SHASUMS256.txt` against the Node release keys, on the operator machine and never on pve01. The sha256 is `grep 'node-v<version>-linux-x64.tar.gz$' SHASUMS256.txt`.
+3. `actions_runner`: `gh api repos/actions/runner/releases/latest --jq .body`; take the sha256 between `BEGIN SHA linux-x64` and `END SHA linux-x64`. The service stops queuing jobs to a runner more than 30 days behind a critical release, so bump within the month.
+4. Local check, must end `OK:`: `bash tests/isolation/test-template-content.sh`.
+5. If a build stops with `SCAN FAILED ... secret pattern: <path> sha256=<hash>` for a file inside a Node or runner directory, open the file. Only the npm config help text or the definitions file with a placeholder key is allowlisted, by adding `<sha256>  <path>` to `scan-allowlist.txt` in the same pull request; any other file is a finding.
+6. Merge, converge (`bash scripts/iac/ansible.sh site.yml -l pve01`) or wait for the weekly timer. The build fails when installed versions differ from `versions.yml`.
+7. Verify: the new version's manifest `toolchains` and `versions_sha256` equal `sha256sum versions.yml` of the merged commit.
+
+Bump the `vm-docker` class (`iac/ansible/roles/pve_templates/files/bundles/vm-docker/versions.yml`):
+
+1. Engine: on a Debian 13 host run `apt-cache policy docker.io containerd runc` after `apt-get update`, then edit the `version:` of those three entries under `apt_packages`.
+2. Runner: take the `linux-x64` sha256 from the runner release notes, edit `version`, `url` and `sha256` of `actions_runner` (the version appears in the url twice), then check `curl -sLO <url>` against `sha256sum <file>`.
+3. `bash tests/isolation/test-template-content-vm.sh` must print `all passed`; commit, pull request, merge; the next rebuild picks it up (`$pve sudo homelab-template build vm-docker` builds now).
+4. Check the class on a clone with the R15 probe stack (2.8 steps 3 and 4), then, with `c` set to `$pve sudo ssh -i /root/.ssh/r15_probe_ed25519 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=accept-new debian@10.99.16.22`: `$c 'sudo docker run --rm hello-world'` prints "Hello from Docker!"; `$c "grep -cE 'svm|vmx' /proc/cpuinfo"` prints 0; `$c 'ls /opt/actions-runner/.runner /opt/actions-runner/.credentials'` reports both missing; `$c 'ss -ltn | grep -c :2375'` prints 0; `$c 'sudo -n -l -U runner'` says the runner user may not run sudo (row 59). Tear down as 2.8 step 8.
+
+Consume or pin a template (operator, WSL): a consumer never names a VMID; the module `iac/tofu/modules/proxmox/template-source` resolves the one template that carries the marker `homelab-template`, the class and the tag `current`, is a member of pool `templates` and lies in the class block, or the plan stops (ADR 0044).
 
 ```sh
 $pve sudo homelab-template status
+bash scripts/iac/tofu.sh r15-probe pve01 plan                 # the template_sources output lists class to VMID
+export TF_VAR_template_pins='{"lxc-runner":1}'                # pin class to version N; the version must still exist
+bash scripts/iac/tofu.sh r15-probe pve01 apply                # replaces the guest, the provider forces a new one
+unset TF_VAR_template_pins                                    # follow current again
 ```
 
-One line per class: `class=lxc-runner current=v3 vmid=9204 name=tmpl-lxc-runner-v3 previous=v2 last_build=...`. Exit 0 only when every class has exactly one `current`. `class=<c> ERROR current-count=0` or `=2` means consumers refuse that class; `MISMATCH recorded=<n>` means the tags differ from the root state (run `repair`, section 9.5). The same data from the API: `$pve sudo pvesh get /cluster/resources --type vm --output-format json`, filtered on the tag `homelab-template`.
+Rollback by pin changes one consumer, needs no host access and survives a new build; the root `rollback` moves `current` for every consumer. Errors: `Expected exactly one <class> template ... found 0` means no `current` (a build is running or none was built); `found 2` means run `homelab-template repair <class>`.
 
-### 9.4 Roll back
+### 3.4 Cache: health, purge, rotation
+
+Role: operator, reaching `cache01` as root: `ssh -F ~/.config/homelab/ssh_config cache01`.
+
+- Health: `systemctl status bazel-remote`; `journalctl -u bazel-remote -b | grep -E 'wait-for-address|verify-cas|Loaded'`. Every start runs `wait-for-address` (reads `/proc/net/fib_trie`; the unit's sandbox forbids netlink, so `ip` cannot be used there) and `verify-cas`, which hashes every blob and moves one whose content does not match its name to `/var/lib/bazel-remote/quarantine/`.
+- Size and eviction: budget 8 GiB (`--max_size 8`) on a 10 GiB volume, LRU eviction; metrics `bazel_remote_disk_cache_size_bytes` and `..._evicted_bytes_total` on `/metrics` (row 62).
+- Hit counting: Prometheus `bazel_remote_incoming_requests_total{kind="ac"}` does not count pointer lookups when AC validation is disabled; count from the access log (`journalctl -u bazel-remote | grep ' /ac/'`, status 200 hit, 404 miss) or from the client stats.
+- Purge for a cold cache: `systemctl stop bazel-remote && find /var/lib/bazel-remote/data -mindepth 1 -delete && systemctl start bazel-remote`. Builds run cold until a default-branch push saves again.
+- Rotate the writer credential (operator, WSL), then converge: `bash scripts/iac/cache-writer-secret.sh --rotate --repo <owner>/<repository>`, then `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml`.
+- Disable: empty `CACHE_URL` in `.github/workflows/reusable-sdet-pipeline.yml`; every restore answers "miss: no store configured" and builds run cold. The hosted fallback already runs that way (row 68).
+- Evidence of behavior: 20 fresh-workspace runs on a runner-template clone, run 1 missed and saved, runs 2 to 20 hit every restore, dependencies 38/38 and outputs 19/19 (row 63).
+
+Client wiring (CI): `dotnet-build` restores `nuget` then `dotnet-outputs`; `angular-jest` restores `node_modules`; the two `*-cache-save` jobs write only on a push to the default branch, in environment `cache-writer`. Statuses in the job summary: restore `hit`, `miss`, `rejected` (digest mismatch or unsafe archive; the build runs cold), `error`; save `saved`, `skipped`, `refused` (401 or 403), `failed` (5xx). No status fails a job. Keys are content-addressed and outputs are restored only on an exact match (ADR 0049).
+
+### 3.5 Secrets rotation
+
+| Secret | Command | Then |
+|---|---|---|
+| Cache writer credential | `bash scripts/iac/cache-writer-secret.sh --rotate --repo <owner>/<repository>` (operator, WSL) | converge `cache.yml` (3.4); fresh VM checkpoint if the VM was checkpointed earlier |
+| OpenTofu API token | `bash scripts/iac/ansible.sh site.yml -l pve01 -e pve_api_identity_rotate=true` (the role replaces the privilege-separated token and writes `iac/secrets/tofu/pve01-api.sops.yaml` through `sops set --value-stdin`) | commit the encrypted file |
+| OpenTofu state passphrase | move the encrypted state aside, then `bash scripts/iac/tofu.sh proxmox-host pve01 init-passphrase --rotate`; `tofu.sh` refuses while the state is still encrypted with the current passphrase | recreate or import the state; the stacks share the host's passphrase |
+| R15 probe key | delete `/root/.ssh/r15_probe_ed25519` on the host, rerun `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen`, replace the VM clone | the keygen play also clears the previous probe host keys |
+| Root password, SSH keys | edit with `sops iac/secrets/hosts/pve01.sops.yaml` and `pve01-access.sops.yaml`, then converge `site.yml` (keys); a new root password reaches the host only through a rebuilt ISO | take a fresh checkpoint, remove the old ones |
+| age identity (leak or loss) | a leaked identity means change every secret value, not only the encryption: old commits stay decryptable. New values, new recipient in `.sops.yaml`, recommit, apply to the hosts | `iac/secrets/README.md`, "Recovery and rotation" |
+
+Every secret file has one writer (table in `iac/secrets/README.md`). Never print a secret or put one on a command line; the scripts above read and write secrets through stdin.
+
+### 3.6 The guest firewall guard
+
+A root-owned timer (`homelab-guest-firewall-guard.timer`, one-minute cadence) runs `/usr/local/sbin/homelab-guest-firewall-guard` against the policy in `/etc/homelab/guest-firewall-guard-policy.json`. It stops any guest on a guarded vnet whose firewall settings are not the required policy: NIC without `firewall=1`, `policy_out` not DROP, a disabled group rule, an extra enabled rule, or inbound tcp/22 from a non-gateway source. It never starts a guest. Guests on an unknown bridge or on the host bridge are stopped too.
 
 ```sh
-$pve sudo homelab-template rollback lxc-runner
-$pve sudo homelab-template status lxc-runner
+$pve sudo journalctl -u homelab-guest-firewall-guard.service -n 20 --no-pager
+$pve sudo ls /var/lib/homelab/guest-firewall-guard/violations
 ```
 
-The command swaps `current` and `previous` and journals `ROLLBACK class=... current v<a> -> v<b>`. A second `rollback` swaps back. The next build promotes on top of the rolled-back version, and retention keeps that version and retires the one rolled back from. Running clones are not touched.
-
-### 9.5 Recover a failed build
-
-1. The marker: `$pve sudo ls /var/lib/homelab/templates/failed/`. Read the cause: `$pve sudo journalctl -u homelab-template-build@<class>.service -n 200` and, for the guest step, `$pve sudo journalctl -u homelab-template-guest@build.service -n 200`.
-2. Match the last `FAILED` or `REFUSED` line:
-
-| Line says | Meaning | Action |
+| Output | Meaning | Action |
 |---|---|---|
-| `REFUSED thin pool ... is above` or `storage local has ... GiB free` | space guard | free space (delete unused guests or backups), then rebuild |
-| `REFUSED another homelab-template run holds the lock` | a build is running | `$pve sudo systemctl status homelab-template-build@<class>.service`; wait for it |
-| `pre-start read-back differs: ...` | the guest was created with a setting that differs from policy; it was never started and is destroyed | fix the named setting in the role or `iac/policy/runner-class.yml`, converge, rebuild |
-| `pass marker ... missing`, `guest-step: in-guest run.sh exited` or `SCAN FAILED` | the in-guest build or secret scan failed; nothing was converted | read the guest-step journal lines above it, fix the class content, rebuild |
-| `not a linked clone` or `clone check differs` | verification failed; the new template was destroyed | read the line, rebuild |
-| `promotion recorded in state but the tag move failed` | state moved, tags did not | `$pve sudo homelab-template repair <class>`, then `status` |
+| `guest-firewall-guard: ok, N guest(s) checked on pve01` | every guest on a guarded vnet complies | none |
+| `VIOLATION vmid=<id> type=<t> <reason>; stopped` | the guest was stopped; a marker is left under `violations/<id>` | fix the guest's firewall (read the reason), then start it |
+| `VIOLATION ... STOP FAILED` | the guard could not stop it, exit 4 | stop it by hand now: `$pve sudo qm stop <id>` or `pct stop <id>` |
+| a capitalised line with `vmid=<id> type=<t> run=<n>/<limit> (<error>)` | the guest's config could not be read; the run counts toward a limit of 3 (`pve_firewall_guard_*` in `iac/ansible/roles/pve_firewall/defaults/main.yml`), exit 4 | check `pvesh get` on the guest |
+| `ERROR cannot read the policy` or `cannot list guests`; no guest was stopped | the guard is blind, exit 4 | rerun `site.yml`; check `pvesh` |
 
-3. Leftover guests need no manual cleanup: the next build destroys any non-template guest in the class block. To look first: `$pve sudo qm list` and `$pve sudo pct list`.
-4. Rebuild with the unit from section 9.2. A success removes the failure marker.
+A container created before its firewall exists is flagged at once; create guests stopped and start them only after a firewall read-back (the cache container does, ADR 0047, row 62).
 
-### 9.6 Where things live
+## 4. Verification and evidence
 
-| What | Where (on pve01) |
-|---|---|
-| Orchestrator, configuration | `/usr/local/sbin/homelab-template`, `/etc/homelab-template/config.json` (rendered by the role, do not edit) |
-| Root state, manifests, failure markers | `/var/lib/homelab/templates/<class>.json`, `manifests/<class>/v<N>.json`, `failed/<class>` |
-| Guest-facing step and its work directory | `/usr/local/libexec/homelab-template/guest-step`, `/var/lib/homelab-template-work` (the key lives here only while a build runs) |
-| Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; `homelab-template-weekly.timer` and `.service` (weekly rebuild, section 9.8) |
+### 4.1 Offline suites (no host)
 
-### 9.7 Checks without a host
+Operator (WSL), repository root, after step 3 of 2.1. CI runs the same checks (`docs/knowledge/test-catalogue.md` has one row per test file).
 
 ```sh
-bash tests/isolation/test-template-build.sh
-bash tests/isolation/test-template-guest-step.sh
-bash tests/isolation/test-template-finalize.sh
-bash tests/isolation/test-template-units.sh
-```
-
-They run the real scripts against fakes of `pvesh`, `qm`, `pct`, `lvs`, `systemctl` and `ssh`, so they prove the logic and the unit file, not Proxmox's behaviour. The host proof on 2026-10-07 built both classes on pve01, retained two versions per class, rolled back with one command, checked the provisioner token (403 on deleting or retagging a template, 200 on cloning it) and ran the R15 baseline on clones of both templates; the measured values are rows 55 to 60 of `docs/platform/requirements.md`.
-
-
-### 9.8 Host integration: bundles, base images, snippets content, weekly rebuild
-
-Role `pve_templates` (`iac/ansible/roles/pve_templates`), run on the Proxmox host from the repository root. Decision: ADR 0041.
-
-#### 9.8.1 Converge (role pve_templates, as root through Ansible)
-
-    bash scripts/iac/ansible.sh iac/ansible/playbooks/site.yml -l pve01
-
-The converge:
-- deploys every `files/bundles/<class>/` to `/usr/local/share/homelab-template/bundles/<class>/` (root-owned);
-- downloads each class base image and fails on a sha512 mismatch;
-- adds `snippets` to the content of storage `local`, keeping the existing types;
-- installs and enables the weekly timer;
-- starts the build of any class whose `versions.yml` changed, without waiting (the first converge starts every class).
-
-Check storage content:
-
-    pvesh get /storage/local --output-format json
-
-The `content` field must hold `snippets` and still hold `iso,vztmpl,backup,import`.
-
-Check the images:
-
-    ls -l /var/lib/vz/template/cache/ /var/lib/vz/import/
-
-#### 9.8.2 See the timer and the last build
-
-Role: operator, on pve01 through `$pve sudo` (`$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`).
-
-    systemctl list-timers homelab-template-weekly.timer
-    systemctl status homelab-template-weekly.service
-    journalctl -u 'homelab-template-build@*' -u homelab-template-weekly.service --since "7 days ago"
-    journalctl -u homelab-template-build@lxc-runner.service -n 200
-    systemctl list-units 'homelab-template-failure@*' --all
-
-A build that failed leaves a `homelab-template-failure@<class>.service` run; the weekly service itself still ends green.
-
-Run one class by hand (root, on the host):
-
-    systemctl start --no-block homelab-template-build@<class>.service
-
-#### 9.8.3 Bump a base image pin
-
-1. Find the new file and its sha512 from the vendor index (`SHA512SUMS` next to the Debian cloud image, the `aplinfo` index of the Proxmox template mirror). Debian images: use a dated directory, never `latest`.
-2. Edit `pve_templates_base_images` in `iac/ansible/roles/pve_templates/defaults/main.yml` (`url`, `sha512`) and `base:` in `pve_templates_classes` so the file name matches. The role asserts that the url file name equals the base volume name.
-3. Open a PR; after merge run the converge from step 1. The old image file stays on the host until removed by hand; delete it only after the class built from the new one.
-4. Bump the class `versions.yml` when the new image should produce a new template; the converge then starts that build.
-
-### 9.9 Bump a pinned toolchain in the lxc-runner template
-
-Role: operator with write access to the repository. All files are under `iac/ansible/roles/pve_templates/files/bundles/lxc-runner/`. Edit only `versions.yml` (plus `scan-allowlist.txt` when the scan asks). Work on a branch and open a pull request; the repository CI runs the content test.
-
-Each bump changes three fields together: `version`, `url`, and the hash.
-
-1. .NET SDK (entries `dotnet_sdk_8`, `dotnet_sdk_10`).
-   - Role: operator. Command: `curl -fsSL https://builds.dotnet.microsoft.com/dotnet/release-metadata/8.0/releases.json -o releases-8.0.json` (use `10.0` for the other).
-   - Read the hash and url: `jq -r '.releases[0].sdk.files[] | select(.rid=="linux-x64" and (.name|test("tar.gz"))) | .url, .hash' releases-8.0.json`. The hash is sha512; put it in `sha512:`.
-   - Check the file yourself after download: `sha512sum dotnet-sdk-<version>-linux-x64.tar.gz` must equal the pinned value. Signature check: Microsoft publishes the hash inside the metadata served over TLS from its own host; the pin is that hash.
-   - .NET 8 end of support is 2026-11-10 (`end_of_support.dotnet_sdk_8`). After that date, remove `dotnet_sdk_8` and the matching line in the playbook assert in the same pull request, after the repository stops targeting 8.0.x.
-2. Node 22 (entry `nodejs`).
-   - Command: `curl -fsSLO https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt` and `curl -fsSLO https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt.asc`. Read the version from the file names, then pin by exact version, never by the `latest-v22.x` path: url `https://nodejs.org/dist/v<version>/node-v<version>-linux-x64.tar.gz`.
-   - Signature: import the release keys listed in the `nodejs/release-keys` repository, then `gpg --verify SHASUMS256.txt.asc SHASUMS256.txt`. Do this at pin time on the operator machine, never on pve01.
-   - Hash: `grep 'node-v<version>-linux-x64.tar.gz$' SHASUMS256.txt` (sha256) goes in `sha256:`.
-3. `actions/runner` (entry `actions_runner`).
-   - Command: `gh api repos/actions/runner/releases/latest --jq .body` and take the sha256 between `BEGIN SHA linux-x64` and `END SHA linux-x64`. Url: `https://github.com/actions/runner/releases/download/v<version>/actions-runner-linux-x64-<version>.tar.gz`.
-   - The service stops queuing jobs to a runner more than 30 days behind a critical release, so keep the weekly rebuild running and bump within the month.
-4. Run the check locally (Linux or WSL): `bash tests/isolation/test-template-content.sh`. It must end with `OK:`.
-5. If the build later stops with `SCAN FAILED ... secret pattern: <path> sha256=<hash>` for a file inside a Node or runner directory, open the file. If it is the npm config help text or the definitions file with a placeholder key, add the line `<sha256>  <path>` to `scan-allowlist.txt` in the same pull request. Any other file is a finding: do not allowlist it.
-6. Merge. The next template build picks the new `versions.yml` up because the build copies the whole `bundles/lxc-runner/` directory into the guest; trigger it with the build command the framework section of `RUNBOOK.md` gives, or wait for the weekly timer. The build fails when the installed versions differ from `versions.yml`; the promotion step prints the manifest diff against the previous version.
-7. Verify the result: read the new version's manifest and check `toolchains` and `versions_sha256` equal `sha256sum versions.yml` of the merged commit.
-
-Rollback of a bad bump: revert the pull request, or switch the class back with the framework's one-command rollback (`RUNBOOK.md`, golden templates).
-
-Named gaps (not installed on purpose): `mc` (Phase 4 cache decision), `pwsh`, `gh`, Docker.
-
-### 9.10 The vm-docker class
-
-Content lives in `iac/ansible/roles/pve_templates/files/bundles/vm-docker/` (`versions.yml`, `daemon.json`, `playbook.yml`). Decision: ADR 0043. Build framework: ADR 0038, versioning and rollback: ADR 0040.
-
-#### Bump the container engine (role: operator, on a workstation)
-
-1. Find the current trixie versions: `apt-cache policy docker.io containerd runc` on a Debian 13 host after `apt-get update`.
-2. Edit the three `version:` values in `bundles/vm-docker/versions.yml`.
-3. `bash tests/isolation/test-template-content-vm.sh` (must print `all passed`).
-4. Commit, open a PR, merge. The next scheduled rebuild (or a manual one) picks it up.
-
-#### Bump the runner (role: operator, on a workstation)
-
-1. Pick the release at https://github.com/actions/runner/releases; copy the `linux-x64` sha256 from the release notes.
-2. Edit `version`, `url` and `sha256` of the `actions-runner` entry in `versions.yml` (the version appears in the URL twice).
-3. Verify the hash yourself: `curl -sLO <url>` then `sha256sum <file>` equals the pinned value.
-4. Run the test from the engine steps, then commit and merge.
-
-#### Build (role: root on pve01)
-
-`homelab-template build vm-docker`. A drift between installed versions and `versions.yml` fails the build before conversion.
-
-#### Check the class works on a clone (role: operator, WSL)
-
-Templates are sealed (no login key, ssh off), so use the R15 probe stack, which clones the current `vm-docker` template as VM 9102 and opens a probe-only channel (section 11.2 steps 1 to 4). Then, with `c` set to `$pve sudo ssh -i /root/.ssh/r15_probe_ed25519 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=accept-new debian@10.99.16.22`:
-
-1. `$c 'sudo docker run --rm hello-world'` must print "Hello from Docker!".
-2. `$c "grep -cE 'svm|vmx' /proc/cpuinfo"` must print 0.
-3. `$c 'ls /opt/actions-runner/.runner /opt/actions-runner/.credentials'` must report both missing.
-4. `$c 'ss -ltn | grep -c :2375'` must print 0 (no TCP listener).
-5. `$c 'sudo -n -l -U runner'` must say the runner user may not run sudo.
-6. Tear down with section 11.2 step 7.
-
-The probe's channel relies on the default user's sudo, which cloud-init restores at a clone's first boot; runner clones must not keep it (a Phase 5 entry gate).
-
-Decision record: ADR 0044 (with ADR 0036, 0039, 0040). Commands run from the operator's WSL shell at the repository root; `$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`, as in section 9.
-
-## 10. Consuming a template (OpenTofu)
-
-A consumer never names a VMID. It asks the module `iac/tofu/modules/proxmox/template-source` for a class (`lxc-runner` or `vm-docker`) and gets the VMID of the one template that carries the marker `homelab-template`, the class and the tag `current`. The plan stops (nothing is created) unless all of these hold: exactly one guest matches, it is a template, it is a member of pool `templates`, and its VMID lies in the class block (9200-9299 and 9300-9399). A pin replaces `current` with the tag `v<N>` and is checked the same way.
-
-### 10.1 Check what a consumer will resolve
-
-| Step | Who and where | Command or check |
-|---|---|---|
-| See the host's own view of the rule | operator, WSL | `$pve sudo homelab-template status`: exit 0 and one `current=` per class means a consumer resolves both classes |
-| Preview the consumer's resolution | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 plan` and read the `clone` lines of the two probe guests; the output `template_sources` lists class to VMID |
-| Read an error | operator | `Expected exactly one <class> template ... found 0` means no `current` (a build or a tag move is in progress, or none was ever built); `found 2` means two guests carry the tag, run `homelab-template repair <class>`; `is not a template`, `is not a member of pool templates`, `is outside the VMID block` name the one rule that failed |
-
-### 10.2 Pin a version
-
-A pin makes a consumer clone version N whatever `current` says. The pinned version must still exist: retention keeps only `current` and `previous` (ADR 0039).
-
-1. Find the versions that exist. Operator, WSL: `$pve sudo homelab-template status` (current and previous are named) and `$pve sudo qm list` / `$pve sudo pct list` (names `tmpl-<class>-v<N>`).
-2. Set the pin for one run. Operator, WSL: `export TF_VAR_template_pins='{"lxc-runner":1}'` (several classes: `'{"lxc-runner":1,"vm-docker":2}'`), then `bash scripts/iac/tofu.sh r15-probe pve01 plan`. The `clone` source of the guest changes to the pinned VMID.
-3. Apply it. Operator, WSL: `bash scripts/iac/tofu.sh r15-probe pve01 apply`. The guest is replaced, not edited in place, because the provider forces a new guest when the clone source changes.
-4. To pin permanently, put the same map in the consumer's variables file in the repository and review it like any change. Remove the pin (`unset TF_VAR_template_pins`, or delete the line) to follow `current` again.
-
-### 10.3 Roll back: the pin or the root command
-
-| | Pin (`template_pins`) | Root command (`homelab-template rollback <class>`) |
-|---|---|---|
-| Who runs it | operator, WSL, in the consumer's variables | operator, on the host as root |
-| What it moves | only the consumer that sets the pin | the `current` tag for every consumer that follows it |
-| Needs host access | no (API read only) | yes |
-| Survives a new build | yes: a new build promotes `current` but the pin holds | no: the next build promotes on top of the rolled-back version |
-| Needs the old version to exist | yes, N must still be present | yes, it is `previous` by definition |
-| Undo | remove the pin | `homelab-template rollback <class>` again swaps back |
-
-Use the pin when one consumer must hold a version while the fleet moves on, or when you have no host access. Use the root command when the new `current` is bad for everyone: `$pve sudo homelab-template rollback lxc-runner`, then `$pve sudo homelab-template status lxc-runner` (section 9.4). After a root rollback, a consumer without a pin resolves the previous version on its next plan; a guest already cloned from the bad version keeps running until it is replaced (apply again).
-
-## 11. Run the R15 probe on template clones
-
-The probe guests (VMIDs 9101 and 9102) are linked clones of the current `lxc-runner` and `vm-docker` templates in pool `homelab`. The rest of the procedure (keygen, targets file, phases, teardown) is `iac/tofu/stacks/r15-probe/README.md` and `tests/isolation/README.md`; this section adds what changed.
-
-Templates are sealed with sshd off (ADR 0038); the probe reaches its two clones through a probe-only channel, section 11.1.
-
-
-### 11.1 Control channel into the probe clones
-
-Decision record: ADR 0044 addendum. Templates stay sealed (ADR 0038); only the two probe clones get a channel. `$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`.
-
-| Step | Who and where | Command or check |
-|---|---|---|
-| Precondition | operator, WSL | storage `local` allows `snippets`: `$pve sudo pvesm status --content snippets` lists `local` |
-| 1. Generate the key and the vendor-data snippet | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen`; it prints `TF_VAR_probe_ssh_public_key=...` and writes `/var/lib/vz/snippets/r15-probe-vendor.yaml` |
-| 2. Check the snippet | operator, WSL | `$pve sudo cat /var/lib/vz/snippets/r15-probe-vendor.yaml` shows `#cloud-config` and the public key only |
-| 3. Apply the probe stack | operator, WSL | `export TF_VAR_probe_ssh_public_key='ssh-ed25519 ...'` then `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
-| 4. Run a phase | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<dir>`; the play opens the container's channel with `pct exec`, the VM's channel comes from the snippet |
-
-- Run step 1 before step 3; without the file the VM clone fails to start.
-- The key changes only if `/root/.ssh/r15_probe_ed25519` is deleted; if so, rerun step 1 and replace the VM (`tofu apply -replace=proxmox_virtual_environment_vm.probe`) because vendor data runs at first boot only.
-- `pct exec` is used only for the probe guests in `probe.yml`, never for runners.
-- Failure reading: `wait_for` timeout on 10.99.16.22:22 means the snippet was not applied (check `$pve sudo qm config 9102 | grep cicustom`); on 10.99.16.21:22 means the `pct exec` task did not start `ssh.service` (check its output).
-- Rollback: `tofu destroy` of the stack; delete `/var/lib/vz/snippets/r15-probe-vendor.yaml` (contains only a public key).
-
-### 11.2 Procedure
-
-| # | Step | Who and where | Command or check |
-|---|---|---|---|
-| 1 | At least one version of each class is built and consumers resolve | operator, WSL | `$pve sudo homelab-template status` exits 0 |
-| 2 | The base images are no longer fetched by this stack; nothing to download | operator | none; the stack has no `proxmox_download_file` |
-| 3 | Create the ephemeral key on the host | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen`, then `export TF_VAR_probe_ssh_public_key='<printed key>'` |
-| 4 | Create the clones | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 init`, then `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
-| 5 | Prove the clone source on the host | operator, WSL | `$pve sudo pct config 9101` and `$pve sudo qm config 9102` list no `template:`; `$pve sudo lvs -o lv_name,origin pve` shows the clone volumes with an `origin` of `base-<template vmid>-disk-N` |
-| 6 | Run the baseline | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>`; every `PROBE` row holds and `SUMMARY` exits 0 |
-| 7 | Tear down | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then delete the probe key, the probe snippet and the probe host keys on the host (`$pve sudo rm -f /root/.ssh/r15_probe_ed25519 /root/.ssh/r15_probe_ed25519.pub /var/lib/vz/snippets/r15-probe-vendor.yaml /var/lib/homelab/r15/known_hosts`); the next key generation also forgets the previous probes' host keys, which change with every new probe generation. No `pvesm free` is needed any more: no downloaded volume exists |
-
-Pin the probe to a version (to test the previous template): section 10.2 with the probe stack. A promoted new version replaces both probe guests on the next apply (the provider forces a new guest on a changed clone source); that is expected for this throwaway stack.
-
-While a probe clone of version N exists, retention will refuse to delete version N (journal: `REFUSED` with the clone's volume). Destroy the probe (step 7) before expecting space back.
-
-### 11.3 Checks without a host
-
-```sh
+for t in tests/isolation/test-*.sh; do bash "$t" || break; done            # isolation, template and cache-service tests
+ansible-lint --profile production iac/ansible
+for p in iac/ansible/playbooks/*.yml; do ANSIBLE_CONFIG=iac/ansible/ansible.cfg ansible-playbook --syntax-check "$p"; done
+tofu fmt -check -recursive iac/tofu
+(cd iac/tofu/stacks && tflint --recursive --config "$PWD/../../../.tflint.hcl")
 export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
-tofu -chdir=iac/tofu/stacks/r15-probe init -backend=false
-tofu -chdir=iac/tofu/stacks/r15-probe test
+for s in proxmox-host r15-probe cache-service; do tofu -chdir=iac/tofu/stacks/$s init -backend=false && tofu -chdir=iac/tofu/stacks/$s test; done
+PYTHONPATH=scripts/ci python3 -m unittest discover -s tests/cache -p "test_*.py"
+python3 -m unittest discover -s tests/evidence -v
+python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac
+bash tests/verify-affected-graph.sh
 ```
 
-`tests/template_source.tftest.hcl` is the table of refusals (zero, two, non-template, outside the pool or block, unknown class, pin); `tests/policy.tftest.hcl` pins the clone sources and `full = false`.
+`bash tests/cache/test_stale_binaries.sh` needs Linux and the .NET SDK 8. The Molecule scenario of the `base` role needs a Docker daemon, so it runs only in CI: `cd iac/ansible/roles/base && molecule test`. CI workflows: `iac-ci.yml`, `cache-ci.yml`, `evidence-ci.yml`, `affected-selector-ci.yml`.
 
----
+What these prove is the logic and the unit files against fakes (`tests/isolation/lib/fake-pve.py`), not Proxmox's behavior. A defect found only on the host is listed in `docs/knowledge/real-host-defects.md`.
 
-*This RunBook is verified and maintained for deterministic operations across automated and manual workflows.*
+### 4.2 Host proofs (real host)
 
-## 12. Build cache (Phase 4)
-
-A bazel-remote 2.6.2 container (`cache01`, VMID 9050) on its own SDN vnet `cache` (10.99.17.0/24) serves content-addressed caches to the runners on vnet `guests` through one firewall path, tcp 10.99.17.10:8080. Reads are anonymous; writes need the one writer credential, which only default-branch push jobs in environment `cache-writer` receive. Decisions: ADRs 0045–0051. Measured results: `docs/evidence/phase4/INDEX.md`.
-
-### 12.1 Network, firewall and guard (role: operator, WSL, repository root)
-
-1. Offline gate: `bash tests/isolation/test-cluster-fw-render.sh`, `bash tests/isolation/test-guest-fw-guard.sh`, `bash tests/isolation/test-r15-probe.sh`, `bash tests/isolation/test-r15-verify-cache.sh`, `ansible-lint --profile production iac/ansible`.
-2. List guests on any bridge other than `guests` and `cache`; the guard stops them once its per-vnet policy is in place (ADR 0047). Host: `sudo grep -l 'bridge=vmbr0' /etc/pve/qemu-server/*.conf /etc/pve/lxc/*.conf`.
-3. Converge the host: `bash scripts/iac/ansible.sh iac/ansible/playbooks/site.yml`. It renders `guest-egress` with the cache accept first, the group `cache-ingress`, the guard policy `/etc/homelab/guest-firewall-guard-policy.json`, and grants the provisioner `SDN.Use` on `/sdn/zones/hlab/cache`. A second run ends `changed=0` unless upstream packages changed in between (see 12.7).
-4. Add the vnet: `bash scripts/iac/tofu.sh proxmox-host pve01 plan` must show only the `cache` vnet and subnet added and the SDN applier replaced; then `apply`, then `plan -detailed-exitcode` returns 0.
-5. Verify on the host: `cat /proc/sys/net/ipv4/conf/cache/forwarding` prints 1; `sudo iptables -t nat -S POSTROUTING | grep 10.99.17.0/24` shows SNAT out of `vmbr0` only (runner-to-cache traffic keeps the runner's address); `sudo sed -n '/^\[group/,$p' /etc/pve/firewall/cluster.fw` shows both groups; `sudo journalctl -u homelab-guest-firewall-guard.service -n 3 --no-pager` ends with `ok, N guest(s) checked`.
-
-### 12.2 Cache service (role: operator, WSL, repository root)
-
-1. Writer credential, once (or `--rotate`): `bash scripts/iac/cache-writer-secret.sh --repo <owner>/<repository>`. It writes `iac/secrets/hosts/pve01-cache.sops.yaml` and sets the environment secret `CACHE_WRITER_PASSWORD` in `cache-writer` from stdin, printing names only. WSL needs a `gh` command; a wrapper that execs the Windows `gh.exe` with `WSLENV=GH_TOKEN/u` works. Commit the SOPS file.
-2. Owner step (GitHub setting): Settings → Environments → `cache-writer` → Deployment branches and tags → Selected branches → `master`. Until this is set, any branch's workflow that names the environment receives the secret (ADR 0050).
-3. Container: `export TF_VAR_ssh_public_keys='["<automation public key>"]'`, then `bash scripts/iac/tofu.sh cache-service pve01 init`, `plan`, `apply`. The container is created stopped; it is started only through the firewall read-back gate below.
-4. Start it through the gate, then pin its host key through the root path on pve01 and render the SSH config:
-   `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml -l pve01` (runs only the gate play)
-   `ssh pve01 sudo pct exec 9050 -- cat /etc/ssh/ssh_host_ed25519_key.pub | awk '{print "ssh_host_ed25519_public: " $1 " " $2}' | sops encrypt --filename-override iac/secrets/hosts/cache01-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/cache01-ssh.sops.yaml /dev/stdin`
-   `bash scripts/iac/render-ssh-config.sh`, then `ssh cache01 true` (ProxyJump pve01, `StrictHostKeyChecking yes`).
-5. Converge everything: `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml`. Its first play reads back the container's firewall (enable 1, DROP/DROP, ipfilter, exactly the groups `guest-egress` and `cache-ingress`, NIC on `cache` with `firewall=1`) and starts the container only if all hold. A second run ends `changed=0`.
-6. Verify from a guest on the runner subnet (the workstation is not admitted on 8080): anonymous `GET /cas/<sha256>` 404 then 200 after a write, anonymous `PUT` 401, writer `PUT` 200, a `PUT` whose body does not match its digest 500 and nothing stored, `GET /metrics` shows `bazel_remote_disk_cache_size_bytes_limit 8.589934592e+09`. The block is in `docs/evidence/phase4/cache-api.txt`.
-
-### 12.3 Client and CI wiring
-
-| Job | Restores | Saves |
+| Proof | Command | Passes when |
 |---|---|---|
-| dotnet-build | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs`; build `--no-restore` | — |
-| dotnet-cache-save | — | `nuget`, `dotnet-outputs`; push to the default branch, environment `cache-writer` |
-| angular-jest | `node_modules` (`scripts/apps/run-angular-jest.sh`), `npm ci` on a miss | — |
-| angular-cache-save | `node_modules` | `node_modules`; push to the default branch, environment `cache-writer` |
+| Idempotence | `bash scripts/iac/ansible.sh site.yml` twice | second run `changed=0` (row 60) |
+| Host stack drift | `bash scripts/iac/tofu.sh proxmox-host pve01 plan -detailed-exitcode` | exit 0 |
+| Templates | `$pve sudo homelab-template status` | exit 0, one `current` per class |
+| Guard | `$pve sudo journalctl -u homelab-guest-firewall-guard.service -n 3 --no-pager` | ends `ok, N guest(s) checked` |
+| R15 isolation | 2.8 step 6 | `SUMMARY` exits 0; runner clones `negatives_blocked=19/19 positives_ok=2/2`, cache container `12/12 1/1` (row 66) |
+| Cache | 2.9 step 10 | the six API outcomes hold (row 62) |
+| Token boundary | provisioner token deletes or retags a template | 403; cloning it 200 (row 57) |
 
-- Keys: dependency caches = sha256 over runner class, OS, arch, toolchain version and every lockfile's sha256; outputs = the same plus the git tree ids of the inputs, the configuration and the workspace root, restored only on an exact match (ADR 0049).
-- Statuses in the job summary: `hit`; `miss` (no pointer, no store configured, store unreachable); `rejected` (digest/size mismatch, dangling pointer, unsafe archive; the build runs cold); `error` (HTTP 400, a client bug); save `saved`, `skipped` (policy), `refused` (401/403, found by an empty-blob credential probe before any upload), `failed` (5xx). No status fails a job.
-- Disable: unset `CACHE_URL` in `reusable-sdet-pipeline.yml`; every restore answers "miss: no store configured" at once and builds run cold. The hosted fallback already runs with it empty.
-- Local checks: `PYTHONPATH=scripts/ci python -m unittest discover -s tests/cache -p "test_*.py"`; the stale-binary test `bash tests/cache/test_stale_binaries.sh` needs Linux and .NET SDK 8.
+Two R15 rows stay not measured in every phase (a VPN peer's web service and a host in a harvested prefix): no positive control exists on the Windows side (`docs/knowledge/real-host-defects.md`, open findings).
 
-### 12.4 Operating the service (role: operator; `ssh cache01` as root)
+### 4.3 Publishing evidence
 
-- Status and sweep: `systemctl status bazel-remote`; `journalctl -u bazel-remote -b | grep -E 'wait-for-address|verify-cas|Loaded'`.
-- Every start runs two `ExecStartPre` steps: `wait-for-address` (reads `/proc/net/fib_trie`; the unit's address-family sandbox forbids netlink, so `ip` cannot be used there) and `verify-cas`, which hashes every CAS file and moves a file whose content does not match its name to `/var/lib/bazel-remote/quarantine/` (bazel-remote 2.6.2 loads and serves a partially written file after a crash during an upload; measured).
-- Purge (cold cache): `systemctl stop bazel-remote && find /var/lib/bazel-remote/data -mindepth 1 -delete && systemctl start bazel-remote`. Builds run cold until a default-branch push saves again.
-- Rotate the writer credential: `bash scripts/iac/cache-writer-secret.sh --rotate --repo <owner>/<repository>` (WSL), then the converge in 12.2 step 5.
-- Size: budget 8 GiB (`--max_size 8`) on a 10 GiB volume, LRU eviction (measured with a 1 GiB instance: the oldest unread blobs go first, a blob read after every write stays). `bazel_remote_disk_cache_size_bytes` and `..._evicted_bytes_total` on `/metrics`.
-- Hit counting: Prometheus `bazel_remote_incoming_requests_total{kind="ac"}` does not count pointer lookups when AC validation is disabled; count from the access log (`journalctl -u bazel-remote | grep ' /ac/'`, status 200 = hit, 404 = miss) or from the client stats.
+Role: operator who holds the raw run output, on the workstation, Linux or WSL with Python 3.11 or newer, at the repository root. The raw files, the value map and the credential mask stay outside the repository; only the published copies and the index are committed (ADR 0052; `docs/knowledge/README.md` has the rules and the reading guide).
 
-### 12.5 Measured on this laptop (2026-10-07)
+```sh
+python3 scripts/evidence/publish.py --repo . \
+  --allow-addresses-from iac \
+  --map <value-map.json> \
+  --mask-script <mask-script.py> \
+  --deny-list <deny-list.txt> \
+  --raw-root plans=<directory holding the raw run folders> \
+  --raw-root logs=<directory holding the host transcripts> \
+  scripts/evidence/selection-phase1.json scripts/evidence/selection-phase2.json \
+  scripts/evidence/selection-phase3.json scripts/evidence/selection-phase4.json
+```
 
-- 20 fresh-workspace runs on a runner-template clone with an unchanged lockfile: run 1 missed and saved; runs 2–20 hit every restore (dependencies 38/38, outputs 19/19), matched by the server access log (`GET /ac` 200 ×57, 404 ×3). Per run: dependency restore 6–7.5 s, install 1.2–1.6 s, outputs restore 0.4–0.6 s, build 1.1–1.6 s with `CoreCompile` skipped.
-- R15 with the cache path, before and after a pve01 reboot: runner clones 16/16 negatives blocked, 2/2 positives (cache tcp/8080 reachable, cache tcp/22 dropped); inside the cache container 12/12, 1/1.
-- After a pve01 reboot the container runs at 45 s and the service at 49 s, the data intact.
+Name one selection file to publish one phase. A file withheld by a checker flag or a credential-mask marker makes the exit code non-zero; a withheld file is never edited by hand: read its `file:line:rule` output, add the exact value to the map, run the same command again. From a linked worktree opened in WSL, export `GIT_DIR` and `GIT_WORK_TREE` first. Check what is committed, as CI does: `python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac`.
 
-### 12.6 Known limits and owner steps
+## 5. Troubleshooting
 
-- The `cache-writer` branch policy is an owner setting (12.2 step 2); until it is set, the writer credential is protected only by the workflow condition, which a pull request can edit.
-- A host converge applies pending upstream updates and reboots into a new kernel (role `pve_host`); once runners exist, drain the pool first or converge in a maintenance window.
-- PVE prints "Systemd 257 detected. You may need to enable nesting." when the Debian 13 container reboots; the service's sandbox works without nesting (measured), but other systemd sandboxing inside the container may need it.
-- The self-hosted CI path cannot run until the Phase 5 runners exist; the hosted fallback was run green with the new wiring.
+Symptom, cause, fix. The full list with pull requests is `docs/knowledge/real-host-defects.md`.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `bootstrap.yml` or `site.yml` refuses to start, `armed` marker | an SSH-hardening run stopped while its dead-man was armed | inspect the host and `journalctl -t homelab-deadman`, delete the marker (2.4) |
+| `site.yml must connect as the automation user` | `-e ansible_user=root` left on a steady-state run | drop it; only `bootstrap.yml` connects as root |
+| Host rebooted during a converge | pending kernel update (decision D40, design) | expected; schedule converges in a window (3.2) |
+| Firewall check fires the dead-man on a clean config | a compile check read `ignore <chain>` lines as errors | fixed in the role; if it recurs, read `restore finished rc=0` in the journal and the check patterns |
+| Probe VM create returns 403 | token lacked `Datastore.Audit` on the disk storage, or a tag was set on create | fixed in the role; never widen the token, the probe declares no tags |
+| `unsafe characters in the Windows local application data path` on the second `apply` | the state copy path had a backslash | fixed: `tofu.sh` converts with `wslpath` |
+| `unknown command` from a template build | a `pvesm` subcommand does not exist on the host | fixed: storage is read with `pvesh get /storage/<id>` |
+| A converge failed and the rerun started no build | the on-change trigger was lost | fixed: a root-only pending-build marker survives until the build starts |
+| `exit status 226/NAMESPACE` on the verify guest unit | a sandbox mount named a removed directory | fixed: the path entries are optional |
+| VM build fails on an apt lock | cloud-init's first-boot `apt-get` holds it | fixed: `run.sh` waits for cloud-init |
+| `Expected exactly one <class> template ... found 2` | a linked clone inherited the `current` tag | resolve only among pool `templates` (fixed); run `homelab-template repair <class>` |
+| Clone's cloud-init drive returns 403 | the guest role lacked `VM.Config.CDROM` | fixed; granted on the guest role |
+| Guard flags a new cache container at once | the container existed before its firewall | create stopped, start through the read-back gate (2.9 steps 6 and 7) |
+| Cache write with a wrong digest answers 500 | bazel-remote 2.6.2 answers 500, not 400 | the client treats 500 or above as a failed write; the blob is never served |
+| Cache serves a partial blob after `kill -9` | bazel-remote 2.6.2 does not verify a file on load | the `verify-cas` start step quarantines it |
+| `bind: cannot assign requested address` on the first start after a reboot | the unit started before the address was configured | `wait-for-address` runs first and reads `/proc/net/fib_trie` |
+| ssh to a re-created probe guest fails `REMOTE HOST IDENTIFICATION HAS CHANGED` | the previous generation's host keys were kept | the keygen play deletes the probe known-hosts file; rerun `--tags r15_keygen` |
+| R15 `red-first` row fails `expected open, got dropped` after an SDN re-apply | the guest bridge's link-local address changed | update the stale address in `tests/isolation/targets.env` (open finding) |
+| `ifquery --check -a` refusal on `apply` | network config drift on the host | fix the drift first; the SDN applier reloads the whole config |
+| All guest egress denied after docking | a default route on another interface | edit `EgressInterfaceAlias`, then `Invoke-PveVm.ps1 -Action Refresh` |
+
+## 6. Retired
+
+The previous host (bare-metal Proxmox VE 8.x with persistent runner containers, an S3 cache and its bootstrap scripts) is retired; see ADR 0020 and the commit it names for what was kept.
