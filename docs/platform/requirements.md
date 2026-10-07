@@ -302,6 +302,19 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 
 ---
 
+### R18 — A handoff-ready deliverable; the owner does not operate it (2026-10-07)
+
+- **Raw request:** "From now on I am not the one who operates this in production. The goal is to implement, collect the knowledge, test and measure, and build the docs, the runbook and everything else, then hand it over to another team's technical lead, who continues it themselves."
+- **Restated:**
+  - This machine is the reference implementation and test bed, not production.
+  - Each phase delivers: the code; raw measured evidence; runbook steps that someone who was not here can execute; ADRs; named gaps.
+  - No runbook step assumes the owner. A manual step names the role that performs it and the exact command.
+  - Host-specific layers (Hyper-V, Windows firewall, the laptop's networks) stay separated from the portable core (Proxmox roles, OpenTofu stacks, templates, controller, workflows), so an adopter can drop the host layer.
+  - The repository stays neutral (R16); an adopter maps it to their environment in a fork (R5's raw request).
+- **Passes when:**
+  - A reader who was not part of the work rebuilds the platform from the runbook alone (Phase 8 timed rebuild).
+  - Every measured claim in the docs links to a raw log or a run.
+
 ## 2. Scope / Non-scope
 
 > In scope: the whole platform on this machine, from Hyper-V to runbook. Out of scope: organization-specific baselines, Kubernetes, the old host, and GitHub settings other than secrets.
@@ -403,6 +416,12 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | 52 | R15 with the firewall on, per guest (container and VM), 15 negatives and 1 egress positive with paired controls: baseline, after a container reboot, after a PVE reboot and after a laptop reboot each `negatives_blocked=15/15 positives_ok=1/1 egress_curl=200`. Two rows NOT MEASURED in every phase (VPN peer web, harvested-prefix host): no Windows-side positive exists, so a block cannot be told from an absent service | `CONFIRMED` | PR #71 body |
 | 53 | After the laptop reboot: VM started non-elevated, SSH 15.8 s after start; ACL read-back 18 (4 stateful rules = 4 entries, `::/0` twice, protocol `ANY`), host rule Block, IPv6 binding False; web UI through the tailnet and through the port proxy 200. Regression gate: WSL 1.8 s, Docker `hello-world` rc 0, 12449 MB RAM free with the VM and Docker running, C: 146.4 GB free | `CONFIRMED` | operator notes (outside the repo) |
 | 54 | IaC CI (both jobs: Ansible lint, syntax and Molecule; OpenTofu lint, validate and test) green at the current head of every chain PR: #62 37476645272, #63 37476650705, #64 37507733294, #65 37520875620, #66 37520886757, #67 37552511684, #68 37552514424, #69 37552517008, #70 37552520151 (10 passed), #71 37552523015 (10 + 10 passed, probe harness), #72 37552526486, #73 37552529539, #74 37552532600. The repository-wide .NET build is red on #57, #58 and master `179f826` alike (inherited, not Phase 2) | `CONFIRMED` | run IDs |
+| 55 | Golden-template builds on pve01 (PVE 9.2.21): lxc-runner about 2 min 15 s, vm-docker about 3 min 5 s per version. The first host runs found seven defects that offline tests with fakes could not, each fixed in a PR: a missing `pvesm` subcommand; an on-change build trigger lost after a failed converge; a 0700 parent directory the guest-facing user cannot traverse; a lagging cluster status that let cleanup destroy a running guest; a sandbox mount of a removed directory; an apt lock held by cloud-init's first boot; the runner's bundled npm config and docs tripping the secret scan. The gates held on the real host: pre-start read-back, the pass marker, the in-guest secret scan | `CONFIRMED` | operator notes (outside the repo); PR #79, #80, #84 bodies |
+| 56 | Two versions per class with manifests, and one-command rollback: after six builds both classes hold exactly two versions, lxc-runner current v6 / previous v5 and vm-docker current v6 / previous v5 (older versions retired after the clone-origin check); a systemd timer fired the weekly rebuild of both classes; `homelab-template rollback` moved `current` back one version and forward again on both classes, exit 0; each version's manifest hashes to the `manifest_sha256` in its template description; `pvesh get /nodes/pve01/storage/local-lvm/content` lists the four template base volumes (8 GiB LXC, 20 GiB VM); thin pool 20.06% data, 2.01% metadata | `CONFIRMED` | operator notes (outside the repo)|
+| 57 | Token boundary after Phase 3: the provisioner token gets 403 deleting a template (`VM.Allocate`) and 403 retagging it, 200 cloning it; pool `templates` holds only the templates; a VM clone's cloud-init drive needs `VM.Config.CDROM` (measured 403, granted on the guest role) | `CONFIRMED` | operator notes (outside the repo); PR #77, #83 bodies |
+| 58 | Linked clones inherit the template's tags and its guest firewall (rules = the `guest-egress` group, options = the runner-class policy); an LXC config update rejects `ssh-public-keys` (create-only). So consumers resolve templates only among members of pool `templates`, and stacks do not redeclare a clone's firewall | `CONFIRMED` | operator notes (outside the repo); PR #83 body |
+| 59 | R15 on clones of both templates, phase baseline: `negatives_blocked=15/15 positives_ok=1/1 egress_curl=200` on the container and the VM (17 PASS, 0 FAIL, 2 NOT MEASURED each). The vm-docker clone runs `docker run hello-world`, exposes no `svm`/`vmx`, has no Docker TCP listener and an unconfigured runner whose user has no sudo. Finding: cloud-init restores the default user's NOPASSWD sudo at a VM clone's first boot (a Phase 5 entry gate) | `CONFIRMED` | operator notes (outside the repo)|
+| 60 | Phase 2 end state held through Phase 3: `site.yml` second run `changed=0`, host stack `plan -detailed-exitcode` no changes; base images are fetched by Ansible with pinned sha512; storage `local` gained `snippets` with its previous content types kept; the weekly rebuild timer is armed (`Persistent=true`). R3 catalog tests run in CI (aws/t3.medium = 2 cores, 4096 MB, 30 GB) | `CONFIRMED` | operator notes (outside the repo); IaC CI run 37560039041 (catalog tests) |
 
 ---
 
@@ -500,6 +519,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
   - Scheduled rebuild.
 - **DONE WHEN:** two versioned templates with manifests exist, and rollback is one command.
 - **Proof:** pipeline logs and `pvesh get /nodes/<node>/storage/<s>/content`.
+- **Status:** in progress since 2026-10-07 (owner go); blast radius in 7.2a.
 
 ### Phase 4 — Cache service
 
@@ -522,6 +542,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
   - Warm pool and scale-to-zero.
   - Priorities, cancellation of superseded runs, and overflow to hosted per Q2.
   - Role-separated tokens.
+  - Entry gate before the first runner registration: fork PRs routed to hosted in the workflows (row 27, D17; a 2026-10-07 review re-confirmed the current expression selects self-hosted for fork PRs) and the fork-approval setting on.
 - **DONE WHEN:**
   - Every runner shows `ephemeral: true`.
   - The load test meets Q7.
@@ -569,7 +590,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 
 ## 6. Decision log
 
-> 63 rows: 59 decided, 1 superseded (D13 by D19), 3 open: D10 (controller) and D11 (language) for design, D60 for the owner. D1 and D2 were reworded on 2026-10-06 to remove organization references (R16); their substance is unchanged.
+> 72 rows: 68 decided, 1 superseded (D13 by D19), 3 open: D10 (controller) and D11 (language) for design, D60 for the owner. D1 and D2 were reworded on 2026-10-06 to remove organization references (R16); their substance is unchanged.
 
 | # | Decision | Options | Chosen | **Deciding criterion** | Status | ADR |
 |---|---|---|---|---|---|---|
@@ -636,6 +657,15 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | D61 | Requirements publication (plan D60) | publish this document as is / publish a redacted copy | `docs/platform/requirements.md` is built from this document by a sanitizing builder: the row-22 prefixes, the row-23 addresses, the workstation and user names become labels; local paths are removed; the unredacted copy stays operator-local; the repository copy is canonical once merged | operator: R16 and a public repository | `DECIDED (2026-10-07)` | 0034 |
 | D62 | Hyper-V socket transport inside the PVE guest (new) | leave `hv_sock` loaded / block the module in the guest / also remove the integration devices on the Hyper-V side | block the module (`install hv_sock /bin/false`), unload it; integration devices stay | operator: it is a host↔guest channel outside every network control (R15); KVP/VSS are unused (ADR 0019) | `DECIDED (2026-10-07)` | 0028 |
 | D63 | Owner of the storage definitions in Phase 2 (new; narrows the Phase 2 line "OpenTofu for storage") | OpenTofu manages storage / storage stays as the installer made it | storage stays as the installer made it: `local` (iso, vztmpl, backup, import) and `local-lvm` (guest disks) serve every Phase 2 need; OpenTofu reads them; Phase 3 (images) and Phase 4 (cache) name an owner | operator: changing storage definitions needs `Datastore.Allocate` on `/storage`, which also deletes any volume; the token's least privilege (D48) excludes it | `DECIDED (2026-10-07)` | 0035 |
+| D64 | Who may change a golden template (Phase 3, security review) | templates in the guest pool with `VM.Clone` added to the guest role / a separate consumer token / a dedicated `templates` pool with a clone-only role | pool `templates`; role `HomelabTemplateClone` = {`VM.Clone`, `VM.Audit`} granted there to the provisioner user and token; `VM.Clone` in no other role; asserted by the role and a CI test | operator: in the guest pool the token could delete or retag templates (`VM.Allocate`, `VM.Config.Options`); a second token adds a secret without shrinking a token that already creates and destroys guests | `DECIDED (2026-10-07)` | 0036 |
+| D65 | Guest firewall guard and extra rules (Phase 3, security review; strengthens D53/D55) | keep checking only that the group rule exists / reject any enabled rule outside the allowed set | a guest on the guest vnet violates when any enabled rule exists besides the `guest-egress` group and an inbound tcp/22 from the vnet gateway; guests off the vnet unchanged until Phase 4 | operator: a permissive rule beside the group rule survived the old guard, which ADR 0026 relies on to detect drift | `DECIDED (2026-10-07)` | 0037 |
+| D66 | Where and how golden templates are built (Phase 3, amends ADR 0012's templates cell) | Packer / OpenTofu + provider + Ansible / a host-side orchestrator | root orchestrator on the host for `qm`/`pct` with host-chosen arguments, a non-root sandboxed guest-facing step, Ansible run inside the build guest; OpenTofu only consumes templates | operator: retention needs the root path anyway, no LXC builder in Packer, and the host never parses guest output | `DECIDED (2026-10-07)` | 0038 |
+| D67 | Template model and retention | archive per version / Proxmox templates with linked clones | Proxmox templates on `local-lvm`, linked clones; keep `current` and `previous`; delete older only after the orchestrator's own clone-origin check | operator: LVM-thin does not refuse deleting a referenced base, measured in the storage code | `DECIDED (2026-10-07)` | 0039 |
+| D68 | Versions, pointer and promotion | reviewed promotion in the repository / automatic promotion by tag | monotonic version, VMID block per class, a `current` tag moved only by root, automatic promotion after verification; a consumer pin overrides the tag | owner (2026-10-07): automatic | `DECIDED (2026-10-07)` | 0040 |
+| D69 | Toolchain content of the runner templates | install per job / bake pinned toolchains | .NET SDK 8 and 10, Node 22 and the runner from release tarballs with pinned hashes; the runner installed, never configured; a non-root runner user without sudo | operator: the repository's self-hosted jobs skip `setup-dotnet` and `setup-node` | `DECIDED (2026-10-07)` | 0042 |
+| D70 | Container engine in the VM class | upstream engine repository / the distribution package | Debian's `docker.io`, unix socket only | operator: no third-party key, distribution security cadence | `DECIDED (2026-10-07)` | 0043 |
+| D71 | How consumers select a template, and the R15 probe | name a VMID / resolve fail closed | resolve among pool `templates` members by marker, class and `current` (or a pinned version): exactly one, a template, VMID in the class block; the R15 probe clones from the templates | operator: clones inherit tags, so the pool is the boundary | `DECIDED (2026-10-07)` | 0044 |
+| D72 | Owner of base images, snippets content and the rebuild schedule (refines D63) | the API token / Ansible as root | the template role fetches base images with pinned sha512, adds `snippets` to storage `local`, runs a weekly rebuild with catch-up, and never starts the VM itself (D25 unchanged) | operator: deleting volumes needs `Datastore.Allocate`, which no token holds | `DECIDED (2026-10-07)` | 0041 |
 
 ### Rejected options and why
 
@@ -671,6 +701,15 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | Time to roll back, and who | 15 minutes · `needs approval` (owner accepts UAC + reboot) | no rollback needed; the firewall dead-man restored the host by itself once (row 46); a checkpoint restore + start takes about 16 s and needs no approval; Phase 2 needed no UAC prompt and one owner reboot (the R15 after-reboot proof, row 52) |
 
 **If time to detect exceeds time to roll back, add signal before starting, not a bigger rollback plan.**
+
+### 7.2a Blast radius estimate — Phase 3 (recorded 2026-10-07, before starting)
+
+| Dimension | Estimate at opening | Actual at closing |
+|---|---|---|
+| What breaks, how many | pve01 storage: a full thin pool (62.5 GiB) stops every guest write on 1 host; one build guest at a time inside the 20 GiB VM; 0 runners exist yet (Phase 5), so 0 CI jobs; 0 laptop components (the VM is capped by D19) || nothing broke outside the build guests: failed builds destroyed their own guests (two were stopped by hand before that fix); thin pool at 20.06% with four retained templates; 0 CI jobs; the laptop ran on battery for part of the run |
+| Furthest environment | `none (CI / local only)`: laptop, pve01, PR CI | as estimated |
+| Time to detect | immediately for a failed build (exit code); a slow disk fill is found late, so a pre-build free-space check that refuses the build is added before the first build | immediately: each defect stopped its build or converge at the failing step, with the cause in the journal |
+| Time to roll back, and who | template: one rollback command, seconds, operator; host: stopped-VM checkpoint restore + start about 16 s, operator, no approval | one rollback command measured (exit 0, seconds); no host restore was needed |
 
 ### 7.3 Risk / rollback
 
@@ -745,6 +784,8 @@ Before Phase 6, which touches shared CI, run a risk assessment and summarize its
 | 2026-10-06 | Phase 2 started: D40 role applied (row 41, PR #59); D45 remote UI through the host (the mesh VPN serve feature + loopback `portproxy`, measured working); R17 added and ADRs 0001–0018 written for every decided row (PR #60); Phase 2 plan written (operator notes, 21 jobs, 10 PRs; its proposed decision numbers start at D46). Owner reboot pending (Hyper-V Administrators, R15 after-reboot tests) | Owner asked for real Proxmox changes, remote UI access and ADRs |
 | 2026-10-07 | Session 2 after the owner's reboot: rows 42–45 measured (R15 after reboot incl. the elevated Test 5 rows; D40 proven from the fresh install; host facts; checkpoint action live, including a stale read-back found only by the live run). D58 and D59 decided with ADRs 0020 and 0019. Phase 2 PRs #61–#63 opened as one chain on #60 (each adds an ADR index line); #59 converted to draft and superseded by the Ansible host-roles PR, which re-proves the role from `post-install`. Plan decision numbers D45–D60 map to D46–D61. Merge order for the owner: #57 (rebuilt) → #58 → #60 → #61 → #62 → #63; #59 not merged | Owner: continue phase by phase with a 9-phase overview table after each step |
 | 2026-10-07 | Phase 2 DONE WHEN met: rows 46–54 measured on the host and in CI (converge `changed=0`, plan 0, R15 in five phases on both guests incl. after the laptop reboot, CI green at every chain head); 7.2 "Actual at closing" filled; decision rows D51, D52, D60, D61, D63 added (D63 narrows "OpenTofu for storage": storage stays as the installer made it); D50 also cites ADR 0029; the section-6 count corrected. ADRs for D52, D61 and D63 follow in one PR | Independent DoD audit: all four clauses met; the remaining gaps were records, not host state |
+| 2026-10-07 | Phase 3 started on the owner's go (translated: "merged, start Phase 3", about 08:20 ICT; D32 had covered Phases 1–2 only). Blast radius recorded in 7.2a before any job. The Phase 2 chain #57–#75 was not merged at that time: master needs one approving code-owner review and the author cannot approve their own PR, so the owner merges with the admin bypass | Owner go for Phase 3 |
+| 2026-10-07 | Added R18: the owner does not operate the platform; the work is implemented, tested and measured here and handed over with docs and a runbook to another team's technical lead | Owner statement |
 
 ### Owner actions (besides merging)
 
