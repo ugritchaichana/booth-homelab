@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | `AGREED` |
-| Owner | repository owner (`ugritchaichana`) |
+| Owner | repository owner |
 | Operator | an AI coding agent |
 | Canonical copy | This file is the canonical copy of the platform-v2 requirements once merged. |
 | Opened | 2026-10-06 |
