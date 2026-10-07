@@ -89,7 +89,7 @@ def pvesh():
             rows = []
             for vmid, guest in world["guests"].items():
                 pool = tamper.get("pool", guest["pool"]) if is_build(guest) else guest["pool"]
-                rows.append({"vmid": int(vmid), "type": guest["type"], "node": world["node"], "name": guest["name"], "status": guest["status"],
+                rows.append({"vmid": int(vmid), "type": guest["type"], "node": world["node"], "name": guest["name"], "status": "stopped" if os.environ.get("FAKE_LAG") else guest["status"],
                              "template": guest["template"], "pool": pool, "tags": guest["tags"]})
             print(json.dumps(rows))
         elif parts[:3] == ["nodes", world["node"], "storage"]:
@@ -97,7 +97,9 @@ def pvesh():
         else:
             guest = get_guest(parts[3])
             tail = "/".join(parts[4:])
-            if tail == "config":
+            if tail == "status/current":
+                print(json.dumps({"status": guest["status"], "vmid": int(parts[3])}))
+            elif tail == "config":
                 print(json.dumps(view_config(guest)))
             elif tail == "firewall/options":
                 shown = dict(guest["fw_options"])
@@ -189,7 +191,8 @@ def guest_tool():
             new["origin"] = int(vmid)
         world["guests"][positional[0]] = new
     elif verb == "destroy":
-        get_guest(vmid)
+        if get_guest(vmid)["status"] == "running":
+            sys.exit(255)
         del world["guests"][str(vmid)]
     elif verb != "resize":
         sys.exit(2)

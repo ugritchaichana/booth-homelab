@@ -664,7 +664,7 @@ The command swaps `current` and `previous` and journals `ROLLBACK class=... curr
 |---|---|
 | Orchestrator, configuration | `/usr/local/sbin/homelab-template`, `/etc/homelab-template/config.json` (rendered by the role, do not edit) |
 | Root state, manifests, failure markers | `/var/lib/homelab/templates/<class>.json`, `manifests/<class>/v<N>.json`, `failed/<class>` |
-| Guest-facing step and its work directory | `/usr/local/libexec/homelab-template/guest-step`, `/var/lib/homelab/template-work` (the key lives here only while a build runs) |
+| Guest-facing step and its work directory | `/usr/local/libexec/homelab-template/guest-step`, `/var/lib/homelab-template-work` (the key lives here only while a build runs) |
 | Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; no timer yet |
 
 ### 9.7 Checks without a host

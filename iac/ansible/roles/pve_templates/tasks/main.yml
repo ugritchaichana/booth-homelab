@@ -42,6 +42,30 @@
     group: root
     mode: "0711"
 
+- name: Look at every parent directory of the work directory
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: >-
+    {%- set ns = namespace(path='', all=['/']) -%}
+    {%- for part in pve_templates_work_dir.split('/')[1:-1] -%}
+    {%- set ns.path = ns.path ~ '/' ~ part -%}
+    {%- set ns.all = ns.all + [ns.path] -%}
+    {%- endfor -%}
+    {{ ns.all }}
+  register: pve_templates_work_parents
+
+- name: Require that the guest-facing user can traverse to the work directory
+  ansible.builtin.assert:
+    that:
+      - item.stat.isdir
+      - item.stat.xoth
+    fail_msg: >-
+      {{ item.item }} is not traversable by other users, so {{ pve_templates_guest_user }}
+      cannot reach {{ pve_templates_work_dir }}; move pve_templates_work_dir
+  loop: "{{ pve_templates_work_parents.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
 - name: Install the root orchestrator
   ansible.builtin.copy:
     src: homelab-template.py

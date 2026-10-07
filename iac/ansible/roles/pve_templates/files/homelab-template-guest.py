@@ -166,7 +166,7 @@ def cleanup(work):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("build", "verify", "cleanup"))
-    parser.add_argument("--work-dir", default="/var/lib/homelab/template-work")
+    parser.add_argument("--work-dir", default="/var/lib/homelab-template-work")
     args = parser.parse_args()
     {"build": build, "verify": verify, "cleanup": cleanup}[args.mode](args.work_dir)
     return 0
