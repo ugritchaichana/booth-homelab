@@ -33,9 +33,17 @@ class Failed(Exception):
     pass
 
 
+def stdout_is_journal():
+    try:
+        info = os.fstat(sys.stdout.fileno())
+    except (OSError, ValueError):
+        return False
+    return os.environ.get("JOURNAL_STREAM") == "%d:%d" % (info.st_dev, info.st_ino)
+
+
 def log(message):
     print("homelab-template: " + message, flush=True)
-    if not os.environ.get("JOURNAL_STREAM"):
+    if not stdout_is_journal():
         try:
             subprocess.run(["logger", "-t", "homelab-template", message], check=False, timeout=10)
         except (OSError, subprocess.SubprocessError):

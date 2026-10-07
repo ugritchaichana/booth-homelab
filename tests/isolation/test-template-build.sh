@@ -17,7 +17,7 @@ for name in pvesh qm pct lvs systemctl logger; do
   printf '#!/bin/sh\nexec python3 -I "%s" %s "$@"\n' "$fake" "$name" > "$work/bin/$name"
   chmod +x "$work/bin/$name"
 done
-export PATH="$work/bin:$PATH"
+export PATH="$work/bin:$PATH" JOURNAL_STREAM=8:123456
 
 python3 -I - "$repo/iac/inventory/hosts.yml" "$work/vars.json" "$role" <<'PY'
 import json, sys, yaml
@@ -307,6 +307,20 @@ world_edit "w['guests']['9203']['tags'] = 'homelab-template;lxc-runner;v2'; w['g
 tplrun status $lxc
 expect "tags that disagree with the recorded state: status exits 1" 1 "$rc"
 has "tags that disagree with the recorded state: status says MISMATCH" "$case_dir/out.log" "MISMATCH recorded=2"
+
+echo "== journal lines: logger runs unless stdout really is the journal"
+new_case journal-stream
+build_ok $lxc "v1"
+: > "$case_dir/journal"
+stream_file="$case_dir/stream.log"
+: > "$stream_file"
+set +e
+FAKE_WORLD="$case_dir/world.json" FAKE_CALLS="$case_dir/calls" FAKE_JOURNAL="$case_dir/journal" JOURNAL_STREAM="$(stat -c %d:%i "$stream_file")" \
+  python3 -I "$tpl" --config "$case_dir/config.json" repair $lxc > "$stream_file" 2>&1
+set -e
+expect "stdout that is the journal stream: no second copy through logger" 0 "$(count 'REPAIR' "$case_dir/journal")"
+JOURNAL_STREAM=8:123456 tplrun repair $lxc
+expect "an inherited JOURNAL_STREAM that is not stdout: the line reaches logger" 1 "$(count 'REPAIR' "$case_dir/journal")"
 
 echo "== failure marker"
 new_case failure
