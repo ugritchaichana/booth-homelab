@@ -35,6 +35,17 @@ def nic_options(raw):
     return options
 
 
+def is_gateway_ssh_rule(rule, gateway):
+    return (
+        str(rule.get("type", "")).lower() == "in"
+        and str(rule.get("action", "")).upper() == "ACCEPT"
+        and str(rule.get("proto", "")).lower() == "tcp"
+        and str(rule.get("dport", "")) == "22"
+        and str(rule.get("source", "")) == gateway
+        and not any(rule.get(key) for key in ("dest", "sport", "macro", "iface"))
+    )
+
+
 def check_guest(node, guest, args):
     base = "/nodes/%s/%s/%s" % (node, guest["type"], guest["vmid"])
     config = pvesh(base + "/config")
@@ -57,6 +68,14 @@ def check_guest(node, guest, args):
         for r in rules
     ):
         problems.append("group rule %s missing or disabled" % args.group)
+    for rule in rules:
+        if not truthy(rule.get("enable", 0)):
+            continue
+        if rule.get("type") == "group" and rule.get("action") == args.group:
+            continue
+        if is_gateway_ssh_rule(rule, args.gateway):
+            continue
+        problems.append("enabled rule outside the allowed set (pos %s)" % rule.get("pos", "?"))
     for index, nic in enumerate(nics):
         if not truthy(nic.get("firewall", 0)):
             problems.append("a NIC has firewall=0 (nic %d)" % index)
@@ -85,6 +104,7 @@ def main():
     parser.add_argument("--node", required=True)
     parser.add_argument("--vnet", required=True)
     parser.add_argument("--group", required=True)
+    parser.add_argument("--gateway", required=True)
     parser.add_argument("--state-dir", default="/var/lib/homelab/guest-firewall-guard")
     parser.add_argument("--unverified-limit", type=int, default=3)
     args = parser.parse_args()

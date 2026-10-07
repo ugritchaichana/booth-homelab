@@ -9,9 +9,12 @@
       - pve_firewall_host_routed_prefixes | reject('match', pve_firewall_address_pattern) | list | length == 0
       - pve_firewall_host_routed_prefixes | select('match', '.*/0$') | list | length == 0
       - pve_firewall_deadman_minutes | int > 0
+      - pve_firewall_guest_gateway is match(pve_firewall_address_pattern)
+      - "'/' not in pve_firewall_guest_gateway"
     fail_msg: >-
-      Set pve_firewall_management_sources to IPv4 addresses without a zero prefix and
-      pve_firewall_host_routed_prefixes to a list of IPv4 prefixes without a zero prefix
+      Set pve_firewall_management_sources to IPv4 addresses without a zero prefix,
+      pve_firewall_host_routed_prefixes to a list of IPv4 prefixes without a zero prefix and
+      the guest_network gateway to one IPv4 address
   no_log: true
 
 - name: Read the dead-man timer state

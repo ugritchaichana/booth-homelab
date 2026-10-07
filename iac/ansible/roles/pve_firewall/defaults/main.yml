@@ -88,12 +88,13 @@ pve_firewall_deadman_boot_unit: homelab-deadman-firewall-boot
 pve_firewall_deadman_dir: /var/lib/homelab/deadman-firewall
 
 pve_firewall_guest_vnet: "{{ (guest_network | default({})).vnet | default('guests') }}"
+pve_firewall_guest_gateway: "{{ (guest_network | default({})).gateway | default('') }}"
 pve_firewall_guard_script: /usr/local/sbin/homelab-guest-firewall-guard
 pve_firewall_guard_unit: homelab-guest-firewall-guard
 pve_firewall_guard_unverified_limit: 3
 pve_firewall_guard_args: >-
   --node {{ pve_firewall_node_name }} --vnet {{ pve_firewall_guest_vnet }}
-  --group {{ pve_firewall_group }} --unverified-limit {{ pve_firewall_guard_unverified_limit }}
+  --group {{ pve_firewall_group }} --gateway {{ pve_firewall_guest_gateway }} --unverified-limit {{ pve_firewall_guard_unverified_limit }}
 pve_firewall_ipv6_sysctl_file: /etc/sysctl.d/90-homelab-guest-ipv6.conf
 pve_firewall_ipv6_sysctls:
   net.ipv6.conf.default.accept_ra: "0"
