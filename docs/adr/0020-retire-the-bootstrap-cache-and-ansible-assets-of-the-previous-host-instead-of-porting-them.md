@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-06
 - Deciders: operator
-- Decision log: recorded as the retirement row of the Phase 2 plan, not as a numbered entry in docs/platform/requirements.md
+- Decision log: D58 in docs/platform/requirements.md
 
 ## Context
 

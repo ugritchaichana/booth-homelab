@@ -1,4 +1,4 @@
-# 0030. Give guests a routed, masqueraded simple SDN zone with static addresses
+# 0030. Give guests a routed, source-NATed simple SDN zone with static addresses
 
 - Status: Accepted
 - Date: 2026-10-07
@@ -32,3 +32,4 @@ Option 3, in `iac/tofu/modules/proxmox/sdn/`, called by `iac/tofu/stacks/proxmox
 - Accepted loss: every guest address is assigned by hand and must be unique; nothing detects a duplicate. Revisit when guests are created from templates in bulk.
 - Measured offline with a mocked provider: `tofu test` passes the policy, two-host and overlap cases, and removing the overlap check or setting `snat` or `isolate_ports` to false each makes a test fail.
 - HYPOTHESIS, proven only by the host apply: SNAT works with the firewall on; `proxmox_sdn_applier` is documented EXPERIMENTAL and a second plan after apply shows no changes; the pinned provider's `isolate_ports` takes effect on the bridge.
+- Measured on the host: the zone's NAT rule is `-j SNAT --to-source`, so the zone uses source NAT and not masquerade; the title says so.
