@@ -1,0 +1,15 @@
+2026-10-07T20:14:20+07:00
+WARN: Systemd 257 detected. You may need to enable nesting.
+Task finished with 1 warning(s)!
+started-9501
+generating cloud-init ISO
+started-9502
+status: running
+status: running
+guest-firewall-guard: ok, 9 guest(s) checked on pve01
+homelab-guest-firewall-guard.service: Deactivated successfully.
+Finished homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet.
+homelab-guest-firewall-guard.service: Consumed 20.984s CPU time, 150.9M memory peak.
+fw 9501: {"dhcp":0,"digest":"aa5fca821f5844e756bcdbcff9d58b2a6abee8af","enable":1,"ipfilter":1,"log_level_out":"info","macfilter":1,"ndp":1,"policy_in":"DROP","policy_out":"DROP","radv":0}
+fw 9502: {"dhcp":0,"digest":"aa5fca821f5844e756bcdbcff9d58b2a6abee8af","enable":1,"ipfilter":1,"log_level_out":"info","macfilter":1,"ndp":1,"policy_in":"DROP","policy_out":"DROP","radv":0}
+Mem:           19996        3973       15159          48        1207       16022

@@ -1,0 +1,66 @@
+init exit=0
+Acquiring state lock. This may take a few moments...
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Read complete after 0s [id=559732b3-39e6-4c5a-a3e8-320c3fd9e3c0][0m
+[0m[1mproxmox_virtual_environment_container.guest["demo-lxc-runner"]: Refreshing state... [id=9501][0m
+
+OpenTofu will perform the following actions:
+
+[1m  # proxmox_virtual_environment_container.guest["demo"][0m has moved to [1mproxmox_virtual_environment_container.guest["demo-lxc-runner"][0m
+[0m    resource "proxmox_virtual_environment_container" "guest" {
+        id                                   = "9501"
+        tags                                 = [
+            "flavor-aws-t3.medium",
+            "flavor-guest",
+            "src-lxc-runner-v6",
+        ]
+        [90m# (19 unchanged attributes hidden)[0m[0m
+
+        [90m# (6 unchanged blocks hidden)[0m[0m
+    }
+
+[1mPlan:[0m 0 to add, 0 to change, 0 to destroy.
+[0m
+Changes to Outputs:
+  [33m~[0m[0m guests           = {
+      [31m-[0m[0m demo            = {
+          [31m-[0m[0m address   = "10.99.16.101"
+          [31m-[0m[0m cores     = 2
+          [31m-[0m[0m disk_gb   = 30
+          [31m-[0m[0m flavor    = "aws/t3.medium"
+          [31m-[0m[0m kind      = "lxc"
+          [31m-[0m[0m memory_mb = 4096
+          [31m-[0m[0m name      = "demo-lxc-runner-v6"
+          [31m-[0m[0m tags      = [
+              [31m-[0m[0m "flavor-aws-t3.medium",
+              [31m-[0m[0m "flavor-guest",
+              [31m-[0m[0m "src-lxc-runner-v6",
+            ]
+          [31m-[0m[0m vm_id     = 9501
+        }
+      [32m+[0m[0m demo-lxc-runner = {
+          [32m+[0m[0m address   = "10.99.16.101"
+          [32m+[0m[0m cores     = 2
+          [32m+[0m[0m disk_gb   = 30
+          [32m+[0m[0m flavor    = "aws/t3.medium"
+          [32m+[0m[0m kind      = "lxc"
+          [32m+[0m[0m memory_mb = 4096
+          [32m+[0m[0m name      = "demo-lxc-runner-v6"
+          [32m+[0m[0m tags      = [
+              [32m+[0m[0m "flavor-aws-t3.medium",
+              [32m+[0m[0m "flavor-guest",
+              [32m+[0m[0m "src-lxc-runner-v6",
+            ]
+          [32m+[0m[0m vm_id     = 9501
+        }
+    }
+
+You can apply this plan to save these new output values to the OpenTofu
+state, without changing any real infrastructure.
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Note: You didn't use the -out option to save this plan, so OpenTofu can't
+guarantee to take exactly these actions if you run "tofu apply" now.

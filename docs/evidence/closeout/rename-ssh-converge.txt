@@ -1,0 +1,13 @@
+rendered 2 host(s) into /root/.config/homelab
+render rc=0
+2
+0
+cache01
+active
+ssh rc=0
+converge rc=2 1s
+pve01                      : ok=1    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+fatal: [pve01]: FAILED! => {"changed": false, "msg": "Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for 'argv': object of type 'dict' has no attribute 'cache'"}
+converge rc=0 20s
+build-cache                : ok=22   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+pve01                      : ok=7    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   

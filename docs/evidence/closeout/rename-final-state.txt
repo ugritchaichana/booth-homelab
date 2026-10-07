@@ -1,0 +1,13 @@
+guest-firewall-guard: ok, 9 guest(s) checked on pve01
+ "NumFiles": 7,
+ "GitTags": "v2.6.2",
+VMID       Status     Lock         Name                
+9050       running                 build-cache-debian-13
+9101       running                 r15-probe-lxc-runner-v6
+9202       stopped                 tmpl-lxc-runner-v6  
+9204       stopped                 tmpl-lxc-runner-v5  
+9501       running                 demo-lxc-runner-v6  
+awk: 1: unexpected character '\'
+awk: 1: unexpected character '\'
+awk: 1: unexpected character '\'
+Unable to flush stdout: Broken pipe

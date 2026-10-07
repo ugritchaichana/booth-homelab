@@ -1,0 +1,80 @@
+{
+  "phase": "closeout",
+  "entries": [
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-plan-lxc.txt",
+      "dest": "docs/evidence/closeout/guest-plan-lxc.txt",
+      "proves": "D83: plan of the first flavor guest, 1 to add, demo-lxc-runner-v6 with 2 cores, 4096 MB, 30 GB"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-apply-lxc.txt",
+      "dest": "docs/evidence/closeout/guest-apply-lxc.txt",
+      "proves": "D83: first apply creates container 9501 in 1 s"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-lxc-verify.txt",
+      "dest": "docs/evidence/closeout/guest-lxc-verify.txt",
+      "proves": "D83: second plan shows the container disk still 8 GB (the provider ignores the size on clone) and pct config of 9501"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-lxc-apply2.txt",
+      "dest": "docs/evidence/closeout/guest-lxc-apply2.txt",
+      "proves": "D83: second apply resizes the disk in place to 30 GiB, third plan exit 0"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-moved-plan.txt",
+      "dest": "docs/evidence/closeout/guest-moved-plan.txt",
+      "proves": "D83: the role+class key move plans 0 to add, 0 to change, 0 to destroy"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-plan-vm.txt",
+      "dest": "docs/evidence/closeout/guest-plan-vm.txt",
+      "proves": "D83: plan of the VM guest demo-vm-docker-v7, 2 to add"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-apply-vm.txt",
+      "dest": "docs/evidence/closeout/guest-apply-vm.txt",
+      "proves": "D83: the wrapper applies twice; the VM pool read-back fails with 403 Pool.Allocate"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-plan-after-vm.txt",
+      "dest": "docs/evidence/closeout/guest-plan-after-vm.txt",
+      "proves": "D83: the pool drift persists on the next plan"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-settled.txt",
+      "dest": "docs/evidence/closeout/guest-settled.txt",
+      "proves": "D83: with pool_id ignored for VMs, apply and the settled plan report no changes; stack tests 25 passed"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/guest-start-guard.txt",
+      "dest": "docs/evidence/closeout/guest-start-guard.txt",
+      "proves": "D83: both demo guests started; the guard reports ok, 9 guests; firewall options of 9501 and 9502"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rename-plan.txt",
+      "dest": "docs/evidence/closeout/rename-plan.txt",
+      "proves": "Guest names: plans before the rename, in place only (r15-probe 2 to change, cache-service 1 to change)"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rename-pct-set.txt",
+      "dest": "docs/evidence/closeout/rename-pct-set.txt",
+      "proves": "Guest names: container hostnames set with pct set first, so the provider does not reboot them; the cache stays active"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rename-apply.txt",
+      "dest": "docs/evidence/closeout/rename-apply.txt",
+      "proves": "Guest names: tags and the VM name applied, settled plans exit 0, names and tags read back"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rename-ssh-converge.txt",
+      "dest": "docs/evidence/closeout/rename-ssh-converge.txt",
+      "proves": "Guest names: the rendered SSH config uses build-cache, strict host-key ssh works, the cache converge ends changed=0"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rename-final-state.txt",
+      "dest": "docs/evidence/closeout/rename-final-state.txt",
+      "proves": "Guest names: the guard reports ok, 9 guests; the cache serves from a probe; the container list shows the new names"
+    }
+  ]
+}
