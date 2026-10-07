@@ -32,3 +32,8 @@ output "type" {
   description = "Guest kind of the class: lxc or qemu."
   value       = try(local.spec.type, null)
 }
+
+output "version" {
+  description = "Version N of the selected template, read from its vN tag; null when nothing is selected."
+  value       = local.one_match ? try(one([for t in local.match.tags : tonumber(substr(t, 1, -1)) if can(regex("^v[0-9]+$", t))]), null) : null
+}
