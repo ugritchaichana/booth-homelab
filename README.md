@@ -4,13 +4,13 @@ A homelab built for learning: Proxmox VE 9 runs as a Hyper-V VM on a Windows wor
 
 State: the host, isolation, golden templates, build cache and flavor-sized guests are built and measured; the runner pool controller and the steps after it are handed off. The phase table is in [`docs/handoff/README.md`](docs/handoff/README.md). CI runs on GitHub-hosted runners until the pool exists ([ADR 0054](docs/adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)).
 
-[![sdet-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml)
-[![iac-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/iac-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/iac-ci.yml)
-[![cache-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/cache-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/cache-ci.yml)
-[![evidence-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/evidence-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/evidence-ci.yml)
-[![hyperv-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/hyperv-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/hyperv-ci.yml)
-[![secret-scan](https://github.com/ugritchaichana/booth-homelab/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/secret-scan.yml)
-[![standard-scorecard](https://github.com/ugritchaichana/booth-homelab/actions/workflows/standard-scorecard.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/standard-scorecard.yml)
+[![sdet-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml)
+[![iac-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/iac-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/iac-ci.yml)
+[![cache-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/cache-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/cache-ci.yml)
+[![evidence-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/evidence-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/evidence-ci.yml)
+[![hyperv-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/hyperv-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/hyperv-ci.yml)
+[![secret-scan](https://github.com/ugritchaichana/booth-homelab/actions/workflows/secret-scan.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/secret-scan.yml)
+[![standard-scorecard](https://github.com/ugritchaichana/booth-homelab/actions/workflows/standard-scorecard.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/standard-scorecard.yml)
 
 ## Architecture
 

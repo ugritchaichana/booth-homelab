@@ -46,6 +46,12 @@ Expected: the first prints a long encoded string (the script above treats HTTP 2
 11. A thin-pool headroom guard for runner disks and the cache volume.
 12. R15 re-run from a real JIT runner, including the cache-vnet negatives.
 13. A host converge that would reboot drains the pool first.
+14. The `dotnet-outputs` member check admits only `bin` and `obj` trees (today `^apps/(backend|fixtures)/` also admits `packages.lock.json`, which lets a compromised build job choose the NuGet cache key), or the NuGet save hashes lockfiles from `git show HEAD:<path>` (close-out security review).
+15. The tar member guard is a script with a test that feeds it crafted archives (`..`, absolute paths, symlinks, hardlinks); today only its presence before `tar -xf` is tested (close-out security review).
+16. A test keeps the runner-class expression in the workflow `env` and the `select-runner` job identical (close-out security review).
+17. `wiki-sync` tells an uninitialised wiki apart from an auth or network failure, and checks the commit result (close-out security review).
+
+The close-out security review also recommends deregistering the two offline runners of the retired host now rather than in Phase 6: a pull request can name self-hosted labels in its own workflow file, so registered runners, not the routing expression, are the real exposure.
 
 Open items of the Phase 4 security review (an independent review of the Phase 4 branch; nothing blocked closing Phase 4): the branch policy (gate 7), the cache container's pool (gate 8), guard alerting and cache egress (both Phase 7, see [limits-and-gaps.md](limits-and-gaps.md)).
 
