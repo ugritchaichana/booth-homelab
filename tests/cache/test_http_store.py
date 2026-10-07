@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 
-from support import key_for
+from support import PATCHED, key_for
 from build_cache import cli
 from build_cache.adapters.http_store import EMPTY_SHA256, HttpStore
 from build_cache.adapters.tar_archiver import TarArchiver
@@ -127,7 +127,7 @@ class HttpStoreTests(unittest.TestCase):
         self.src, self.dest = self.tmp / "src", self.tmp / "dest"
         (self.src / "obj").mkdir(parents=True)
         (self.src / "obj" / "a.dll").write_bytes(b"binary-a")
-        self.archiver = TarArchiver(prefer_zstd=False)
+        self.archiver = TarArchiver(prefer_zstd=False, version_info=PATCHED)
         self.key = key_for("dotnet-outputs", "http")
         self.ac_name = hashlib.sha256(self.key.encode()).hexdigest()
         self.server = FakeCacheServer()
