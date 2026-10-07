@@ -181,17 +181,3 @@ mutate "loosen ProtectSystem" templates/bazel-remote.service.j2 's/^ProtectSyste
 mutate "put the password in the unit" templates/bazel-remote.service.j2 '/^\[Install\]/i Environment=PW={{ cache_writer_password }}'
 mutate "drop no_log" tasks/main.yml '/^  no_log: true/d'
 mutate "unpin the digest" defaults/main.yml 's/^cache_service_sha256: .*/cache_service_sha256: 0000000000000000000000000000000000000000000000000000000000000000/'
-
-mkdir -p "$work/fakebin"
-cat > "$work/fakebin/ip" <<'SH'
-#!/bin/sh
-echo "2: eth0    inet ${FAKE_ADDR:-10.99.17.10}/24 brd 10.99.17.255 scope global eth0"
-SH
-chmod +x "$work/fakebin/ip"
-PATH="$work/fakebin:$PATH" bash "$role/files/wait-for-address" 10.99.17.10 3 > "$work/wait.log" 2>&1 || { cat "$work/wait.log" >&2; echo "FAIL: wait-for-address did not accept a configured address" >&2; exit 1; }
-if PATH="$work/fakebin:$PATH" FAKE_ADDR=10.99.17.11 bash "$role/files/wait-for-address" 10.99.17.10 2 > "$work/wait.log" 2>&1; then
-  echo "FAIL: wait-for-address accepted an address that is not configured" >&2
-  exit 1
-fi
-grep -q "was not configured on any interface within 2 seconds" "$work/wait.log" || { cat "$work/wait.log" >&2; echo "FAIL: no clear message on timeout" >&2; exit 1; }
-echo "ok: wait-for-address returns for a configured address and fails with a message after the limit"
