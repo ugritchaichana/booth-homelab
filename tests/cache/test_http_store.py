@@ -1,4 +1,5 @@
 import argparse
+import base64
 import contextlib
 import hashlib
 import http.client
@@ -18,7 +19,7 @@ from unittest import mock
 
 from support import key_for
 from build_cache import cli
-from build_cache.adapters.http_store import HttpStore
+from build_cache.adapters.http_store import EMPTY_SHA256, HttpStore
 from build_cache.adapters.tar_archiver import TarArchiver
 from build_cache.application.restore import restore
 from build_cache.application.save import save
@@ -26,6 +27,7 @@ from build_cache.domain.models import Manifest, StoreUnavailable, WriteFailed, W
 from build_cache.domain.policy import WriteDecision
 
 NAME_RE = re.compile(r"^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$")
+LARGE = 1 << 20
 PASSWORD = "s3cret-Pa55-do-not-leak"
 ALLOW = WriteDecision(True, "test")
 
@@ -33,7 +35,8 @@ ALLOW = WriteDecision(True, "test")
 class FakeCacheServer:
     def __init__(self, delay: float = 0.0):
         self.ac, self.cas, self.requests, self.delay = {}, {}, [], delay
-        self.fail_puts = self.fail_gets = False
+        self.fail_puts = self.fail_gets = self.drop_large_puts = self.keep_password_on_drop = False
+        self.password = PASSWORD
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -67,14 +70,19 @@ class FakeCacheServer:
 
             def do_PUT(self):
                 outer.requests.append((self.command, self.path, self.headers.get("Authorization")))
-                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                length = int(self.headers.get("Content-Length", 0))
                 if not NAME_RE.match(self.path):
                     return self._reply(400)
-                import base64
-
-                expected = "Basic " + base64.b64encode(f"ci-writer:{PASSWORD}".encode()).decode()
+                expected = "Basic " + base64.b64encode(f"ci-writer:{outer.password}".encode()).decode()
                 if self.headers.get("Authorization") != expected:
+                    self.close_connection = True
                     return self._reply(401)
+                if outer.drop_large_puts and length > LARGE:
+                    if not outer.keep_password_on_drop:
+                        outer.password = "rotated-after-the-probe"
+                    self.close_connection = True
+                    return
+                body = self.rfile.read(length)
                 table, kind, name = self._store()
                 if table is None:
                     return self._reply(404)
@@ -166,7 +174,7 @@ class HttpStoreTests(unittest.TestCase):
     def test_cas_put_with_a_body_that_does_not_match_its_digest_fails_with_500_and_stores_nothing(self):
         with self.assertRaises(WriteFailed):
             self.writer().put_blob(hashlib.sha256(b"one").hexdigest(), b"another")
-        self.assertEqual(self.server.cas, {})
+        self.assertLessEqual(set(self.server.cas), {EMPTY_SHA256})
         self.assertIsNone(self.reader().get_blob(hashlib.sha256(b"one").hexdigest()))
 
     def test_a_5xx_on_put_is_a_failed_save_distinct_from_unreachable_and_refused(self):
@@ -205,6 +213,36 @@ class HttpStoreTests(unittest.TestCase):
         with mock.patch.object(HttpStore, "_request", return_value=(400, b"")):
             result = save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
         self.assertEqual(result.status, "error")
+
+    def big_source(self):
+        (self.src / "obj" / "big.bin").write_bytes(os.urandom(3 << 20))
+
+    def test_a_wrong_password_with_a_large_blob_is_refused_by_the_probe_without_uploading(self):
+        self.big_source()
+        wrong = HttpStore(self.server.url, "not-the-password")
+        result = save("dotnet-outputs", self.key, self.src, ["obj"], wrong, self.archiver, ALLOW)
+        self.assertEqual(result.status, "refused")
+        self.assertEqual([(m, p.rsplit("/", 1)[1]) for m, p, _ in self.server.requests], [("PUT", EMPTY_SHA256)])
+
+    def test_one_probe_per_process_even_for_blob_and_pointer(self):
+        save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        probes = [r for r in self.server.requests if r[1].endswith(EMPTY_SHA256)]
+        self.assertEqual(len(probes), 1)
+        self.assertEqual(len([r for r in self.server.requests if r[0] == "PUT"]), 3)
+
+    def test_a_drop_followed_by_a_401_probe_is_refused(self):
+        self.big_source()
+        self.server.drop_large_puts = True
+        result = save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        self.assertEqual(result.status, "refused")
+
+    def test_a_drop_followed_by_a_good_probe_is_failed(self):
+        self.big_source()
+        self.server.drop_large_puts = True
+        self.server.keep_password_on_drop = True
+        result = save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("dropped", result.detail)
 
     def test_a_5xx_on_get_stays_a_miss(self):
         self.server.fail_gets = True
