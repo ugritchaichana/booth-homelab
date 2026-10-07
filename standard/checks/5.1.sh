@@ -20,7 +20,7 @@ require() {
 contains() { grep -qE -- "$1" "$2" 2> /dev/null; }
 trigger_count() { awk -v event="$1" '$0 ~ "^  " event ":" {inside = 1; next} inside && /^  [a-z_]+:/ {inside = 0} inside && /dotnet-affected-test|tests\/\*\*/ {count++} END {print count + 0}' "$selector_ci"; }
 triggers_on_selector_and_harness() { [ "$(trigger_count push)" -ge 2 ] && [ "$(trigger_count pull_request)" -ge 2 ]; }
-mutant_rows() { sed -n '/<<.MUTANTS./,/^ *MUTANTS$/p' "$selector_ci" | grep -cE '^ *M[0-9]+\|'; }
+mutant_rows() { sed -n '/<<.MUTANTS./,/^ *MUTANTS$/p' "$selector_ci" | grep -cE '^ *[a-z][a-z0-9-]*\|'; }
 has_three_mutants() { [ "$(mutant_rows)" -ge 3 ]; }
 harness_runs_ci_selector() { grep -q 'verify-affected-graph.sh' "$selector_ci" && grep -qE 'SELECTOR_SH:-.*scripts/apps/dotnet-affected-test.sh' tests/verify-affected-graph.sh; }
 pipeline_runs_the_same_selector() { grep -q 'scripts/apps/dotnet-affected-test.sh' .github/actions/run-affected-tests/action.yml; }
