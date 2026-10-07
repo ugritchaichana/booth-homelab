@@ -26,6 +26,8 @@ resource "proxmox_virtual_environment_container" "probe" {
     swap      = 0
   }
 
+  tags = ["r15-probe"]
+
   clone {
     vm_id = module.template_source[local.guests.lxc.template_class].vmid
     full  = false
@@ -93,6 +95,8 @@ resource "proxmox_virtual_environment_vm" "probe" {
   memory {
     dedicated = 512
   }
+
+  tags = ["r15-probe"]
 
   clone {
     vm_id = module.template_source[local.guests.vm.template_class].vmid

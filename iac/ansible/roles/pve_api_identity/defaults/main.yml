@@ -16,6 +16,7 @@ pve_api_identity_roles:
   HomelabGuests:
     - VM.Allocate
     - VM.Audit
+    - VM.Config.CDROM
     - VM.Config.CPU
     - VM.Config.Cloudinit
     - VM.Config.Disk
