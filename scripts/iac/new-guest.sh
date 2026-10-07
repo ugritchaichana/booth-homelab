@@ -15,7 +15,8 @@ usage() {
   cat >&2 << 'USAGE'
 usage: new-guest.sh --flavor PROVIDER/INSTANCE --template CLASS [--role ROLE] [--version vN] [--host HOST] [--apply]
   Adds or updates the guest ROLE in the guest list, then plans (or applies) the guest stack.
-  ROLE defaults to guest-NN; the Proxmox name is ROLE-CLASS-vN. Without --version the guest follows the current template.
+  A guest is ROLE-CLASS, so one role can have both classes; ROLE defaults to guest-NN. The Proxmox name is ROLE-CLASS-vN.
+  Without --version the guest follows the current template. --apply applies without asking, repeats once while the plan still shows changes, and fails if it does.
 USAGE
   exit 2
 }
@@ -79,7 +80,8 @@ if host not in hosts:
 data = yaml.safe_load(open(path)) or {}
 section = data.setdefault("guests", {}).setdefault(host, {})
 taken = {entry["slot"] for entry in section.values()}
-existing = section.get(role) if role else None
+key = f"{role}-{template}" if role else None
+existing = section.get(key) if key else None
 if existing:
     slot = existing["slot"]
 else:
@@ -87,32 +89,45 @@ else:
     if not free:
         fail(f"no free slot on {host}: slots 1 to 99 are all used")
     slot = free[0]
-    role = role or f"guest-{slot:02d}"
-if len(role) + len(template) + 3 > 63:
-    fail(f"role {role} makes the name {role}-{template}-vN longer than 63 characters")
+    key = key or f"guest-{slot:02d}-{template}"
+if len(key) + 3 > 63:
+    fail(f"role {role} makes the name {key}-vN longer than 63 characters")
 
 entry = {"flavor": flavor, "template_class": template}
 if version:
     entry["template_version"] = int(version[1:])
 entry["slot"] = slot
-section[role] = entry
+section[key] = entry
 
 directory = os.path.dirname(os.path.abspath(path))
 handle, temp = tempfile.mkstemp(dir=directory, prefix=".guests.")
 with os.fdopen(handle, "w") as out:
     yaml.safe_dump(data, out, explicit_start=True, sort_keys=False, default_flow_style=False)
 os.replace(temp, path)
-print(f"{host} {role} {slot}")
+print(f"{host} {key} {slot}")
 PY
 }
 
 result="$(edit_guests)"
-read -r host role slot <<< "$result"
-echo "guest $role on $host: $flavor, $template${version:+ $version}, slot $slot"
+read -r host key slot <<< "$result"
+echo "guest $key on $host: $flavor, $template${version:+ $version}, slot $slot"
 
 extra=()
 [ -z "${HOMELAB_GUESTS_FILE:-}" ] || extra=("-var=guests_file=$guests_file")
-verb=plan
-[ "$apply" -eq 0 ] || verb=apply
+settled() { bash "$tofu_sh" guest "$host" plan -detailed-exitcode ${extra[@]+"${extra[@]}"}; }
+
+if [ "$apply" -eq 0 ]; then
+  bash "$tofu_sh" guest "$host" init -input=false
+  bash "$tofu_sh" guest "$host" plan ${extra[@]+"${extra[@]}"}
+  exit 0
+fi
+
 bash "$tofu_sh" guest "$host" init -input=false
-bash "$tofu_sh" guest "$host" "$verb" ${extra[@]+"${extra[@]}"}
+for _ in 1 2; do
+  bash "$tofu_sh" guest "$host" apply -auto-approve ${extra[@]+"${extra[@]}"}
+  rc=0
+  settled || rc=$?
+  [ "$rc" -ne 0 ] || exit 0
+  [ "$rc" -eq 2 ] || die "plan failed with exit $rc after apply"
+done
+die "the plan still shows changes after two applies; run plan and read it"
