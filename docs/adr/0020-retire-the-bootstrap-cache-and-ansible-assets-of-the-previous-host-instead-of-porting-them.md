@@ -24,7 +24,7 @@ The repository still carries assets written for a bare-metal Proxmox VE 8.x host
 
 ## Decision
 
-Option 3, in two changes: the first removes the bootstrap scripts, the cache policies and the import scripts; the second removes the old Ansible tree, the two firewall scripts and the CI job that checked them, and makes the OpenTofu job find root modules by layout. Later phases rebuild what they need under the new layout.
+Option 3, in two changes: the first removes the bootstrap scripts, the cache policies and the import scripts; the second removes the old Ansible tree, the two firewall scripts and the CI job that checked them, and makes the OpenTofu job find root modules by layout. The OpenTofu root module of the previous host is retired in a separate change once the new stack exists. Later phases rebuild what they need under the new layout.
 
 Kept by commit `179f82606f06823ebb04773777d3d1fd8c2728ae`:
 - the egress domain list, `iac/ansible/roles/enterprise_firewall/defaults/main.yml:9-36`;
