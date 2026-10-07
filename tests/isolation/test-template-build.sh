@@ -290,6 +290,14 @@ expect "a firewall call that fails stops the build with exit 1" 1 "$rc"
 expect "the half-built guest is destroyed" 1 "$(count '^pct destroy 9202' "$case_dir/calls")"
 expect "the half-built guest was never started" 0 "$(count '^pct start' "$case_dir/calls")"
 
+echo "== cleanup decides on the live guest state, not on the lagging cluster listing"
+new_case lagging-listing
+FAKE_LAG=1 FAKE_GUEST=fail tplrun build $vm
+expect "a failed build with a lagging cluster listing exits 1" 1 "$rc"
+expect "the running build guest is stopped hard before it is destroyed" 1 "$(count '^qm stop 9302' "$case_dir/calls")"
+expect "the build guest is gone" "" "$(world_get "','.join(sorted(g))")"
+hasnt "no cleanup failure is reported" "$case_dir/out.log" "CLEANUP FAILED"
+
 echo "== a planted .credentials in the guest means no conversion (real finalize.sh in the loop)"
 scan_case() {
   new_case "$1"

@@ -6,7 +6,7 @@ pve_templates_libexec_dir: /usr/local/libexec/homelab-template
 pve_templates_share_dir: /usr/local/share/homelab-template
 pve_templates_config_dir: /etc/homelab-template
 pve_templates_state_dir: /var/lib/homelab/templates
-pve_templates_work_dir: /var/lib/homelab/template-work
+pve_templates_work_dir: /var/lib/homelab-template-work
 pve_templates_unit_dir: /etc/systemd/system
 pve_templates_require_root: true
 

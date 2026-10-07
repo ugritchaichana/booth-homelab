@@ -191,10 +191,11 @@ def dependents(rows, vmid):
     return [r["lv_name"] for r in rows if str(r.get("origin", "")).startswith(prefix)]
 
 
-def stop_guest(cfg, guest):
+def stop_guest(cfg, guest, hard=False):
     kind, vmid = guest["type"], guest["vmid"]
-    if guest.get("status") == "running":
-        run([tool(kind), "shutdown", str(vmid), "--timeout", "120", "--forceStop", "1"])
+    live = pvesh_get(node_path(cfg, kind, vmid) + "/status/current")
+    if (live or {}).get("status") == "running":
+        run([tool(kind), "stop" if hard else "shutdown", str(vmid)] + ([] if hard else ["--timeout", "120", "--forceStop", "1"]))
 
 
 def destroy_guest(guest):
@@ -578,7 +579,7 @@ def build(cfg, cls):
     for guest in class_guests(cfg, cls):
         if not guest.get("template"):
             log("LEFTOVER destroying non-template guest vmid=%s status=%s" % (guest["vmid"], guest.get("status")))
-            stop_guest(cfg, guest)
+            stop_guest(cfg, guest, hard=True)
             destroy_guest(guest)
     preflight(cfg)
     guests = class_guests(cfg, cls)
@@ -633,7 +634,7 @@ def build(cfg, cls):
             remove_workdir(cfg)
             clone = guest_entry(cfg, cls, clone_vmid)
             if clone is not None:
-                stop_guest(cfg, clone)
+                stop_guest(cfg, clone, hard=True)
                 destroy_guest(clone)
         pvesh_write("set", "/pools/" + cfg["pool"], vms=vmid)
         tags = wanted_tags(cfg, cls, version, None)
@@ -648,7 +649,7 @@ def build(cfg, cls):
             leftover = guest_entry(cfg, cls, vmid)
             if leftover is not None:
                 try:
-                    stop_guest(cfg, leftover)
+                    stop_guest(cfg, leftover, hard=True)
                     destroy_guest(leftover)
                     log("CLEANUP destroyed vmid=%s after a failed build%s" % (vmid, " (converted, never verified)" if converted else ""))
                 except Failed as cleanup_err:
