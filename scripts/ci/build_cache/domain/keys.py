@@ -17,6 +17,10 @@ def digest(record: Mapping[str, object]) -> str:
     return hashlib.sha256(canonical.encode("ascii")).hexdigest()
 
 
+def short_key(key: str) -> str:
+    return key[-64:][:12]
+
+
 def _platform_record(platform: Platform) -> dict[str, str]:
     return {
         "runner_class": platform.runner_class,

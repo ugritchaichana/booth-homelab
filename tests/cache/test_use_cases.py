@@ -8,8 +8,8 @@ from pathlib import Path
 
 from support import PATCHED, DownStore, MemoryStore, device_info, file_info, key_for, link_info, publish, tar_bytes
 from build_cache.adapters.fs_store import FilesystemStore
-from build_cache.adapters.tar_archiver import TarArchiver
-from build_cache.application.restore import restore, stamp_extracted
+from build_cache.adapters.tar_archiver import TarArchiver, stamp_extracted
+from build_cache.application.restore import restore
 from build_cache.application.save import save
 from build_cache.domain.models import ArchiveRejected, Manifest, StoreUnavailable
 from build_cache.domain.policy import ExtractionRules, WriteDecision, write_decision
