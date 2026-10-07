@@ -1,0 +1,88 @@
+---
+pve_templates_node_name: "{{ pve_node_name | default(inventory_hostname) }}"
+pve_templates_guest_user: homelab-tmpl
+pve_templates_bin: /usr/local/sbin/homelab-template
+pve_templates_libexec_dir: /usr/local/libexec/homelab-template
+pve_templates_share_dir: /usr/local/share/homelab-template
+pve_templates_config_dir: /etc/homelab-template
+pve_templates_state_dir: /var/lib/homelab/templates
+pve_templates_work_dir: /var/lib/homelab/template-work
+pve_templates_unit_dir: /etc/systemd/system
+pve_templates_require_root: true
+
+pve_templates_guest_vnet: "{{ (guest_network | default({})).vnet | default('guests') }}"
+pve_templates_guest_cidr: "{{ (guest_network | default({})).cidr | default('') }}"
+pve_templates_guest_gateway: "{{ (guest_network | default({})).gateway | default('') }}"
+pve_templates_dns: 1.1.1.1
+pve_templates_policy: "{{ lookup('ansible.builtin.file', role_path ~ '/../../../policy/runner-class.yml') | from_yaml }}"
+
+pve_templates_pool: "{{ pve_api_identity_template_pool | default('templates') }}"
+pve_templates_marker_tag: homelab-template
+pve_templates_vm_datastore: local-lvm
+pve_templates_local_storage: local
+pve_templates_thin_pool:
+  vg: pve
+  lv: data
+# Placeholders until the thin-pool and local-storage measurement of the host proof sets them.
+pve_templates_thresholds:
+  data_percent_max: 70
+  metadata_percent_max: 70
+  local_free_gib_min: 8
+pve_templates_manifest_max_bytes: 262144
+pve_templates_timeouts:
+  ssh_wait_seconds: 300
+  run_seconds: 5400
+  guest_unit_seconds: 7200
+
+pve_templates_reserved_vmids:
+  - 9101
+  - 9102
+pve_templates_classes:
+  lxc-runner:
+    type: lxc
+    vmid_base: 9200
+    build_address: 10.99.16.30
+    base: local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst
+    cores: 2
+    memory: 2048
+    disk_gb: 8
+    login_user: root
+    verify_hook: ""
+  vm-docker:
+    type: qemu
+    vmid_base: 9300
+    build_address: 10.99.16.31
+    base: local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2
+    cpu: x86-64-v2-AES
+    cores: 2
+    memory: 2048
+    disk_gb: 20
+    login_user: debian
+    verify_hook: ""
+
+pve_templates_address_pattern: '^[0-9]{1,3}([.][0-9]{1,3}){3}$'
+pve_templates_config:
+  node: "{{ pve_templates_node_name }}"
+  require_root: "{{ pve_templates_require_root }}"
+  state_dir: "{{ pve_templates_state_dir }}"
+  work_dir: "{{ pve_templates_work_dir }}"
+  guest_user: "{{ pve_templates_guest_user }}"
+  guest_unit_prefix: "homelab-template-guest@"
+  bundle_common_dir: "{{ pve_templates_share_dir }}/common"
+  bundle_root_dir: "{{ pve_templates_share_dir }}/bundles"
+  marker_tag: "{{ pve_templates_marker_tag }}"
+  pool: "{{ pve_templates_pool }}"
+  vnet: "{{ pve_templates_guest_vnet }}"
+  cidr: "{{ pve_templates_guest_cidr }}"
+  gateway: "{{ pve_templates_guest_gateway }}"
+  dns: "{{ pve_templates_dns }}"
+  group: "{{ pve_templates_policy.runner_class_security_group }}"
+  nic_firewall: "{{ pve_templates_policy.runner_class_nic_firewall }}"
+  fw_options: "{{ pve_templates_policy.runner_class_firewall_options }}"
+  vm_datastore: "{{ pve_templates_vm_datastore }}"
+  local_storage: "{{ pve_templates_local_storage }}"
+  thin_pool: "{{ pve_templates_thin_pool }}"
+  thresholds: "{{ pve_templates_thresholds }}"
+  manifest_max_bytes: "{{ pve_templates_manifest_max_bytes }}"
+  timeouts: "{{ pve_templates_timeouts }}"
+  classes: "{{ pve_templates_classes }}"

@@ -78,3 +78,6 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0035 | [Leave the storage definitions as the installer made them in Phase 2](0035-leave-the-storage-definitions-as-the-installer-made-them-in-phase-2.md) | Accepted |
 | 0036 | [Keep templates in their own pool and let the provisioner token only clone them](0036-keep-templates-in-their-own-pool-and-let-the-provisioner-token-only-clone-them.md) | Accepted |
 | 0037 | [Make the guest firewall guard reject extra enabled rules on vnet guests](0037-make-the-guest-firewall-guard-reject-extra-enabled-rules-on-vnet-guests.md) | Accepted |
+| 0038 | [Build golden templates with a root orchestrator, a sandboxed guest-facing step and in-guest Ansible](0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) | Accepted |
+| 0039 | [Keep templates as Proxmox templates on local-lvm, clone them linked and check clone origins before deleting one](0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) | Accepted |
+| 0040 | [Version templates with a monotonic number, a root-only current tag and automatic promotion](0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) | Accepted |

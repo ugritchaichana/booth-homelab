@@ -1,0 +1,25 @@
+[Unit]
+Description=Guest-facing step (%i) of a golden template build
+
+[Service]
+Type=oneshot
+User=homelab-tmpl
+Group=homelab-tmpl
+ExecStart=/usr/local/libexec/homelab-template/guest-step %i
+ExecStopPost=/usr/local/libexec/homelab-template/guest-step cleanup
+RuntimeDirectory=homelab-template-guest
+Environment=HOME=/run/homelab-template-guest
+IPAddressDeny=any
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=/etc/pve /root
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+UMask=0077

@@ -1,0 +1,26 @@
+---
+- name: Describe the build guest
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    manifest_path: /var/lib/homelab-build/manifest.json
+  tasks:
+    - name: Read the installed package versions
+      ansible.builtin.command: dpkg-query -W -f '${Package} ${Version}\n'
+      register: pve_templates_package_list
+      changed_when: false
+
+    - name: Write the manifest
+      ansible.builtin.copy:
+        content: "{{ manifest | to_nice_json }}\n"
+        dest: "{{ manifest_path }}"
+        mode: "0600"
+      vars:
+        manifest:
+          build_id: "{{ build_id }}"
+          os_release: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+          kernel: "{{ ansible_facts['kernel'] }}"
+          packages: >-
+            {{ dict(pve_templates_package_list.stdout_lines | map('split', ' ') | map('first')
+            | zip(pve_templates_package_list.stdout_lines | map('split', ' ') | map('last'))) }}

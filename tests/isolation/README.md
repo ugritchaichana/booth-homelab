@@ -5,6 +5,10 @@
 | `test-cluster-fw-render.sh` | Renders `cluster.fw.j2` and checks the deny set against an RFC list (CI, no host). |
 | `r15-probe.sh` | Runs inside a probe guest: one `PROBE` line per target, one `SUMMARY`, exit 0 only if every measured row holds. |
 | `test-r15-probe.sh` | Runs `r15-probe.sh` with a stubbed `timeout`, `curl`, `id` and `ip`, plus real sockets and a real timeout (CI, no host). |
+| `test-template-build.sh` | Runs the template orchestrator against fakes of `pvesh`, `qm`, `pct`, `lvs` and `systemctl` (`lib/fake-pve.py`): one case per pre-start attribute, promotion, rollback, retention, the pass-marker gate, the thresholds (CI, no host). |
+| `test-template-guest-step.sh` | Runs the non-root guest step against a fake `ssh`: the connection options, the size and marker checks, the seal as the last connection, the manifest diff, the key cleanup (CI, no host). |
+| `test-template-finalize.sh` | Runs the in-guest `finalize.sh`, `seal.sh` and `run.sh` on a fake root: cleanup, planted secrets, the allowlist, the pass marker, the seal, Ansible with `-c local`, the playbook syntax check (CI, no host). |
+| `test-template-units.sh` | Checks the shipped guest unit keeps `IPAddressDeny=any`, a non-root `User=` and the sandbox set, with mutations that must fail, and that the rendered configuration follows `runner-class.yml` (CI, no host). |
 | `targets.example.env` | Row format with documentation addresses. Copy to `targets.env`, which git ignores. |
 
 ## Targets file
