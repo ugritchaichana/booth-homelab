@@ -51,7 +51,7 @@ jobs:
           node-version: '22.x'
 
       - name: Install PyYAML
-        run: python3 -m pip install pyyaml
+        run: python3 -m pip install --require-hashes -r tests/cache/requirements-ci.txt
 
       - name: Unit tests and dependency rule
         run: python3 -m unittest discover -s tests/cache -p 'test_*.py' -v
