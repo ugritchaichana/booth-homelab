@@ -55,6 +55,7 @@ def outputs_key(
     sdk_version: str,
     configuration: str,
     tree_ids: Mapping[str, str],
+    workspace_root: str,
 ) -> str:
     if not tree_ids:
         raise ValueError("an output key needs at least one input tree id")
@@ -64,6 +65,7 @@ def outputs_key(
         "platform": _platform_record(platform),
         "toolchain": sdk_version,
         "configuration": configuration,
+        "workspace_root": workspace_root,
         "trees": _sorted_pairs(tree_ids),
     }
     return f"{OUTPUT_KIND}-{digest(record)}"

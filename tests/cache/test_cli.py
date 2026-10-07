@@ -60,6 +60,12 @@ class CliTests(unittest.TestCase):
             cli.main(["report", "--stats-file", str(self.stats)])
         self.assertIn("dotnet-outputs: 1/2 hit (50.0%)", out.getvalue())
 
+    def test_save_after_a_verified_hit_in_the_same_job_is_skipped_and_after_a_miss_is_written(self):
+        self.run_cli("restore")
+        self.assertEqual(self.run_cli("save", *self.save_args())[1]["status"], "saved")
+        self.assertEqual(self.run_cli("restore")[1]["status"], "hit")
+        self.assertEqual(self.run_cli("save", *self.save_args())[1]["status"], "exists")
+
     def test_save_on_a_non_default_ref_is_skipped(self):
         record = self.run_cli("save", *self.save_args("refs/heads/feature"))[1]
         self.assertEqual(record["status"], "skipped")

@@ -64,7 +64,7 @@ def build_plan(args: argparse.Namespace, discover_outputs: bool) -> Plan:
     if env.git_inputs_dirty(root, input_paths):
         raise RuntimeError("working tree differs from HEAD under the input paths, the tree ids would not describe the inputs")
     trees = env.git_tree_ids(root, input_paths)
-    key = keys.outputs_key(platform, env.tool_version("dotnet"), args.configuration, trees)
+    key = keys.outputs_key(platform, env.tool_version("dotnet"), args.configuration, trees, root.as_posix())
     artifact_root = Path(args.artifact_root) if args.artifact_root else root
     paths = env.discover_output_dirs(root, input_paths) if discover_outputs else []
     return Plan(key, artifact_root, paths, True, input_paths)
@@ -126,8 +126,22 @@ def run_save(args: argparse.Namespace) -> int:
     except (RuntimeError, ValueError, OSError) as exc:
         emit(failed("save", args, "skipped", f"cannot derive key: {exc}"), args)
         return 0
-    emit(save(args.kind, plan.key, plan.artifact_root, plan.paths, store, TarArchiver(), decision), args)
+    hit = restored_hit(args, plan.key)
+    emit(save(args.kind, plan.key, plan.artifact_root, plan.paths, store, TarArchiver(), decision, hit), args)
     return 0
+
+
+def restored_hit(args: argparse.Namespace, key: str) -> bool:
+    if args.restore_status:
+        return args.restore_status == "hit"
+    if not args.stats_file or not Path(args.stats_file).is_file():
+        return False
+    status = None
+    for line in Path(args.stats_file).read_text(encoding="utf-8").splitlines():
+        record = json.loads(line) if line.strip() else {}
+        if record.get("op") == "restore" and record.get("kind") == args.kind and record.get("key") == key[-64:][:12]:
+            status = record["status"]
+    return status == "hit"
 
 
 def run_report(args: argparse.Namespace) -> int:
@@ -166,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     _common(commands.add_parser("restore"))
     saver = commands.add_parser("save")
     _common(saver)
+    saver.add_argument("--restore-status", choices=("hit", "miss", "rejected"))
     saver.add_argument("--event")
     saver.add_argument("--ref")
     saver.add_argument("--default-branch", default="master")

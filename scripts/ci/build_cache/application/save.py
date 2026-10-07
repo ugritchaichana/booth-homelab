@@ -21,6 +21,7 @@ def save(
     store: Store,
     archiver: Archiver,
     decision: WriteDecision,
+    restored_verified_hit: bool = False,
 ) -> Outcome:
     started = time.monotonic_ns()
 
@@ -31,13 +32,8 @@ def save(
 
     if not decision.allowed:
         return outcome("skipped", detail=decision.reason)
-    try:
-        if store.get_pointer(key) is not None:
-            return outcome("exists", detail="keys are immutable, pointer left untouched")
-    except STORE_FAILURES as exc:
-        return outcome("unreachable", detail=str(exc))
-    except ValueError:
-        pass
+    if restored_verified_hit:
+        return outcome("exists", detail="this job restored the key and verified the blob")
 
     packed = archiver.pack(source_root, paths)
     if packed is None:

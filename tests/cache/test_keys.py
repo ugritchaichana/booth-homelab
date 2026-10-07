@@ -13,8 +13,8 @@ def dep(platform=PLATFORM, toolchain="8.0.425", locks=LOCKS, namespace="nuget"):
     return keys.dependency_key(namespace, platform, toolchain, locks)
 
 
-def out(platform=PLATFORM, sdk="8.0.425", configuration="Release", trees=TREES):
-    return keys.outputs_key(platform, sdk, configuration, trees)
+def out(platform=PLATFORM, sdk="8.0.425", configuration="Release", trees=TREES, root="/home/runner/work/repo"):
+    return keys.outputs_key(platform, sdk, configuration, trees, root)
 
 
 class DependencyKeyTests(unittest.TestCase):
@@ -64,6 +64,9 @@ class OutputsKeyTests(unittest.TestCase):
         self.assertNotEqual(out(sdk="8.0.426"), out())
         self.assertNotEqual(out(configuration="Debug"), out())
         self.assertNotEqual(out(platform=Platform("vm-docker", "debian", "13", "x86_64")), out())
+
+    def test_changes_when_the_workspace_root_changes(self):
+        self.assertNotEqual(out(root="/home/runner/work/other"), out())
 
     def test_rejects_empty_trees(self):
         with self.assertRaises(ValueError):

@@ -64,11 +64,19 @@ class RestoreSaveTests(Workspace):
         self.assertIn("digest", result.detail)
         self.assertFalse(self.dest.exists())
 
-    def test_blob_the_manifest_names_but_store_lacks_is_rejected(self):
+    def test_save_after_an_evicted_blob_replaces_the_pointer_and_the_next_restore_hits(self):
         store, key = MemoryStore(), key_for("nuget", "k")
         save("nuget", key, self.src, ["obj"], store, self.archiver, ALLOW)
+        evicted = store.pointers[key].sha256
         store.blobs.clear()
-        self.assertEqual(restore("nuget", key, self.dest, store, self.archiver).status, "rejected")
+        self.assertEqual(restore("nuget", key, self.dest, store, self.archiver).status, "miss")
+        (self.src / "obj" / "a.dll").write_bytes(b"rebuilt")
+        result = save("nuget", key, self.src, ["obj"], store, self.archiver, ALLOW, restored_verified_hit=False)
+        self.assertEqual(result.status, "saved")
+        self.assertNotEqual(store.pointers[key].sha256, evicted)
+        self.assertEqual(list(store.blobs), [store.pointers[key].sha256])
+        self.assertEqual(restore("nuget", key, self.dest, store, self.archiver).status, "hit")
+        self.assertEqual((self.dest / "obj" / "a.dll").read_bytes(), b"rebuilt")
 
     def test_unreachable_store_is_a_miss_not_a_failure(self):
         for error in (StoreUnavailable("down"), TimeoutError("slow"), ConnectionResetError("reset")):
@@ -80,11 +88,14 @@ class RestoreSaveTests(Workspace):
         result = save("nuget", key_for("nuget", "k"), self.src, ["obj"], down, self.archiver, ALLOW)
         self.assertEqual(result.status, "unreachable")
 
-    def test_existing_key_is_left_untouched(self):
+    def test_save_is_skipped_only_when_this_job_restored_a_verified_hit(self):
         store, key = MemoryStore(), key_for("nuget", "k")
         save("nuget", key, self.src, ["obj"], store, self.archiver, ALLOW)
-        (self.src / "obj" / "a.dll").write_bytes(b"different")
-        self.assertEqual(save("nuget", key, self.src, ["obj"], store, self.archiver, ALLOW).status, "exists")
+        before = dict(store.pointers)
+        result = save("nuget", key, self.src, ["obj"], store, self.archiver, ALLOW, restored_verified_hit=True)
+        self.assertEqual(result.status, "exists")
+        self.assertEqual(store.pointers, before)
+        self.assertEqual(save("nuget", key, self.src, ["obj"], store, self.archiver, ALLOW).status, "saved")
 
     def test_stamping_gives_every_restored_file_one_identical_time(self):
         store, key = MemoryStore(), key_for("dotnet-outputs", "k")

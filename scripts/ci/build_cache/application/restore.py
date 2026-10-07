@@ -46,7 +46,7 @@ def restore(
     except STORE_FAILURES as exc:
         return outcome("miss", detail=f"store unreachable: {exc}")
     if blob is None:
-        return outcome("rejected", detail="manifest names a blob the store does not hold")
+        return outcome("miss", detail="blob evicted: the pointer names a blob the store no longer holds")
     actual = hashlib.sha256(blob).hexdigest()
     if len(blob) != manifest.size or actual != manifest.sha256:
         return outcome("rejected", len(blob), f"blob digest {actual[:12]} != manifest {manifest.sha256[:12]}")
