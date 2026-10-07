@@ -1,0 +1,19 @@
+#!/bin/sh
+set -u
+rc=0
+touch {{ pve_firewall_deadman_dir }}/fired
+{% if pve_firewall_cluster_stat.stat.exists %}
+cat {{ pve_firewall_deadman_dir }}/cluster.fw.bak > {{ pve_firewall_cluster_file }} || rc=1
+{% else %}
+rm -f {{ pve_firewall_cluster_file }} || rc=1
+{% endif %}
+{% if pve_firewall_host_stat.stat.exists %}
+cat {{ pve_firewall_deadman_dir }}/host.fw.bak > {{ pve_firewall_host_file }} || rc=1
+{% else %}
+rm -f {{ pve_firewall_host_file }} || rc=1
+{% endif %}
+/usr/bin/systemctl restart pve-firewall.service || rc=1
+[ "$rc" -eq 0 ] || /usr/bin/systemctl stop pve-firewall.service
+[ "$rc" -ne 0 ] || rm -f {{ pve_firewall_deadman_dir }}/armed
+/usr/bin/logger -t homelab-deadman-firewall "restore finished rc=$rc"
+exit "$rc"

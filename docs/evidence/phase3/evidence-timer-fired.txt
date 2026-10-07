@@ -1,0 +1,21 @@
+== a timer fires the weekly service
+Running timer as unit: homelab-template-timer-proof.timer
+Will run service as unit: homelab-template-timer-proof.service
+NEXT                        LEFT LAST PASSED UNIT                               ACTIVATES
+Wed 2026-10-07 12:58:24 +07  19s -         - homelab-template-timer-proof.timer homelab-template-timer-proof.service
+
+1 timers listed.
+systemd[1]: Started homelab-template-timer-proof.timer - [systemd-run] /usr/bin/systemctl start homelab-template-weekly.service.
+systemd[1]: Started homelab-template-timer-proof.service - [systemd-run] /usr/bin/systemctl start homelab-template-weekly.service.
+systemd[1]: Starting homelab-template-weekly.service - Rebuild every golden template class in turn...
+homelab-template[86284]: homelab-template: BUILD start class=lxc-runner version=v6 vmid=9202 build_id=lxc-runner-v6-20261007T055830Z-b88833e6
+homelab-template[86284]: homelab-template: PROMOTED class=lxc-runner v5 -> v6 vmid=9202 manifest_sha256=19101150eb83c8872fc4f88399d06f129313a159878ce6392df50dc6ee9b6c2d previous=5
+homelab-template[86284]: homelab-template: RETENTION destroyed vmid=9203 v4
+homelab-template[91647]: homelab-template: BUILD start class=vm-docker version=v6 vmid=9304 build_id=vm-docker-v6-20261007T060101Z-211df575
+homelab-template[91647]: homelab-template: PROMOTED class=vm-docker v5 -> v6 vmid=9304 manifest_sha256=a61301a6be0d53c44e497535d029da9ef01e5a0da817483b58e15f6ed7f96f57 previous=5
+homelab-template[91647]: homelab-template: RETENTION destroyed vmid=9302 v4
+systemd[1]: homelab-template-timer-proof.service: Deactivated successfully.
+systemd[1]: homelab-template-timer-proof.timer: Deactivated successfully.
+class=lxc-runner current=v6 vmid=9202 name=tmpl-lxc-runner-v6 previous=v5 last_build=2026-10-07T06:00:53Z
+class=vm-docker current=v6 vmid=9304 name=tmpl-vm-docker-v6 previous=v5 last_build=2026-10-07T06:03:50Z
+  data 20.01  2.01  

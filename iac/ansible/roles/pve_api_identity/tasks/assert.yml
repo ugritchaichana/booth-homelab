@@ -1,0 +1,28 @@
+---
+- name: Assert the identity cannot manage identities or the host
+  ansible.builtin.assert:
+    that:
+      - pve_api_identity_roles | dict2items | map(attribute='value') | flatten | intersect(pve_api_identity_forbidden_privileges) | length == 0
+      - pve_api_identity_grants | map(attribute='role') | difference(pve_api_identity_roles.keys() | list + ['NoAccess']) | length == 0
+      - pve_api_identity_rotate | string | lower in ['true', 'false', 'yes', 'no']
+    fail_msg: >-
+      A provisioner role may not hold Permissions.Modify, User.Modify or Sys.Modify, every grant needs a declared role,
+      and pve_api_identity_rotate must be true or false
+
+- name: Assert the identity can clone templates but never delete, retag or clone anything else
+  ansible.builtin.assert:
+    that:
+      - pve_api_identity_pool != pve_api_identity_template_pool
+      - pve_api_identity_grants | selectattr('path', 'equalto', pve_api_identity_template_pool_path) | list | length == 1
+      - >-
+        pve_api_identity_grants | rejectattr('role', 'equalto', 'NoAccess')
+        | rejectattr('path', 'equalto', pve_api_identity_template_pool_path) | map(attribute='role')
+        | map('extract', pve_api_identity_roles) | flatten | select('equalto', 'VM.Clone') | list | length == 0
+      - >-
+        pve_api_identity_grants | selectattr('path', 'equalto', pve_api_identity_template_pool_path) | map(attribute='role')
+        | map('extract', pve_api_identity_roles) | flatten | difference(['VM.Audit', 'VM.Clone']) | length == 0
+    fail_msg: >-
+      VM.Clone may be granted only on the templates pool, that pool may carry nothing beyond VM.Clone and VM.Audit,
+      and the templates pool must differ from the guest pool
+  vars:
+    pve_api_identity_template_pool_path: "/pool/{{ pve_api_identity_template_pool }}"

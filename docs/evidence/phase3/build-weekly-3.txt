@@ -1,0 +1,451 @@
+2026-10-07T12:14:18+07:00 pve01 systemd[1]: Starting homelab-template-weekly.service - Rebuild every golden template class in turn...
+2026-10-07T12:14:18+07:00 pve01 systemd[1]: Starting homelab-template-build@lxc-runner.service - Build the golden template of class lxc-runner...
+2026-10-07T12:14:21+07:00 pve01 homelab-template[38985]: homelab-template: PREFLIGHT ok data_percent=0.00 metadata_percent=1.60 local_free_gib=32.5
+2026-10-07T12:14:22+07:00 pve01 homelab-template[38985]: homelab-template: BUILD start class=lxc-runner version=v3 vmid=9202 build_id=lxc-runner-v3-20261007T051422Z-12108f39
+2026-10-07T12:14:23+07:00 pve01 pct[39021]: <root@pam> starting task UPID:pve01:00009871:00040943:6AC5D52F:vzcreate:9202:root@pam:
+2026-10-07T12:14:26+07:00 pve01 pct[39025]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T12:14:27+07:00 pve01 pct[39021]: <root@pam> end task UPID:pve01:00009871:00040943:6AC5D52F:vzcreate:9202:root@pam: WARNINGS: 1
+2026-10-07T12:14:32+07:00 pve01 homelab-template[38985]: homelab-template: READBACK ok vmid=9202 kind=lxc before first start: bridge=guests only, firewall on, options and rules exact, shape ok
+2026-10-07T12:14:32+07:00 pve01 homelab-template[38985]: homelab-template: START vmid=9202
+2026-10-07T12:14:32+07:00 pve01 pct[39171]: <root@pam> starting task UPID:pve01:00009904:00040CF4:6AC5D538:vzstart:9202:root@pam:
+2026-10-07T12:14:32+07:00 pve01 pct[39172]: starting CT 9202: UPID:pve01:00009904:00040CF4:6AC5D538:vzstart:9202:root@pam:
+2026-10-07T12:14:34+07:00 pve01 pct[39172]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T12:14:34+07:00 pve01 pct[39171]: <root@pam> end task UPID:pve01:00009904:00040CF4:6AC5D538:vzstart:9202:root@pam: WARNINGS: 1
+2026-10-07T12:14:34+07:00 pve01 systemd[1]: Starting homelab-template-guest@build.service - Guest-facing step (build) of a golden template build...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-bcrypt.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: [614B blob data]
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../00-python3-bcrypt_4.2.0-2.1+b1_amd64.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-bcrypt (4.2.0-2.1+b1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-cffi-backend:amd64.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../01-python3-cffi-backend_1.17.1-3_amd64.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-cffi-backend:amd64 (1.17.1-3) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-cryptography.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../02-python3-cryptography_43.0.0-3+deb13u1_amd64.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-cryptography (43.0.0-3+deb13u1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-markupsafe.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../03-python3-markupsafe_2.1.5-1+b3_amd64.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-markupsafe (2.1.5-1+b3) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-jinja2.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../04-python3-jinja2_3.1.6-1_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-jinja2 (3.1.6-1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-packaging.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../05-python3-packaging_25.0-1_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-packaging (25.0-1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-resolvelib.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../06-python3-resolvelib_1.1.0-1_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-resolvelib (1.1.0-1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package libyaml-0-2:amd64.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../07-libyaml-0-2_0.2.5-2_amd64.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking libyaml-0-2:amd64 (0.2.5-2) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-yaml.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../08-python3-yaml_6.0.2-1+b2_amd64.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-yaml (6.0.2-1+b2) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-dnspython.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../09-python3-dnspython_2.7.0-1_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-dnspython (2.7.0-1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-pyparsing.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../10-python3-pyparsing_3.1.2-1_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-pyparsing (3.1.2-1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-httplib2.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../11-python3-httplib2_0.22.0-1+deb13u1_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking python3-httplib2 (0.22.0-1+deb13u1) ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Selecting previously unselected package ieee-data.
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Preparing to unpack .../12-ieee-data_20240722_all.deb ...
+2026-10-07T12:14:39+07:00 pve01 guest-step[39732]: Unpacking ieee-data (20240722) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Selecting previously unselected package python3-netaddr.
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Preparing to unpack .../13-python3-netaddr_1.3.0-1_all.deb ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Unpacking python3-netaddr (1.3.0-1) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Selecting previously unselected package ansible-core.
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Preparing to unpack .../14-ansible-core_2.19.11-0+deb13u1_all.deb ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Unpacking ansible-core (2.19.11-0+deb13u1) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Setting up libyaml-0-2:amd64 (0.2.5-2) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Setting up python3-bcrypt (4.2.0-2.1+b1) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Setting up python3-resolvelib (1.1.0-1) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Setting up python3-yaml (6.0.2-1+b2) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Setting up python3-markupsafe (2.1.5-1+b3) ...
+2026-10-07T12:14:40+07:00 pve01 guest-step[39732]: Setting up python3-jinja2 (3.1.6-1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-packaging (25.0-1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-pyparsing (3.1.2-1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up ieee-data (20240722) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-dnspython (2.7.0-1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-httplib2 (0.22.0-1+deb13u1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-cffi-backend:amd64 (1.17.1-3) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-cryptography (43.0.0-3+deb13u1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up python3-netaddr (1.3.0-1) ...
+2026-10-07T12:14:41+07:00 pve01 guest-step[39732]: Setting up ansible-core (2.19.11-0+deb13u1) ...
+2026-10-07T12:14:42+07:00 pve01 guest-step[39732]: Processing triggers for libc-bin (2.41-12+deb13u3) ...
+2026-10-07T12:14:42+07:00 pve01 guest-step[39732]: Processing triggers for man-db (2.13.1-1) ...
+2026-10-07T12:14:43+07:00 pve01 guest-step[39732]: PLAY [Install the lxc-runner toolchains and describe the build guest] **********
+2026-10-07T12:14:43+07:00 pve01 guest-step[39732]: TASK [Gathering Facts] *********************************************************
+2026-10-07T12:14:44+07:00 pve01 guest-step[39732]: [WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.13', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.19/reference_appendices/interpreter_discovery.html for more information.
+2026-10-07T12:14:44+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:14:44+07:00 pve01 guest-step[39732]: TASK [Install the base tools and runner libraries by package name] *************
+2026-10-07T12:14:50+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:14:50+07:00 pve01 guest-step[39732]: TASK [Create the unprivileged runner user with a locked password] **************
+2026-10-07T12:14:50+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:14:50+07:00 pve01 guest-step[39732]: TASK [Refuse any sudo grant that names the runner user] ************************
+2026-10-07T12:14:50+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:14:50+07:00 pve01 guest-step[39732]: TASK [Create the download directory] *******************************************
+2026-10-07T12:14:51+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:14:51+07:00 pve01 guest-step[39732]: TASK [Download each artifact and verify its pinned hash] ***********************
+2026-10-07T12:15:13+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=dotnet-sdk-8.0.425-linux-x64.tar.gz)
+2026-10-07T12:15:13+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=dotnet-sdk-10.0.401-linux-x64.tar.gz)
+2026-10-07T12:15:13+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=node-v22.23.3-linux-x64.tar.gz)
+2026-10-07T12:15:13+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=actions-runner-linux-x64-2.338.0.tar.gz)
+2026-10-07T12:15:13+07:00 pve01 guest-step[39732]: TASK [Create the install directories] ******************************************
+2026-10-07T12:15:15+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'path': '/usr/local/lib/dotnet', 'owner': 'root'})
+2026-10-07T12:15:15+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'path': '/usr/local/lib/nodejs/node-v22.23.3', 'owner': 'root'})
+2026-10-07T12:15:15+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'path': '/opt/actions-runner', 'owner': 'runner'})
+2026-10-07T12:15:15+07:00 pve01 guest-step[39732]: TASK [Unpack both .NET SDKs into one root, the newer last so its host wins] ****
+2026-10-07T12:15:40+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=dotnet-sdk-8.0.425-linux-x64.tar.gz)
+2026-10-07T12:15:40+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=dotnet-sdk-10.0.401-linux-x64.tar.gz)
+2026-10-07T12:15:40+07:00 pve01 guest-step[39732]: TASK [Unpack Node] *************************************************************
+2026-10-07T12:15:45+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:15:45+07:00 pve01 guest-step[39732]: TASK [Unpack the runner, owned by the runner user and never configured] ********
+2026-10-07T12:15:58+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:15:58+07:00 pve01 guest-step[39732]: TASK [Drop the npm docs and the empty npm builtin config, the build scan forbids .npmrc] ***
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/usr/local/lib/nodejs/node-v22.23.3/lib/node_modules/npm/docs)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/usr/local/lib/nodejs/node-v22.23.3/lib/node_modules/npm/man)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/usr/local/lib/nodejs/node-v22.23.3/lib/node_modules/npm/.npmrc)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/opt/actions-runner/externals/node20/lib/node_modules/npm/docs)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/opt/actions-runner/externals/node20/lib/node_modules/npm/man)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/opt/actions-runner/externals/node20/lib/node_modules/npm/.npmrc)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/opt/actions-runner/externals/node24/lib/node_modules/npm/docs)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/opt/actions-runner/externals/node24/lib/node_modules/npm/man)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=/opt/actions-runner/externals/node24/lib/node_modules/npm/.npmrc)
+2026-10-07T12:16:00+07:00 pve01 guest-step[39732]: TASK [Link the toolchains into the default path] *******************************
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'name': 'dotnet', 'src': '/usr/local/lib/dotnet/dotnet'})
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'name': 'node', 'src': '/usr/local/lib/nodejs/node-v22.23.3/bin/node'})
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'name': 'npm', 'src': '/usr/local/lib/nodejs/node-v22.23.3/bin/npm'})
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: changed: [localhost] => (item={'name': 'npx', 'src': '/usr/local/lib/nodejs/node-v22.23.3/bin/npx'})
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: TASK [Switch .NET telemetry off for every login] *******************************
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=DOTNET_CLI_TELEMETRY_OPTOUT=1)
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: changed: [localhost] => (item=DOTNET_NOLOGO=1)
+2026-10-07T12:16:01+07:00 pve01 guest-step[39732]: TASK [Remove the downloads] ****************************************************
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: TASK [Read the installed .NET SDKs] ********************************************
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: TASK [Read the Node and npm versions] ******************************************
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: ok: [localhost] => (item=node)
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: ok: [localhost] => (item=npm)
+2026-10-07T12:16:02+07:00 pve01 guest-step[39732]: TASK [Read the runner version as the runner user] ******************************
+2026-10-07T12:16:03+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:16:03+07:00 pve01 guest-step[39732]: TASK [Read the base tool versions] *********************************************
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost] => (item=git)
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost] => (item=jq)
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost] => (item=curl)
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost] => (item=zstd)
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: TASK [Find credential files in the runner directory] ***************************
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: TASK [Hash the pinned versions file] *******************************************
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: TASK [Fail the build unless the installed versions equal the pinned versions] ***
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: ok: [localhost] => {
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]:     "changed": false,
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]:     "msg": "All assertions passed"
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: }
+2026-10-07T12:16:04+07:00 pve01 guest-step[39732]: TASK [Read the installed package versions] *************************************
+2026-10-07T12:16:05+07:00 pve01 guest-step[39732]: ok: [localhost]
+2026-10-07T12:16:05+07:00 pve01 guest-step[39732]: TASK [Write the manifest] ******************************************************
+2026-10-07T12:16:05+07:00 pve01 guest-step[39732]: changed: [localhost]
+2026-10-07T12:16:05+07:00 pve01 guest-step[39732]: PLAY RECAP *********************************************************************
+2026-10-07T12:16:05+07:00 pve01 guest-step[39732]: localhost                  : ok=23   changed=13   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+2026-10-07T12:16:07+07:00 pve01 guest-step[39732]: [614B blob data]
+2026-10-07T12:16:07+07:00 pve01 guest-step[39732]: Removing ansible-core (2.19.11-0+deb13u1) ...
+2026-10-07T12:16:07+07:00 pve01 guest-step[39732]: Processing triggers for man-db (2.13.1-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: [614B blob data]
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-netaddr (1.3.0-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing ieee-data (20240722) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-yaml (6.0.2-1+b2) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing libyaml-0-2:amd64 (0.2.5-2) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-dnspython (2.7.0-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-httplib2 (0.22.0-1+deb13u1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-jinja2 (3.1.6-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-markupsafe (2.1.5-1+b3) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-packaging (25.0-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-pyparsing (3.1.2-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Removing python3-resolvelib (1.1.0-1) ...
+2026-10-07T12:16:09+07:00 pve01 guest-step[39732]: Processing triggers for man-db (2.13.1-1) ...
+2026-10-07T12:16:10+07:00 pve01 guest-step[39732]: Processing triggers for libc-bin (2.41-12+deb13u3) ...
+2026-10-07T12:16:15+07:00 pve01 guest-step[39732]: finalize: cleanup and scan passed for lxc-runner-v3-20261007T051422Z-12108f39
+2026-10-07T12:16:16+07:00 pve01 guest-step[39306]: guest-step: MANIFEST-DIFF no previous version; every entry is new
+2026-10-07T12:16:16+07:00 pve01 guest-step[39306]: guest-step: build lxc-runner-v3-20261007T051422Z-12108f39 finished, manifest 11643 bytes
+2026-10-07T12:16:16+07:00 pve01 guest-step[43091]: guest-step: key and known_hosts removed
+2026-10-07T12:16:16+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Deactivated successfully.
+2026-10-07T12:16:16+07:00 pve01 systemd[1]: Finished homelab-template-guest@build.service - Guest-facing step (build) of a golden template build.
+2026-10-07T12:16:16+07:00 pve01 homelab-template[38985]: homelab-template: GATE ok build_id=lxc-runner-v3-20261007T051422Z-12108f39 manifest_sha256=0f164d607fac0cf0bfdaadcd34e63efdd619808a19d9846b980cbb33a0a76f2e
+2026-10-07T12:16:18+07:00 pve01 pct[43102]: <root@pam> starting task UPID:pve01:0000A85F:00043637:6AC5D5A2:vzshutdown:9202:root@pam:
+2026-10-07T12:16:18+07:00 pve01 pct[43103]: shutdown CT 9202: UPID:pve01:0000A85F:00043637:6AC5D5A2:vzshutdown:9202:root@pam:
+2026-10-07T12:16:20+07:00 pve01 pct[43102]: <root@pam> end task UPID:pve01:0000A85F:00043637:6AC5D5A2:vzshutdown:9202:root@pam: OK
+2026-10-07T12:16:26+07:00 pve01 homelab-template[38985]: homelab-template: READBACK ok vmid=9202 template: no key, no build address, no inbound rule
+2026-10-07T12:16:27+07:00 pve01 pct[43305]: <root@pam> starting task UPID:pve01:0000A931:0004397D:6AC5D5AA:vztemplate:9202:root@pam:
+2026-10-07T12:16:27+07:00 pve01 pct[43305]: <root@pam> end task UPID:pve01:0000A931:0004397D:6AC5D5AA:vztemplate:9202:root@pam: OK
+2026-10-07T12:16:28+07:00 pve01 pct[43372]: <root@pam> starting task UPID:pve01:0000A96D:000439F2:6AC5D5AC:vzclone:9202:root@pam:
+2026-10-07T12:16:28+07:00 pve01 pct[43373]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T12:16:29+07:00 pve01 pct[43372]: <root@pam> end task UPID:pve01:0000A96D:000439F2:6AC5D5AC:vzclone:9202:root@pam: WARNINGS: 1
+2026-10-07T12:16:30+07:00 pve01 homelab-template[38985]: homelab-template: VERIFY ok clone=9201 is a linked clone of 9202 (origin vm-9201-disk-0)
+2026-10-07T12:16:30+07:00 pve01 systemd[1]: Starting homelab-template-guest@verify.service - Guest-facing step (verify) of a golden template build...
+2026-10-07T12:16:30+07:00 pve01 guest-step[43426]: guest-step: no class verify hook configured; class-agnostic checks only
+2026-10-07T12:16:30+07:00 pve01 guest-step[43429]: guest-step: key and known_hosts removed
+2026-10-07T12:16:30+07:00 pve01 systemd[1]: homelab-template-guest@verify.service: Deactivated successfully.
+2026-10-07T12:16:30+07:00 pve01 systemd[1]: Finished homelab-template-guest@verify.service - Guest-facing step (verify) of a golden template build.
+2026-10-07T12:16:32+07:00 pve01 pct[43468]: <root@pam> starting task UPID:pve01:0000A9CD:00043BC8:6AC5D5B0:vzdestroy:9201:root@pam:
+2026-10-07T12:16:33+07:00 pve01 pct[43468]: <root@pam> end task UPID:pve01:0000A9CD:00043BC8:6AC5D5B0:vzdestroy:9201:root@pam: OK
+2026-10-07T12:16:37+07:00 pve01 homelab-template[38985]: homelab-template: READBACK ok vmid=9202 template: no key, no build address, no inbound rule
+2026-10-07T12:16:39+07:00 pve01 homelab-template[38985]: homelab-template: TAGS vmid=9202 v3 -> current;homelab-template;lxc-runner;v3
+2026-10-07T12:16:39+07:00 pve01 homelab-template[38985]: homelab-template: PROMOTED class=lxc-runner first version v3 vmid=9202 manifest_sha256=0f164d607fac0cf0bfdaadcd34e63efdd619808a19d9846b980cbb33a0a76f2e previous=None
+2026-10-07T12:16:40+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Deactivated successfully.
+2026-10-07T12:16:40+07:00 pve01 systemd[1]: Finished homelab-template-build@lxc-runner.service - Build the golden template of class lxc-runner.
+2026-10-07T12:16:40+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Consumed 35.321s CPU time, 765.5M memory peak.
+2026-10-07T12:16:40+07:00 pve01 systemd[1]: Starting homelab-template-build@vm-docker.service - Build the golden template of class vm-docker...
+2026-10-07T12:16:42+07:00 pve01 homelab-template[43568]: homelab-template: PREFLIGHT ok data_percent=6.04 metadata_percent=1.72 local_free_gib=32.5
+2026-10-07T12:16:44+07:00 pve01 homelab-template[43568]: homelab-template: BUILD start class=vm-docker version=v3 vmid=9302 build_id=vm-docker-v3-20261007T051644Z-22e13089
+2026-10-07T12:16:44+07:00 pve01 qm[43582]: <root@pam> starting task UPID:pve01:0000AA5B:00044062:6AC5D5BC:qmcreate:9302:root@pam:
+2026-10-07T12:16:48+07:00 pve01 qm[43582]: <root@pam> end task UPID:pve01:0000AA5B:00044062:6AC5D5BC:qmcreate:9302:root@pam: OK
+2026-10-07T12:16:48+07:00 pve01 qm[43721]: <root@pam> starting task UPID:pve01:0000AACA:000441F2:6AC5D5C0:resize:9302:root@pam:
+2026-10-07T12:16:48+07:00 pve01 qm[43722]: <root@pam> update VM 9302: resize --disk scsi0 --size 20G
+2026-10-07T12:16:48+07:00 pve01 qm[43721]: <root@pam> end task UPID:pve01:0000AACA:000441F2:6AC5D5C0:resize:9302:root@pam: OK
+2026-10-07T12:16:57+07:00 pve01 homelab-template[43568]: homelab-template: READBACK ok vmid=9302 kind=qemu before first start: bridge=guests only, firewall on, options and rules exact, shape ok
+2026-10-07T12:16:57+07:00 pve01 homelab-template[43568]: homelab-template: START vmid=9302
+2026-10-07T12:16:58+07:00 pve01 qm[43902]: <root@pam> starting task UPID:pve01:0000AB7F:000445BD:6AC5D5CA:qmstart:9302:root@pam:
+2026-10-07T12:16:58+07:00 pve01 qm[43903]: start VM 9302: UPID:pve01:0000AB7F:000445BD:6AC5D5CA:qmstart:9302:root@pam:
+2026-10-07T12:16:59+07:00 pve01 qm[43903]: VM 9302 started with PID 43927 using pve-qemu-kvm_11.0.3-4.
+2026-10-07T12:16:59+07:00 pve01 qm[43902]: <root@pam> end task UPID:pve01:0000AB7F:000445BD:6AC5D5CA:qmstart:9302:root@pam: OK
+2026-10-07T12:16:59+07:00 pve01 systemd[1]: Starting homelab-template-guest@build.service - Guest-facing step (build) of a golden template build...
+2026-10-07T12:17:46+07:00 pve01 guest-step[44142]: Selecting previously unselected package python3-packaging.
+2026-10-07T12:17:46+07:00 pve01 guest-step[44142]: [614B blob data]
+2026-10-07T12:17:46+07:00 pve01 guest-step[44142]: Preparing to unpack .../0-python3-packaging_25.0-1_all.deb ...
+2026-10-07T12:17:46+07:00 pve01 guest-step[44142]: Unpacking python3-packaging (25.0-1) ...
+2026-10-07T12:17:46+07:00 pve01 guest-step[44142]: Selecting previously unselected package python3-resolvelib.
+2026-10-07T12:17:46+07:00 pve01 guest-step[44142]: Preparing to unpack .../1-python3-resolvelib_1.1.0-1_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking python3-resolvelib (1.1.0-1) ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Selecting previously unselected package python3-dnspython.
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Preparing to unpack .../2-python3-dnspython_2.7.0-1_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking python3-dnspython (2.7.0-1) ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Selecting previously unselected package python3-pyparsing.
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Preparing to unpack .../3-python3-pyparsing_3.1.2-1_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking python3-pyparsing (3.1.2-1) ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Selecting previously unselected package python3-httplib2.
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Preparing to unpack .../4-python3-httplib2_0.22.0-1+deb13u1_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking python3-httplib2 (0.22.0-1+deb13u1) ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Selecting previously unselected package ieee-data.
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Preparing to unpack .../5-ieee-data_20240722_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking ieee-data (20240722) ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Selecting previously unselected package python3-netaddr.
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Preparing to unpack .../6-python3-netaddr_1.3.0-1_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking python3-netaddr (1.3.0-1) ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Selecting previously unselected package ansible-core.
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Preparing to unpack .../7-ansible-core_2.19.11-0+deb13u1_all.deb ...
+2026-10-07T12:17:47+07:00 pve01 guest-step[44142]: Unpacking ansible-core (2.19.11-0+deb13u1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up python3-resolvelib (1.1.0-1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up python3-packaging (25.0-1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up python3-pyparsing (3.1.2-1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up ieee-data (20240722) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up python3-dnspython (2.7.0-1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up python3-httplib2 (0.22.0-1+deb13u1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up python3-netaddr (1.3.0-1) ...
+2026-10-07T12:17:48+07:00 pve01 guest-step[44142]: Setting up ansible-core (2.19.11-0+deb13u1) ...
+2026-10-07T12:17:50+07:00 pve01 guest-step[44142]: Processing triggers for man-db (2.13.1-1) ...
+2026-10-07T12:17:51+07:00 pve01 guest-step[44142]: PLAY [Install the vm-docker class content] *************************************
+2026-10-07T12:17:51+07:00 pve01 guest-step[44142]: TASK [Gathering Facts] *********************************************************
+2026-10-07T12:17:52+07:00 pve01 guest-step[44142]: [WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.13', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.19/reference_appendices/interpreter_discovery.html for more information.
+2026-10-07T12:17:52+07:00 pve01 guest-step[44142]: ok: [localhost]
+2026-10-07T12:17:52+07:00 pve01 guest-step[44142]: TASK [Install the pinned apt packages] *****************************************
+2026-10-07T12:18:37+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:37+07:00 pve01 guest-step[44142]: TASK [Write the daemon configuration] ******************************************
+2026-10-07T12:18:37+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:37+07:00 pve01 guest-step[44142]: TASK [Remove material the engine may have generated] ***************************
+2026-10-07T12:18:38+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=/etc/docker/key.json)
+2026-10-07T12:18:38+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=/root/.docker)
+2026-10-07T12:18:38+07:00 pve01 guest-step[44142]: TASK [Create the runner user without sudo] *************************************
+2026-10-07T12:18:38+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:38+07:00 pve01 guest-step[44142]: TASK [Create the runner directory] *********************************************
+2026-10-07T12:18:39+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:39+07:00 pve01 guest-step[44142]: TASK [Download the runner release] *********************************************
+2026-10-07T12:18:45+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:45+07:00 pve01 guest-step[44142]: TASK [Unpack the runner] *******************************************************
+2026-10-07T12:18:58+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:58+07:00 pve01 guest-step[44142]: TASK [Remove the runner tarball] ***********************************************
+2026-10-07T12:18:59+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:18:59+07:00 pve01 guest-step[44142]: TASK [Enable and start the container engine] ***********************************
+2026-10-07T12:18:59+07:00 pve01 guest-step[44142]: ok: [localhost]
+2026-10-07T12:18:59+07:00 pve01 guest-step[44142]: TASK [Read the installed package versions] *************************************
+2026-10-07T12:18:59+07:00 pve01 guest-step[44142]: ok: [localhost]
+2026-10-07T12:18:59+07:00 pve01 guest-step[44142]: TASK [Read the runner version] *************************************************
+2026-10-07T12:19:00+07:00 pve01 guest-step[44142]: ok: [localhost]
+2026-10-07T12:19:00+07:00 pve01 guest-step[44142]: TASK [Assert the installed versions equal versions.yml] ************************
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=docker.io) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "docker.io",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "26.1.5+dfsg1-9+deb13u1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=containerd) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "containerd",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1.7.24~ds1-6+deb13u1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=runc) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "runc",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1.1.15+ds1-2+b4"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=git) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "git",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1:2.47.3-0+deb13u1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=curl) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "curl",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "8.14.1-2+deb13u5"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=jq) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "jq",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1.7.1-6+deb13u4"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=tar) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "tar",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1.35+dfsg-3.1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=zstd) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "zstd",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1.5.7+dfsg-1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=ca-certificates) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "ca-certificates",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "20250419"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=libicu76) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "libicu76",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "76.1-4"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=libkrb5-3) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "libkrb5-3",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1.21.3-5+deb13u1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=libssl3t64) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "libssl3t64",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "3.5.7-1~deb13u3"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: ok: [localhost] => (item=zlib1g) => {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "ansible_loop_var": "item",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "changed": false,
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "item": {
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "name": "zlib1g",
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:         "version": "1:1.3.dfsg+really1.3.1-1+b1"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     },
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]:     "msg": "All assertions passed"
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: }
+2026-10-07T12:19:01+07:00 pve01 guest-step[44142]: TASK [Assert the runner is not configured] *************************************
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: ok: [localhost]
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: TASK [Hash versions.yml] *******************************************************
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: ok: [localhost]
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: TASK [Write the manifest] ******************************************************
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: changed: [localhost]
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: PLAY RECAP *********************************************************************
+2026-10-07T12:19:02+07:00 pve01 guest-step[44142]: localhost                  : ok=16   changed=8    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+2026-10-07T12:19:04+07:00 pve01 guest-step[44142]: [614B blob data]
+2026-10-07T12:19:04+07:00 pve01 guest-step[44142]: Removing ansible-core (2.19.11-0+deb13u1) ...
+2026-10-07T12:19:04+07:00 pve01 guest-step[44142]: Processing triggers for man-db (2.13.1-1) ...
+2026-10-07T12:19:05+07:00 pve01 guest-step[44142]: [614B blob data]
+2026-10-07T12:19:05+07:00 pve01 guest-step[44142]: Removing python3-netaddr (1.3.0-1) ...
+2026-10-07T12:19:05+07:00 pve01 guest-step[44142]: Removing ieee-data (20240722) ...
+2026-10-07T12:19:06+07:00 pve01 guest-step[44142]: Removing python3-dnspython (2.7.0-1) ...
+2026-10-07T12:19:06+07:00 pve01 guest-step[44142]: Removing python3-httplib2 (0.22.0-1+deb13u1) ...
+2026-10-07T12:19:06+07:00 pve01 guest-step[44142]: Removing python3-packaging (25.0-1) ...
+2026-10-07T12:19:06+07:00 pve01 guest-step[44142]: Removing python3-pyparsing (3.1.2-1) ...
+2026-10-07T12:19:06+07:00 pve01 guest-step[44142]: Removing python3-resolvelib (1.1.0-1) ...
+2026-10-07T12:19:06+07:00 pve01 guest-step[44142]: Processing triggers for man-db (2.13.1-1) ...
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize: SCAN FAILED, no pass marker written
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   forbidden file: /opt/actions-runner/externals/node20/lib/node_modules/npm/.npmrc
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   forbidden file: /opt/actions-runner/externals/node24/lib/node_modules/npm/.npmrc
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node20/lib/node_modules/npm/docs/output/using-npm/config.html sha256=75a9a89b7988d25ba180b9cf93844c4b177ba1d167bd1231385e5a121f9a1944
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node20/lib/node_modules/npm/docs/content/using-npm/config.md sha256=4793d88688041eb7660ffc8fa249a0e41f2dad7bbdcd2441073424b154b8bb02
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node20/lib/node_modules/npm/man/man7/config.7 sha256=8c60f3262a925eaef484a33c97d9d7f0649a1838735927f41e694eaa11071eda
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node20/lib/node_modules/npm/node_modules/@npmcli/config/lib/definitions/definitions.js sha256=83b2068320f1a131c96658940e80522ec1f29150b338ce40eccf486e0ee05900
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node24/lib/node_modules/npm/docs/output/using-npm/config.html sha256=8786ad03212fbfc1b06115664d0bb60be8cd3375f1c8d3e51e953b94d4e58b7c
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node24/lib/node_modules/npm/docs/content/using-npm/config.md sha256=01feec10d720e14f67b9d835e27db58e30fa13b73eee13471194deb241cb0495
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node24/lib/node_modules/npm/man/man7/config.7 sha256=6d9eef63853e71e20c090b5299866de2ee3b1c9a12fd45e41cecc14dbc25ac2f
+2026-10-07T12:19:08+07:00 pve01 guest-step[44142]: finalize:   secret pattern: /opt/actions-runner/externals/node24/lib/node_modules/npm/node_modules/@npmcli/config/lib/definitions/definitions.js sha256=f9cffb281460dfc5aa98f4f2e91a47052b814faece72fc9a80eaf3fff2ceb8eb
+2026-10-07T12:19:08+07:00 pve01 guest-step[44009]: guest-step: in-guest run.sh exited 1, no pass marker is written
+2026-10-07T12:19:08+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-07T12:19:09+07:00 pve01 guest-step[45512]: guest-step: key and known_hosts removed
+2026-10-07T12:19:09+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Failed with result 'exit-code'.
+2026-10-07T12:19:09+07:00 pve01 systemd[1]: Failed to start homelab-template-guest@build.service - Guest-facing step (build) of a golden template build.
+2026-10-07T12:19:11+07:00 pve01 qm[45519]: <root@pam> starting task UPID:pve01:0000B1D0:000479A4:6AC5D64F:qmstop:9302:root@pam:
+2026-10-07T12:19:11+07:00 pve01 qm[45520]: stop VM 9302: UPID:pve01:0000B1D0:000479A4:6AC5D64F:qmstop:9302:root@pam:
+2026-10-07T12:19:11+07:00 pve01 qm[45519]: <root@pam> end task UPID:pve01:0000B1D0:000479A4:6AC5D64F:qmstop:9302:root@pam: OK
+2026-10-07T12:19:12+07:00 pve01 qm[45537]: <root@pam> starting task UPID:pve01:0000B1E2:00047A07:6AC5D650:qmdestroy:9302:root@pam:
+2026-10-07T12:19:12+07:00 pve01 qm[45538]: destroy VM 9302: UPID:pve01:0000B1E2:00047A07:6AC5D650:qmdestroy:9302:root@pam:
+2026-10-07T12:19:12+07:00 pve01 qm[45537]: <root@pam> end task UPID:pve01:0000B1E2:00047A07:6AC5D650:qmdestroy:9302:root@pam: OK
+2026-10-07T12:19:12+07:00 pve01 homelab-template[43568]: homelab-template: CLEANUP destroyed vmid=9302 after a failed build
+2026-10-07T12:19:12+07:00 pve01 homelab-template[43568]: homelab-template: FAILED Failed: systemctl start --wait failed rc=1: Job for homelab-template-guest@build.service failed because the control process exited with error code.
+2026-10-07T12:19:12+07:00 pve01 homelab-template[43568]: See "systemctl status homelab-template-guest@build.service" and "journalctl -xeu homelab-template-guest@build.service" for details.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Failed with result 'exit-code'.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: Failed to start homelab-template-build@vm-docker.service - Build the golden template of class vm-docker.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Consumed 23.821s CPU time, 1G memory peak.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Triggering OnFailure= dependencies.
+2026-10-07T12:19:12+07:00 pve01 systemctl[43566]: Job for homelab-template-build@vm-docker.service failed because the control process exited with error code.
+2026-10-07T12:19:12+07:00 pve01 systemctl[43566]: See "systemctl status homelab-template-build@vm-docker.service" and "journalctl -xeu homelab-template-build@vm-docker.service" for details.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: Starting homelab-template-failure@vm-docker.service - Record a failed golden template build of class vm-docker...
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: homelab-template-weekly.service: Deactivated successfully.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: Finished homelab-template-weekly.service - Rebuild every golden template class in turn.
+2026-10-07T12:19:12+07:00 pve01 homelab-template[45560]: homelab-template: BUILD FAILED class=vm-docker at 2026-10-07T05:19:12Z; marker /var/lib/homelab/templates/failed/vm-docker; read: journalctl -u homelab-template-build@vm-docker
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: homelab-template-failure@vm-docker.service: Deactivated successfully.
+2026-10-07T12:19:12+07:00 pve01 systemd[1]: Finished homelab-template-failure@vm-docker.service - Record a failed golden template build of class vm-docker.

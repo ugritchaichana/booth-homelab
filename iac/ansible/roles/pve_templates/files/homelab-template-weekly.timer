@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly rebuild of every golden template class
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=15min
+Unit=homelab-template-weekly.service
+
+[Install]
+WantedBy=timers.target

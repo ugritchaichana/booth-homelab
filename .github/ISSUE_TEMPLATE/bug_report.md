@@ -3,27 +3,26 @@ name: Bug Report
 about: Create a report to help reproduce and fix an issue
 title: '[BUG] '
 labels: ['bug', 'triage']
-assignees: 'ugritchaichana'
 ---
 
 ## Bug Description
 <!-- A clear and concise description of what the bug is. -->
 
-## Environment & Component
-- **Component:** (e.g., OpenTofu, Ansible, CT 102 .NET Runner, CT 103 Angular Runner, MinIO S3 Cache, Firewall)
-- **Host / OS:** (e.g., Proxmox VE 8.4, Debian 12, Alpine 3.23)
-- **Runner Execution:** (Self-Hosted LXC / GitHub-Hosted Fallback)
+## Environment and Component
+- **Component:** (for example OpenTofu stack, Ansible role, golden template, cache service, firewall, Hyper-V script, CI workflow)
+- **Host:** (for example Proxmox VE 9 on Hyper-V, Debian 13 guest)
+- **Execution:** (host run, hosted CI, WSL)
 
 ## Steps to Reproduce
 1. Command executed: `...`
 2. Arguments / variables passed: `...`
-3. Error output / trace:
+3. Error output:
 
 ## Expected Behavior
-<!-- A clear description of what was expected to happen. -->
+<!-- What should have happened. -->
 
 ## Actual Behavior
-<!-- Include exact stdout, stderr, or failure logs. -->
+<!-- Exact output or failure lines. Remove secrets and non-lab addresses first. -->
 ```
-<paste error logs here>
+<paste output here>
 ```

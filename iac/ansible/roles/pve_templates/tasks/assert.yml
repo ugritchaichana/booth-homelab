@@ -1,0 +1,32 @@
+---
+- name: Assert the template framework inputs
+  ansible.builtin.assert:
+    that:
+      - pve_templates_guest_gateway is match(pve_templates_address_pattern)
+      - pve_templates_guest_cidr is match('^[0-9.]+/24$')
+      - pve_templates_classes | length > 0
+      - pve_templates_classes.values() | map(attribute='vmid_base') | unique | list | length == pve_templates_classes | length
+      - pve_templates_classes.values() | map(attribute='build_address') | unique | list | length == pve_templates_classes | length
+      - pve_templates_classes.values() | map(attribute='type') | difference(['lxc', 'qemu']) | list | length == 0
+      - pve_templates_thresholds.values() | select('lt', 1) | list | length == 0
+      - pve_templates_thresholds.data_percent_max < 100
+      - pve_templates_thresholds.metadata_percent_max < 100
+      - pve_templates_guest_user != 'root'
+    fail_msg: >-
+      Set the guest network gateway and a /24 cidr in the inventory, give every class a distinct VMID block and build address,
+      use the types lxc or qemu, set thresholds between 1 and 99 and keep the guest-facing user off root
+
+- name: Assert each class block and build address
+  ansible.builtin.assert:
+    that:
+      - item.value.vmid_base | int % 100 == 0
+      - pve_templates_reserved_vmids | select('ge', item.value.vmid_base | int) | select('lt', item.value.vmid_base | int + 100) | list | length == 0
+      - item.value.build_address is match(pve_templates_address_pattern)
+      - item.value.build_address != pve_templates_guest_gateway
+      - item.value.build_address | regex_replace('[.][0-9]+$', '') == pve_templates_guest_gateway | regex_replace('[.][0-9]+$', '')
+    fail_msg: >-
+      Class {{ item.key }} needs a VMID block base divisible by 100 that holds no reserved probe VMID,
+      and a build address other than the gateway inside the guest /24
+  loop: "{{ pve_templates_classes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"

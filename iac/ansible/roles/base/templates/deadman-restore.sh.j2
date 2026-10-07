@@ -1,0 +1,16 @@
+#!/bin/sh
+set -u
+rc=0
+touch {{ base_deadman_dir }}/fired
+{% if base_dropin_stat.stat.exists %}
+cp -p {{ base_deadman_dir }}/sshd-dropin.bak {{ base_sshd_dropin_path }} || rc=1
+{% else %}
+rm -f {{ base_sshd_dropin_path }} || rc=1
+{% endif %}
+/usr/sbin/sshd -t && /usr/bin/systemctl reload-or-restart {{ base_sshd_service }} || rc=1
+{% if base_keys_stat.stat.exists %}
+cat {{ base_deadman_dir }}/root-authorized_keys.bak > {{ base_root_authorized_keys_path }} || rc=1
+{% endif %}
+[ "$rc" -ne 0 ] || rm -f {{ base_deadman_dir }}/armed
+/usr/bin/logger -t homelab-deadman "restore finished rc=$rc"
+exit "$rc"

@@ -1,0 +1,97 @@
+# Architecture decision records
+
+An architecture decision record (ADR) states one decision, the options that were weighed, the choice, and why it won, including what was given up and what was measured. The decision log in `docs/platform/requirements.md` keeps one short row per decision; the ADR holds the reasoning so that someone adapting this repository to another host can see which choices were forced by this machine and which were taste.
+
+## Rules
+
+- One decision per ADR.
+- Numbers are four digits and are never reused, even for a withdrawn record.
+- To change a decision, write a new ADR and add "Superseded by NNNN" to the old one's status line. Do not rewrite history in the old file.
+- Each pull request that finalizes a decision adds its ADR. Decisions still open get no ADR until they are decided.
+- File name: `NNNN-<kebab-of-title>.md`. Kebab rule: lowercase the title, replace every run of non-alphanumeric characters with a single hyphen, trim hyphens at the ends (`9.1` becomes `9-1`, `Hyper-V` becomes `hyper-v`, commas are dropped).
+- Keep each record to about 25 to 60 lines. Facts only; cite a `path:line`, a pull request, a measured value, or a documentation URL.
+- Artifacts are English and neutral (ADR 0002): no organization, person, or vendor names, no host or network identifiers beyond the lab ranges in configuration.
+
+## Template
+
+```
+# NNNN. <short imperative title>
+
+- Status: Accepted
+- Date: YYYY-MM-DD
+- Deciders: owner | operator | owner and operator
+- Decision log: D<n>[, D<m>] in docs/platform/requirements.md
+
+## Context
+<problem, forces, constraints; measured facts and file:line>
+
+## Options considered
+1. <option> — <pro / con>
+2. <option> — <pro / con>
+3. <option> — <pro / con>
+
+## Decision
+<the chosen option, plainly>
+
+## Rationale and trade-offs
+<why it beat the others; what is accepted as lost; measured evidence; residual uncertainty labelled HYPOTHESIS; when to revisit>
+```
+
+## Index
+
+| Number | Title | Status |
+|---|---|---|
+| 0001 | [Record architecture decisions](0001-record-architecture-decisions.md) | Accepted |
+| 0002 | [Keep the repository neutral and English-only](0002-keep-the-repository-neutral-and-english-only.md) | Accepted |
+| 0003 | [Host Proxmox VE as a nested Hyper-V guest on the workstation](0003-host-proxmox-ve-as-a-nested-hyper-v-guest-on-the-workstation.md) | Accepted |
+| 0004 | [Install Proxmox VE 9.1 unattended from a prepared ISO](0004-install-proxmox-ve-9-1-unattended-from-a-prepared-iso.md) | Accepted |
+| 0005 | [Use the no-subscription repository and upgrade through Ansible](0005-use-the-no-subscription-repository-and-upgrade-through-ansible.md) | Accepted |
+| 0006 | [Isolate the VM behind an internal switch and WinNAT](0006-isolate-the-vm-behind-an-internal-switch-and-winnat.md) | Accepted |
+| 0007 | [Enforce a host-side isolation layer with Hyper-V port ACLs](0007-enforce-a-host-side-isolation-layer-with-hyper-v-port-acls.md) | Accepted |
+| 0008 | [Keep Proxmox off the tailnet and reach the UI through the host](0008-keep-proxmox-off-the-tailnet-and-reach-the-ui-through-the-host.md) | Accepted |
+| 0009 | [Store secrets with SOPS and age in the repository](0009-store-secrets-with-sops-and-age-in-the-repository.md) | Accepted |
+| 0010 | [Run the operator toolchain in WSL with pinned, verified binaries](0010-run-the-operator-toolchain-in-wsl-with-pinned-verified-binaries.md) | Accepted |
+| 0011 | [Reach Proxmox from WSL through an SSH ProxyCommand on the Windows host](0011-reach-proxmox-from-wsl-through-an-ssh-proxycommand-on-the-windows-host.md) | Accepted |
+| 0012 | [Use OpenTofu and Ansible for infrastructure as code](0012-use-opentofu-and-ansible-for-infrastructure-as-code.md) | Accepted |
+| 0013 | [Keep OpenTofu state local and encrypted until the cache service exists](0013-keep-opentofu-state-local-and-encrypted-until-the-cache-service-exists.md) | Accepted |
+| 0014 | [Run host setup in one elevated pass that never reboots, with the owner in Hyper-V Administrators](0014-run-host-setup-in-one-elevated-pass-that-never-reboots-with-the-owner-in-hyper-v-administrators.md) | Accepted |
+| 0015 | [Run Docker workloads in VMs, never in privileged containers](0015-run-docker-workloads-in-vms-never-in-privileged-containers.md) | Accepted |
+| 0016 | [Scale CI with an ephemeral runner pool and overflow to hosted runners](0016-scale-ci-with-an-ephemeral-runner-pool-and-overflow-to-hosted-runners.md) | Accepted |
+| 0017 | [Size templates by generic cloud flavors](0017-size-templates-by-generic-cloud-flavors.md) | Accepted |
+| 0018 | [Manage several machines as independent hosts in one inventory](0018-manage-several-machines-as-independent-hosts-in-one-inventory.md) | Accepted |
+| 0019 | [Take restore points of the PVE VM only while it is Off](0019-take-restore-points-of-the-pve-vm-only-while-it-is-off.md) | Accepted |
+| 0020 | [Retire the bootstrap, cache and Ansible assets of the previous host instead of porting them](0020-retire-the-bootstrap-cache-and-ansible-assets-of-the-previous-host-instead-of-porting-them.md) | Accepted |
+| 0021 | [Keep one inventory file as the single host data source](0021-keep-one-inventory-file-as-the-single-host-data-source.md) | Accepted |
+| 0022 | [Render the SSH config with the host key pinned from SOPS](0022-render-the-ssh-config-with-the-host-key-pinned-from-sops.md) | Accepted |
+| 0023 | [Run Ansible as a key-only automation user and harden sshd behind a dead-man](0023-run-ansible-as-a-key-only-automation-user-and-harden-sshd-behind-a-dead-man.md) | Accepted |
+| 0024 | [Test roles with Molecule on hosted runners and prove host changes locally](0024-test-roles-with-molecule-on-hosted-runners-and-prove-host-changes-locally.md) | Accepted |
+| 0025 | [Keep one owner per object and let Ansible own the Proxmox firewall files](0025-keep-one-owner-per-object-and-let-ansible-own-the-proxmox-firewall-files.md) | Accepted |
+| 0026 | [Bootstrap the OpenTofu API identity with Ansible and keep its token in SOPS](0026-bootstrap-the-opentofu-api-identity-with-ansible-and-keep-its-token-in-sops.md) | Accepted |
+| 0027 | [Use the classic Proxmox firewall with a security group for guest egress](0027-use-the-classic-proxmox-firewall-with-a-security-group-for-guest-egress.md) | Accepted |
+| 0028 | [Block the Hyper-V socket transport in the PVE guest](0028-block-the-hyper-v-socket-transport-in-the-pve-guest.md) | Accepted |
+| 0029 | [Reach the Proxmox API through an SSH forward and skip TLS verification inside it](0029-reach-the-proxmox-api-through-an-ssh-forward-and-skip-tls-verification-inside-it.md) | Accepted |
+| 0030 | [Give guests a routed, source-NATed simple SDN zone with static addresses](0030-give-guests-a-routed-source-nated-simple-sdn-zone-with-static-addresses.md) | Accepted |
+| 0031 | [Prove guest isolation with a red-first run, paired controls and one run per restart phase](0031-prove-guest-isolation-with-a-red-first-run-paired-controls-and-one-run-per-restart-phase.md) | Accepted |
+| 0032 | [Reach the probe guests over SSH from the Proxmox host with a key that never leaves it](0032-reach-the-probe-guests-over-ssh-from-the-proxmox-host-with-a-key-that-never-leaves-it.md) | Accepted |
+| 0033 | [Keep one SOPS file per consumer and host, with one writer each](0033-keep-one-sops-file-per-consumer-and-host-with-one-writer-each.md) | Accepted |
+| 0034 | [Publish the requirements as a redacted copy of the operator's document](0034-publish-the-requirements-as-a-redacted-copy-of-the-operators-document.md) | Accepted |
+| 0035 | [Leave the storage definitions as the installer made them in Phase 2](0035-leave-the-storage-definitions-as-the-installer-made-them-in-phase-2.md) | Accepted |
+| 0036 | [Keep templates in their own pool and let the provisioner token only clone them](0036-keep-templates-in-their-own-pool-and-let-the-provisioner-token-only-clone-them.md) | Accepted |
+| 0037 | [Make the guest firewall guard reject extra enabled rules on vnet guests](0037-make-the-guest-firewall-guard-reject-extra-enabled-rules-on-vnet-guests.md) | Accepted |
+| 0038 | [Build golden templates with a root orchestrator, a sandboxed guest-facing step and in-guest Ansible](0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) | Accepted |
+| 0039 | [Keep templates as Proxmox templates on local-lvm, clone them linked and check clone origins before deleting one](0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) | Accepted |
+| 0040 | [Version templates with a monotonic number, a root-only current tag and automatic promotion](0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) | Accepted |
+| 0041 | [Let the template role own base images, snippets content and the weekly rebuild](0041-let-the-template-role-own-base-images-snippets-content-and-the-weekly-rebuild.md) | Accepted |
+| 0042 | [Install runner template toolchains from release tarballs with pinned hashes](0042-pin-runner-template-toolchains-by-hash.md) | Accepted |
+| 0043 | [Use Debian's docker.io in the VM class with a socket-only daemon](0043-use-debians-docker-io-in-the-vm-class-with-a-socket-only-daemon.md) | Accepted |
+| 0044 | [Select golden templates fail closed and clone the R15 probe from them](0044-select-golden-templates-fail-closed-and-clone-the-r15-probe-from-them.md) | Accepted |
+| 0045 | [Place the cache on its own routed vnet](0045-place-the-cache-on-its-own-routed-vnet.md) | Accepted |
+| 0046 | [Open one group-level path from runners to the cache](0046-open-one-group-level-path-from-runners-to-the-cache.md) | Accepted |
+| 0047 | [Give the guest firewall guard a per-vnet policy](0047-give-the-guest-firewall-guard-a-per-vnet-policy.md) | Accepted |
+| 0048 | [Serve the build cache with bazel-remote](0048-serve-the-build-cache-with-bazel-remote.md) | Accepted |
+| 0049 | [Key caches by content and restore outputs only on an exact match](0049-key-caches-by-content-and-restore-outputs-only-on-an-exact-match.md) | Accepted |
+| 0050 | [Allow anonymous cache reads and gate writes with one writer credential](0050-allow-anonymous-cache-reads-and-gate-writes-with-one-writer-credential.md) | Accepted |
+| 0051 | [Keep OpenTofu state local instead of moving it to the cache](0051-keep-opentofu-state-local-instead-of-moving-it-to-the-cache.md) | Accepted |
+| 0052 | [Publish sanitized evidence and knowledge in the repository](0052-publish-sanitized-evidence-and-knowledge-in-the-repository.md) | Accepted |
+| 0053 | [Prove Phase 4 on a runner-template clone before runners exist](0053-prove-phase-4-on-a-runner-template-clone-before-runners-exist.md) | Accepted |
+| 0054 | [Run CI on hosted runners until the runner pool exists](0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md) | Accepted |

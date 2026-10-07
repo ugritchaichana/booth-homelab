@@ -1,0 +1,34 @@
+utc=2026-10-07T00-51-53Z host boot (local)=2026-10-07T07:15:17
+== Invoke-PveVm.ps1 -Action Status (non-elevated)
+       VM pve01: state Running, uptime 00:31:22.4000000, assigned memory 20.0 GiB
+       TCP 10.99.0.2:22 reachable: True
+       TCP 10.99.0.2:8006 reachable: True
+[PASS] network adapter: connected to 'homelab-pve01'
+[PASS] port ACL rules of this script on the adapter: 18 (a fresh refresh would hold 18; Start or Refresh brings them up to date)
+       egress interface: Wi-Fi (configured)
+       host-routed deny prefixes: 2; would append 0 new to the local override; 2 prefix(es), SHA-256 6fa2b454e4d3c8d59e5d390e6ff264a54e2a16e96929cadee6ab480a8e348bff
+[PASS] host firewall rule homelab-pve01-block-guest-inbound: present
+       host vEthernet IPv6 binding enabled: False
+       checkpoints: 3
+== port ACL read-back (Direction, Action, Stateful, Weight, Remote, Protocol, LocalPort)
+Inbound Deny stateful=False w=4000 remote=0.0.0.0/0 proto=ANY lport=ANY
+Outbound Allow stateful=True w=4009 remote=0.0.0.0/0 proto=UDP lport=ANY
+Outbound Allow stateful=True w=4010 remote=0.0.0.0/0 proto=TCP lport=ANY
+Outbound Deny stateful=False w=4889 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4890 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4891 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4892 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4893 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4894 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4895 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4896 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4897 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4898 remote=<addr> proto=ANY lport=ANY
+Outbound Deny stateful=False w=4899 remote=0.0.0.0/8 proto=ANY lport=ANY
+Inbound Deny stateful=False w=4988 remote=::/0 proto=ANY lport=ANY
+Outbound Deny stateful=False w=4989 remote=::/0 proto=ANY lport=ANY
+Inbound Allow stateful=True w=4998 remote=10.99.0.1 proto=TCP lport=8006
+Inbound Allow stateful=True w=4999 remote=10.99.0.1 proto=TCP lport=22
+acl count: 18
+== host rule: Name=homelab-pve01-block-guest-inbound Enabled=True Action=Block Direction=Inbound Profile=Any
+== web UI: tailnet path http_code=200 port proxy http_code=200

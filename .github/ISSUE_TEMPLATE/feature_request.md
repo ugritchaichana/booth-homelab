@@ -3,17 +3,16 @@ name: Feature Request / Architecture RFC
 about: Propose an architectural improvement or new feature
 title: '[RFC] '
 labels: ['enhancement', 'architecture']
-assignees: 'ugritchaichana'
 ---
 
-## Problem Statement / Motivation
-<!-- What problem does this proposal solve? -->
+## Problem Statement
+<!-- What problem does this solve? Link the requirement row or the hand-off item it relates to. -->
 
-## Proposed Solution / Technical Specification
-<!-- Describe the proposed architecture, components, and schema changes. -->
+## Proposed Solution
+<!-- Architecture, components, interfaces. -->
 
 ## Alternatives Considered
-<!-- What alternative solutions or libraries were evaluated? Why were they rejected? -->
+<!-- What else was weighed and why it lost. This becomes the ADR. -->
 
-## Verification & Testing Strategy
-<!-- How will this change be verified deterministically? -->
+## Verification
+<!-- Which test or run proves it, including the red-first check. -->

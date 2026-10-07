@@ -1,0 +1,145 @@
+---
+- name: Assert the template framework inputs
+  ansible.builtin.import_tasks: assert.yml
+
+- name: Create the guest-facing group
+  ansible.builtin.group:
+    name: "{{ pve_templates_guest_user }}"
+    system: true
+
+- name: Create the guest-facing user
+  ansible.builtin.user:
+    name: "{{ pve_templates_guest_user }}"
+    group: "{{ pve_templates_guest_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+    comment: Golden template build, guest-facing step
+
+- name: Create the root-owned framework directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ pve_templates_config_dir }}", mode: "0755" }
+    - { path: "{{ pve_templates_libexec_dir }}", mode: "0755" }
+    - { path: "{{ pve_templates_share_dir }}", mode: "0755" }
+    - { path: "{{ pve_templates_share_dir }}/common", mode: "0755" }
+    - { path: "{{ pve_templates_share_dir }}/bundles", mode: "0755" }
+    - { path: "{{ pve_templates_state_dir }}", mode: "0700" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Create the root-owned work directory
+  ansible.builtin.file:
+    path: "{{ pve_templates_work_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+
+- name: Look at every parent directory of the work directory
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: >-
+    {%- set ns = namespace(path='', all=['/']) -%}
+    {%- for part in pve_templates_work_dir.split('/')[1:-1] -%}
+    {%- set ns.path = ns.path ~ '/' ~ part -%}
+    {%- set ns.all = ns.all + [ns.path] -%}
+    {%- endfor -%}
+    {{ ns.all }}
+  register: pve_templates_work_parents
+
+- name: Require that the guest-facing user can traverse to the work directory
+  ansible.builtin.assert:
+    that:
+      - item.stat.isdir
+      - item.stat.xoth
+    fail_msg: >-
+      {{ item.item }} is not traversable by other users, so {{ pve_templates_guest_user }}
+      cannot reach {{ pve_templates_work_dir }}; move pve_templates_work_dir
+  loop: "{{ pve_templates_work_parents.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Install the root orchestrator
+  ansible.builtin.copy:
+    src: homelab-template.py
+    dest: "{{ pve_templates_bin }}"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install the guest-facing step
+  ansible.builtin.copy:
+    src: homelab-template-guest.py
+    dest: "{{ pve_templates_libexec_dir }}/guest-step"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the in-guest bundle parts shared by every class
+  ansible.builtin.copy:
+    src: "common/{{ item.name }}"
+    dest: "{{ pve_templates_share_dir }}/common/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: run.sh, mode: "0755" }
+    - { name: playbook.yml, mode: "0644" }
+    - { name: finalize.sh, mode: "0755" }
+    - { name: seal.sh, mode: "0755" }
+    - { name: scan-allowlist.txt, mode: "0644" }
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Render the orchestrator configuration
+  ansible.builtin.copy:
+    dest: "{{ pve_templates_config_dir }}/config.json"
+    content: "{{ pve_templates_config | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the build units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ pve_templates_unit_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - homelab-template-guest@.service
+    - homelab-template-build@.service
+    - homelab-template-failure@.service
+  register: pve_templates_unit_files
+
+- name: Create the guest unit drop-in directory
+  ansible.builtin.file:
+    path: "{{ pve_templates_unit_dir }}/homelab-template-guest@.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Pin the guest unit to the guest subnet and the work directory
+  ansible.builtin.template:
+    src: 10-site.conf.j2
+    dest: "{{ pve_templates_unit_dir }}/homelab-template-guest@.service.d/10-site.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_templates_unit_dropin
+
+- name: Reload systemd when a unit changed
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: pve_templates_unit_files.changed or pve_templates_unit_dropin.changed
+
+- name: Deploy bundles, fetch base images, set storage content and schedule rebuilds
+  ansible.builtin.import_tasks: host.yml

@@ -1,91 +1,71 @@
-# 04. SDET Transitive Affected Testing & Cache Optimization
+# 04. Transitive Affected Testing and Pipeline Layout
 
-## 1. Problem Statement & First-Principles Solution
+## Affected-test selector
 
-In a growing enterprise microservice repository or monorepo, running every test suite and recompiling untouched code on every pull request leads to linear CI degradation:
-
-$$\text{Pipeline Latency} \propto \sum (\text{Build Time}_i + \text{Test Time}_i)$$
-
-To achieve sub-30-second pipeline execution, Booth Homelab implements two complementary techniques:
-1. **Transitive Affected Test Graph Resolution** (`scripts/ci/run_affected_tests.py`)
-2. **MSBuild Timestamp Synchronization** (Selective `mtime` synchronization)
-
----
-
-## 2. Transitive Affected Graph Engine
-
-The Python script `scripts/ci/run_affected_tests.py` analyzes the git diff against the target base branch (`origin/master`):
+`scripts/apps/dotnet-affected-test.sh` (Linux) and `dotnet-affected-test.ps1` (Windows) run only the .NET test projects that a change can affect:
 
 ```mermaid
 graph TD
-    Diff["Git Diff (git diff --name-only origin/master...HEAD)"] --> ChangedFiles["Identify Changed Files"]
-    ChangedFiles --> ProjectMap["Map Files to Containing .csproj"]
-    ProjectMap --> DependencyGraph["Parse ProjectReferences (.csproj XML)"]
-    DependencyGraph --> AffectedProjects["Compute Closure of Affected Projects"]
-    AffectedProjects --> TestSuites["Filter for Matching Test Projects (*.Tests.csproj)"]
-    TestSuites --> Execute["Execute dotnet test --no-build only on target suites"]
+    Diff["git diff --name-only base head"] --> Files["Changed files"]
+    Files --> Owner["Owning .csproj of each file"]
+    Owner --> Graph["Reverse closure over ProjectReference"]
+    Graph --> Tests["Test projects inside the closure"]
+    Tests --> Run["dotnet test on those projects only"]
 ```
 
-### Example Graph Behavior:
-- **Change in `src/Billing.Api/`**:
-  - Direct affected: `Billing.Api`
-  - Transitive affected tests: `Billing.Api.UnitTests`
-  - Skipped: `Order.Api`, `Order.Api.UnitTests` (**0 seconds wasted**)
-- **Change in `src/Order.Api/`**:
-  - Direct affected: `Order.Api`
-  - Transitive affected tests: `Order.Api.UnitTests`
-  - Skipped: `Billing.Api`, `Billing.Api.UnitTests` (**0 seconds wasted**)
+Fail-closed rules:
 
----
+- A change to shared build configuration (`Directory.Build.props`, `Directory.Packages.props`, `nuget.config`, `global.json`, a `.sln`) selects every test project.
+- A non-documentation change that maps to no project selects the full suite.
+- A documentation-only change, or no change at all, exits 0 and runs nothing. With no committed change the script falls back to the working tree.
 
-## 3. MSBuild Timestamp Synchronization
+Example on the sample solution: a change under `src/Billing.Api/` selects `Billing.Api.UnitTests` and `Order.Api.IntegrationTests` (it references `Billing.Api`) and skips `Order.Api.UnitTests`; a change under `src/Core.Domain/` reaches `Order.Api` through `Core.Application` and selects the two Order test projects.
 
-Normally, extracting a tarball restores files with identical or reset modification timestamps (`mtime`). If source files have timestamps newer than compilation outputs (`bin/` and `obj/`), MSBuild will rebuild everything. Conversely, if source timestamps are older, MSBuild might skip compiling modified files.
+The harness `tests/verify-affected-graph.sh` (and the `.ps1` twin) checks the exact set of selected projects in disposable clones. The workflow `affected-selector-ci.yml` adds three mutants of the selector that each must fail a named scenario, so the harness is not vacuous (`docs/knowledge/test-catalogue.md`).
 
-To guarantee correctness and maximal caching:
-1. **Preserve Exact Timestamps on Restore:**
-   ```bash
-   tar -I "zstd -T0 -3" -xf build-cache.tar.zst
-   ```
-2. **Bump Modification Timestamps on Git-Modified Files:**
-   ```bash
-   for file in $(git diff --name-only origin/master...HEAD); do
-     [ -f "$file" ] && touch "$file"
-   done
-   ```
-3. **Run Incremental Build:**
-   ```bash
-   dotnet build --no-restore
-   ```
-   - **Untouched projects:** MSBuild prints `Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.`
-   - **Modified projects:** Only touched C# sources are recompiled into their respective assemblies.
+## Build outputs and correctness
 
----
+The selector decides what to test. What to rebuild is decided by the build cache: outputs are restored only on an exact match of the input tree ids, so a changed source never meets a stale binary (page 03, ADR 0049). The earlier approach of bumping timestamps on changed files was replaced; requirements row 18 records why and row 64 the test.
 
-## 4. Modular Reusable Workflow Architecture (DAG)
+## Pipeline layout
 
-The CI pipeline is decomposed from a monolith script into discrete, reusable jobs and composite actions:
+`sdet-ci.yml` handles `push`, `pull_request` and `workflow_dispatch` and calls the reusable workflow `reusable-sdet-pipeline.yml`.
 
 ```mermaid
 graph LR
-    Telemetry["Telemetry"]
-    Build["Build (.NET)"]
-    TestDotnet["Test (.NET)"]
-    CacheDotnet["Cache (.NET)"]
-    TestAngular["Test (Angular)"]
-    Report["Report"]
-
-    Telemetry --> Build
-    Build --> TestDotnet
-    Build & TestDotnet --> CacheDotnet
-    Telemetry & Build & TestDotnet & CacheDotnet & TestAngular --> Report
+    T["Telemetry"] --> B["Build (.NET)"]
+    B --> TD["Test (.NET)"]
+    B --> CS["Cache save (.NET)"]
+    TD --> CS
+    A["Test (Angular)"] --> AS["Cache save (Angular)"]
+    T --> R["Report"]
+    B --> R
+    TD --> R
+    CS --> R
+    AS --> R
+    A --> R
 ```
 
-### Components Matrix:
-1. **Top-Level Orchestrator:** `.github/workflows/sdet-ci.yml` (Handles `push`, `pull_request`, and `workflow_dispatch` triggers).
-2. **Reusable Workflow:** `.github/workflows/reusable-sdet-pipeline.yml` (Defines inputs, typed outputs, and the parallel dual-runner DAG).
-3. **Composite Actions:**
-   - `.github/actions/minio-cache/action.yml`: S3 restore and save routines.
-   - `.github/actions/run-affected-tests/action.yml`: Affected graph test invocation for .NET.
-   - `.github/actions/run-angular-jest/action.yml`: Angular Jest test runner and MinIO cache sync.
+| Job | Restores | Saves |
+|---|---|---|
+| Build (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` | none |
+| Cache save (.NET) | none | `nuget`, `dotnet-outputs`; default-branch push only, environment `cache-writer` |
+| Test (Angular) | `node_modules`, `npm ci` on a miss | none |
+| Cache save (Angular) | `node_modules` | `node_modules`; default-branch push only, environment `cache-writer` |
 
+Composite actions: `.github/actions/build-cache` (restore and save), `run-affected-tests` (the selector), `run-angular-jest`.
+
+## Runner selection
+
+The reusable pipeline asks for the labels `self-hosted`, `linux`, `proxmox` and `dotnet` or `angular` for this repository, and for `ubuntu-latest` when `force_ubuntu_runner` is true or in any other repository. No self-hosted runner is online until the Phase 5 pool exists, so `sdet-ci.yml` sets `force_ubuntu_runner` on push and pull request and defaults it to true on dispatch: CI runs on hosted runners today (ADR 0054, `docs/adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md`). A hosted run executes with the cache disabled (row 68). The override is removed at the Phase 6 cutover. Before then, fork pull requests must be routed to hosted runners on their own, because the reusable pipeline's expression alone would send them to the self-hosted labels (row 27, decision D17).
+
+## Other workflows
+
+| Workflow | Runs on changes to |
+|---|---|
+| `iac-ci.yml` | `iac/`, `tests/isolation/`: OpenTofu lint, validate and test; Ansible lint, syntax, isolation tests, Molecule |
+| `cache-ci.yml` | `scripts/ci/build_cache/`, `tests/cache/`, `apps/`: client tests, locked restores, stale-binary test |
+| `evidence-ci.yml` | `docs/evidence/`, `docs/knowledge/`, `scripts/evidence/`, `tests/evidence/`: publisher tests and the published-text check |
+| `affected-selector-ci.yml` | the selector scripts and `tests/` |
+| `secret-scan.yml` | every pull request and push: gitleaks |
+| `wiki-sync.yml` | `wiki/` on the default branch: mirrors the pages to the GitHub wiki |

@@ -1,7 +1,0 @@
----
-- name: Proxmox Host Zero-Trust Network & Appliance Templates
-  hosts: proxmox_node
-  gather_facts: true
-  roles:
-    - enterprise_firewall
-    - proxmox_host

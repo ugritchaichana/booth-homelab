@@ -1,0 +1,8 @@
+cache8 rc=0 elapsed=21s
+cache01                    : ok=23   changed=2    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+changed: [cache01]
+active
+wait-for-address: 10.99.17.10 is configured after 0 seconds
+verify-cas: checked=4 quarantined=0 deleted=0 skipped=0 unreadable=0 seconds=0
+2026/10/07 09:02:38 Starting HTTP server on address 10.99.17.10:8080
+-> Overall exposure level for bazel-remote.service: 2.1 OK :-)

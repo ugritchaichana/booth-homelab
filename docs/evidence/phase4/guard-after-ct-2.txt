@@ -1,0 +1,25 @@
+homelab-guest-firewall-guard.service: Failed with result 'exit-code'.
+Failed to start homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet.
+homelab-guest-firewall-guard.service: Consumed 12.489s CPU time, 150.8M memory peak.
+Starting homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet...
+guest-firewall-guard: ok, 5 guest(s) checked on pve01
+homelab-guest-firewall-guard.service: Deactivated successfully.
+Finished homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet.
+homelab-guest-firewall-guard.service: Consumed 11.751s CPU time, 151.2M memory peak.
+{
+    "vnets": {
+        "cache": {
+            "allow_gateway_ssh": null,
+            "groups": [
+                "guest-egress",
+                "cache-ingress"
+            ]
+        },
+        "guests": {
+            "allow_gateway_ssh": "10.99.16.1",
+            "groups": [
+                "guest-egress"
+            ]
+        }
+    }
+} 

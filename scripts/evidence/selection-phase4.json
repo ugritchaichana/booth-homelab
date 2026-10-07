@@ -1,0 +1,230 @@
+{
+  "phase": "phase4",
+  "entries": [
+    {
+      "src": "plans:booth-homelab-phase4/host-run/converge-site-1.txt",
+      "dest": "docs/evidence/phase4/converge-site-1.txt",
+      "proves": "First Phase 4 site converge on the host: the firewall, identity and guard changes apply"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/converge-site-2.txt",
+      "dest": "docs/evidence/phase4/converge-site-2.txt",
+      "proves": "Second site converge on the host after the first fixes"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/converge-site-3.txt",
+      "dest": "docs/evidence/phase4/converge-site-3.txt",
+      "proves": "Third site converge on the host: the host baseline holds"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/converge-cache-1.txt",
+      "dest": "docs/evidence/phase4/converge-cache-1.txt",
+      "proves": "First converge of the cache service role on the cache container"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/converge-cache-2.txt",
+      "dest": "docs/evidence/phase4/converge-cache-2.txt",
+      "proves": "Second cache converge, after the first host findings were fixed"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/converge-cache-7.txt",
+      "dest": "docs/evidence/phase4/converge-cache-7.txt",
+      "proves": "Cache converge that starts the container only after its firewall reads back correctly"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/tofu-proxmox-host-plan1.txt",
+      "dest": "docs/evidence/phase4/tofu-proxmox-host-plan1.txt",
+      "proves": "Host stack plan for the Phase 4 change: a cache vnet and subnet are created and the SDN applier is replaced (3 to add, 1 to destroy)"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/tofu-proxmox-host-apply1.txt",
+      "dest": "docs/evidence/phase4/tofu-proxmox-host-apply1.txt",
+      "proves": "Host stack apply of that plan: 3 added, 0 changed, 1 destroyed"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/tofu-proxmox-host-final-plan.txt",
+      "dest": "docs/evidence/phase4/tofu-proxmox-host-final-plan.txt",
+      "proves": "Host stack plan after the apply reports no changes"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/tofu-cache-service-apply1.txt",
+      "dest": "docs/evidence/phase4/tofu-cache-service-apply1.txt",
+      "proves": "Cache service stack apply creates the cache container and its firewall options and rules (3 added)"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/tofu-cache-service-final-plan.txt",
+      "dest": "docs/evidence/phase4/tofu-cache-service-final-plan.txt",
+      "proves": "Cache service stack plan after the apply reports no changes"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/fw-after-site1.txt",
+      "dest": "docs/evidence/phase4/fw-after-site1.txt",
+      "proves": "Cluster firewall groups on the host after the first site converge: the guest-egress rule to the cache port and the cache-ingress group"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/fw-after-sdn.txt",
+      "dest": "docs/evidence/phase4/fw-after-sdn.txt",
+      "proves": "Cluster firewall groups, forwarding settings and the guest source NAT rule on the host after the cache network apply"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/guard-after-ct.txt",
+      "dest": "docs/evidence/phase4/guard-after-ct.txt",
+      "proves": "Guest firewall guard journal: the guard flags the cache container created before its firewall resources existed"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/guard-after-ct-2.txt",
+      "dest": "docs/evidence/phase4/guard-after-ct-2.txt",
+      "proves": "Guest firewall guard journal: the guard reports ok with the cache container checked after the start gate change"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-api.txt",
+      "dest": "docs/evidence/phase4/cache-api.txt",
+      "proves": "Cache HTTP API on the host: anonymous read 404 then 200, anonymous and wrong-password writes 401, writer write 200"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-loop20-results.txt",
+      "dest": "docs/evidence/phase4/cache-loop20-results.txt",
+      "proves": "Twenty-iteration cache loop: the first iteration misses and saves, later iterations restore by hit, the last skips the save"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-accesslog-loop20.txt",
+      "dest": "docs/evidence/phase4/cache-accesslog-loop20.txt",
+      "proves": "Cache access log of the twenty-iteration loop, the source for the action-cache hit count"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/metrics-before-loop.txt",
+      "dest": "docs/evidence/phase4/metrics-before-loop.txt",
+      "proves": "Cache Prometheus counters before the loop, with the action-cache counters at 0"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/metrics-after-loop.txt",
+      "dest": "docs/evidence/phase4/metrics-after-loop.txt",
+      "proves": "Cache Prometheus counters after the loop: the action-cache get counters stay at 0 while the access log shows hits"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/loop-window.txt",
+      "dest": "docs/evidence/phase4/loop-window.txt",
+      "proves": "Start time of the twenty-iteration loop, used to cut the access log"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-eviction.txt",
+      "dest": "docs/evidence/phase4/cache-eviction.txt",
+      "proves": "Cache eviction: 40 blobs of 32 MiB into a 1 GiB budget leave 32 present and 8 evicted, the recently read blob is kept and the oldest cold blob is gone"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-edges-1.txt",
+      "dest": "docs/evidence/phase4/cache-edges-1.txt",
+      "proves": "Cache client edges: a save without a credential is skipped, and a flipped byte in a stored blob is rejected on restore by digest"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-edges-2.txt",
+      "dest": "docs/evidence/phase4/cache-edges-2.txt",
+      "proves": "Cache client edges: unreachable server, restart, kill -9 and concurrent writers, including the wrong-password large write that surfaced as a broken pipe"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-edges-3-wrongpw.txt",
+      "dest": "docs/evidence/phase4/cache-edges-3-wrongpw.txt",
+      "proves": "Cache client with a wrong password on a large write is refused with HTTP 401, and the writer save afterwards succeeds"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-kill9-check.txt",
+      "dest": "docs/evidence/phase4/cache-kill9-check.txt",
+      "proves": "Cache blobs after kill -9 during a write: one partial file on disk is named like a complete blob and is served with 200"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-kill9-after-sweep.txt",
+      "dest": "docs/evidence/phase4/cache-kill9-after-sweep.txt",
+      "proves": "Cache after the start-up sweep: no stray temporary files and the existing items load"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/pve-reboot.txt",
+      "dest": "docs/evidence/phase4/pve-reboot.txt",
+      "proves": "Host reboot: ssh returns after 43 s, the cache container runs after 45 s, the cache service is active after 49 s and the blob check finds nothing to quarantine"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/pve-reboot-kernel.txt",
+      "dest": "docs/evidence/phase4/pve-reboot-kernel.txt",
+      "proves": "Site converge after the host reboot: 0 changed, nested virtualization present, guard ok, the cache address wait satisfied after 1 s"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-ct-reboot.txt",
+      "dest": "docs/evidence/phase4/cache-ct-reboot.txt",
+      "proves": "First cache container reboot: the converge returns rc 2 and the service is still activating"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-ct-reboot-2.txt",
+      "dest": "docs/evidence/phase4/cache-ct-reboot-2.txt",
+      "proves": "Second cache container reboot after the fix: converge rc 0 and the service active"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/teardown.txt",
+      "dest": "docs/evidence/phase4/teardown.txt",
+      "proves": "Teardown after the Phase 4 runs: probe guests destroyed, the cache container left running"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-baseline-lxc.txt",
+      "dest": "docs/evidence/phase4/r15-baseline-lxc.txt",
+      "proves": "Final R15 baseline on the container runner probe with the cache present: 19 of 19 negatives blocked, 2 of 2 positives open"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-baseline-vm.txt",
+      "dest": "docs/evidence/phase4/r15-baseline-vm.txt",
+      "proves": "Final R15 baseline on the VM runner probe with the cache present: 19 of 19 negatives blocked, 2 of 2 positives open"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-baseline-cache.txt",
+      "dest": "docs/evidence/phase4/r15-baseline-cache.txt",
+      "proves": "Final R15 baseline from inside the cache container: 12 of 12 negatives blocked, 1 of 1 positive open"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-lxc.txt",
+      "dest": "docs/evidence/phase4/r15-after-pve-reboot-lxc.txt",
+      "proves": "R15 after the second host reboot on the container runner probe: 19 of 19 negatives blocked, 2 of 2 positives open, including the three cache-vnet rows; reboot logged in pve-reboot-2.txt"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-vm.txt",
+      "dest": "docs/evidence/phase4/r15-after-pve-reboot-vm.txt",
+      "proves": "R15 after the second host reboot on the VM runner probe: 19 of 19 negatives blocked, 2 of 2 positives open, including the three cache-vnet rows; reboot logged in pve-reboot-2.txt"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-cache.txt",
+      "dest": "docs/evidence/phase4/r15-after-pve-reboot-cache.txt",
+      "proves": "R15 from inside the cache container after the second host reboot: 12 of 12 negatives blocked, 1 of 1 positive open; reboot logged in pve-reboot-2.txt"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/pre-cache-r15-baseline-lxc.txt",
+      "dest": "docs/evidence/phase4/pre-cache-r15-baseline-lxc.txt",
+      "proves": "R15 isolation baseline on the container probe before the cache existed"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/pre-cache-r15-baseline-vm.txt",
+      "dest": "docs/evidence/phase4/pre-cache-r15-baseline-vm.txt",
+      "proves": "R15 isolation baseline on the VM probe before the cache existed"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-red-first-lxc.txt",
+      "dest": "docs/evidence/phase4/r15-red-first-lxc.txt",
+      "proves": "R15 red-first on the container runner probe with the firewall stopped: positive controls open, 10 of 10 and 11 of 11"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-red-first-vm.txt",
+      "dest": "docs/evidence/phase4/r15-red-first-vm.txt",
+      "proves": "R15 red-first on the VM runner probe with the firewall stopped: positive controls open, 10 of 10 and 11 of 11"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-red-first-cache.txt",
+      "dest": "docs/evidence/phase4/r15-red-first-cache.txt",
+      "proves": "R15 red-first from inside the cache container with the firewall stopped: positive controls open, 8 of 8 and 5 of 5"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-sandbox.txt",
+      "dest": "docs/evidence/phase4/cache-sandbox.txt",
+      "proves": "Cache service systemd sandbox: nine extra directives and a systemd-analyze security exposure of 2.1"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/pve-reboot-2.txt",
+      "dest": "docs/evidence/phase4/pve-reboot-2.txt",
+      "proves": "Second host reboot timing: ssh returns after 29 s, the cache container runs after 34 s and the cache service is active after 40 s"
+    }
+  ]
+}

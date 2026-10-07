@@ -1,0 +1,8 @@
+---
+pve_host_suite: "{{ pve_repo_suite | default('trixie') }}"
+pve_host_keyring: /usr/share/keyrings/proxmox-archive-keyring.gpg
+pve_host_reboot_timeout: 900
+pve_host_upgrade_timeout: 1800
+pve_host_kvm_parameter_paths:
+  - /sys/module/kvm_amd/parameters/nested
+  - /sys/module/kvm_intel/parameters/nested

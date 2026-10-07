@@ -1,0 +1,176 @@
+---
+- name: Find the class bundles shipped with the role
+  ansible.builtin.find:
+    paths: "{{ role_path }}/files/bundles"
+    file_type: directory
+  delegate_to: localhost
+  become: false
+  register: pve_templates_bundle_dirs
+
+- name: Create the deployed bundle directories
+  ansible.builtin.file:
+    path: "{{ pve_templates_share_dir }}/bundles/{{ item.path | basename }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ pve_templates_bundle_dirs.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Deploy each class version file first so a change is seen on its own
+  ansible.builtin.copy:
+    src: "bundles/{{ item.path | basename }}/versions.yml"
+    dest: "{{ pve_templates_share_dir }}/bundles/{{ item.path | basename }}/versions.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ pve_templates_bundle_dirs.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: pve_templates_versions
+
+- name: Create the directory of pending builds
+  ansible.builtin.file:
+    path: "{{ pve_templates_state_dir }}/pending"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Record a pending build for each class whose versions.yml changed, so a failed converge cannot lose it
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ pve_templates_state_dir }}/pending/{{ item.item.path | basename }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ pve_templates_versions.results | selectattr('changed') | list }}"
+  loop_control:
+    label: "{{ item.item.path | basename }}"
+
+- name: Deploy every class bundle, root-owned
+  ansible.builtin.copy:
+    src: "bundles/{{ item.path | basename }}/"
+    dest: "{{ pve_templates_share_dir }}/bundles/{{ item.path | basename }}/"
+    owner: root
+    group: root
+    mode: "u=rwX,go=rX"
+  loop: "{{ pve_templates_bundle_dirs.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Assert every class has a base image pin whose file name matches its base volume
+  ansible.builtin.assert:
+    that:
+      - item.key in pve_templates_base_images
+      - item.value.base.split(':')[1].split('/')[0] in pve_templates_base_image_dirs
+      - pve_templates_base_images[item.key].url | basename == item.value.base.split('/')[-1]
+      - pve_templates_base_images[item.key].sha512 is match('^[0-9a-f]{128}$')
+    fail_msg: "Class {{ item.key }} needs a base image entry with a 128-hex sha512 and the url file name of its base volume"
+  loop: "{{ pve_templates_classes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Create the import directory of local
+  ansible.builtin.file:
+    path: "{{ pve_templates_base_image_dirs.import }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download each class base image to its storage path, pinned by sha512
+  ansible.builtin.get_url:
+    url: "{{ pve_templates_base_images[item.key].url }}"
+    dest: "{{ pve_templates_base_image_dirs[item.value.base.split(':')[1].split('/')[0]] }}/{{ item.value.base.split('/')[-1] }}"
+    checksum: "sha512:{{ pve_templates_base_images[item.key].sha512 }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ pve_templates_classes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Read the content types of the local storage
+  ansible.builtin.command: pvesh get /storage/{{ pve_templates_local_storage }} --output-format json
+  register: pve_templates_storage_before
+  changed_when: false
+  check_mode: false
+
+- name: Add snippets to the local storage and keep the existing content types
+  ansible.builtin.command: >-
+    pvesm set {{ pve_templates_local_storage }} --content
+    {{ (pve_templates_storage_before.stdout | from_json).content }},{{ pve_templates_snippets_content }}
+  when: >-
+    pve_templates_snippets_content not in
+    (pve_templates_storage_before.stdout | from_json).content.split(',')
+  changed_when: true
+
+- name: Read the content types of the local storage again
+  ansible.builtin.command: pvesh get /storage/{{ pve_templates_local_storage }} --output-format json
+  register: pve_templates_storage_after
+  changed_when: false
+  check_mode: false
+
+- name: Assert snippets is present and no content type was lost
+  ansible.builtin.assert:
+    that:
+      - pve_templates_snippets_content in after_types
+      - before_types | difference(after_types) | length == 0
+    fail_msg: "local content is {{ after_types }}, was {{ before_types }}"
+  vars:
+    before_types: "{{ (pve_templates_storage_before.stdout | from_json).content.split(',') }}"
+    after_types: "{{ (pve_templates_storage_after.stdout | from_json).content.split(',') }}"
+
+- name: Install the weekly rebuild service
+  ansible.builtin.template:
+    src: homelab-template-weekly.service.j2
+    dest: "{{ pve_templates_unit_dir }}/{{ pve_templates_weekly_unit }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_templates_weekly_service
+
+- name: Install the weekly rebuild timer
+  ansible.builtin.copy:
+    src: homelab-template-weekly.timer
+    dest: "{{ pve_templates_unit_dir }}/{{ pve_templates_weekly_unit }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_templates_weekly_timer
+
+- name: Reload systemd when the weekly units changed
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: pve_templates_weekly_service.changed or pve_templates_weekly_timer.changed
+
+- name: Enable the weekly timer
+  ansible.builtin.systemd_service:
+    name: "{{ pve_templates_weekly_unit }}.timer"
+    enabled: true
+    state: started
+
+- name: Find the pending builds
+  ansible.builtin.find:
+    paths: "{{ pve_templates_state_dir }}/pending"
+    file_type: file
+  register: pve_templates_pending
+
+- name: Start each pending build without waiting
+  ansible.builtin.systemd_service:
+    name: "homelab-template-build@{{ item.path | basename }}.service"
+    state: started
+    no_block: true
+  loop: "{{ pve_templates_pending.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Clear the pending marker of each started build
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ pve_templates_pending.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"

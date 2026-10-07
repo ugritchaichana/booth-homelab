@@ -1,0 +1,38 @@
+---
+- name: Disable the pve-enterprise repository
+  ansible.builtin.deb822_repository:
+    name: pve-enterprise
+    types: deb
+    uris: https://enterprise.proxmox.com/debian/pve
+    suites: "{{ pve_host_suite }}"
+    components: pve-enterprise
+    signed_by: "{{ pve_host_keyring }}"
+    enabled: false
+  register: pve_host_repo_enterprise
+
+- name: Disable the ceph enterprise repository
+  ansible.builtin.deb822_repository:
+    name: ceph
+    types: deb
+    uris: https://enterprise.proxmox.com/debian/ceph-squid
+    suites: "{{ pve_host_suite }}"
+    components: enterprise
+    signed_by: "{{ pve_host_keyring }}"
+    enabled: false
+  register: pve_host_repo_ceph
+
+- name: Enable the pve-no-subscription repository
+  ansible.builtin.deb822_repository:
+    name: pve-no-subscription
+    types: deb
+    uris: http://download.proxmox.com/debian/pve
+    suites: "{{ pve_host_suite }}"
+    components: pve-no-subscription
+    signed_by: "{{ pve_host_keyring }}"
+    enabled: true
+  register: pve_host_repo_no_subscription
+
+- name: Refresh the apt cache after a repository change
+  ansible.builtin.apt:
+    update_cache: true
+  when: pve_host_repo_enterprise.changed or pve_host_repo_ceph.changed or pve_host_repo_no_subscription.changed

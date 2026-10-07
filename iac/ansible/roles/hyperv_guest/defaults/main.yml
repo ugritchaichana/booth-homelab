@@ -1,0 +1,8 @@
+---
+hyperv_guest_blocked_modules:
+  - hv_sock
+hyperv_guest_modprobe_dropin: /etc/modprobe.d/homelab-hyperv-blocked.conf
+hyperv_guest_forbidden_packages:
+  - hyperv-daemons
+  - hv-kvp-daemon-init
+hyperv_guest_forbidden_service_pattern: '^hv[-_](kvp|vss|fcopy)'

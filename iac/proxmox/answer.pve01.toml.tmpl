@@ -1,0 +1,22 @@
+[global]
+keyboard = "en-us"
+country = "th"
+fqdn = "pve01.home.arpa"
+mailto = "root@pve01.home.arpa"
+timezone = "Asia/Bangkok"
+root-password-hashed = "@@ROOT_PASSWORD_HASH@@"
+root-ssh-keys = [@@ROOT_SSH_KEYS@@]
+reboot-mode = "power-off"
+
+[network]
+source = "from-answer"
+cidr = "@@GUEST_CIDR@@"
+gateway = "@@GATEWAY@@"
+# Public resolver: the host isolation layer drops guest traffic to the gateway range.
+dns = "1.1.1.1"
+filter.ID_NET_NAME_MAC = "*@@NIC_MAC@@"
+
+[disk-setup]
+filesystem = "ext4"
+disk-list = ["sda"]
+lvm.swapsize = 4

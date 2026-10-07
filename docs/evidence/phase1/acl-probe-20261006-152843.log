@@ -1,0 +1,332 @@
+**********************
+Windows PowerShell transcript start
+Start time: 20261006152843
+Username: <workstation-user>
+RunAs User: <workstation-user>
+Configuration Name: 
+Machine: <tailnet-node-2-name> (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File <operator-notes>\booth-homelab-phase1-2\j7-acl-probe.ps1
+Process ID: 24780
+PSVersion: 5.1.26100.9549
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9549
+BuildVersion: 10.0.26100.9549
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+==>    ACL probe (never powers on any VM)
+==>    Cleanup of the failed install: eject the DVD media on pve01, then delete the ISO copy (a measurement; it never aborts the run)
+         before: controller 0 location 1 Path=(none) DvdMediaType=None
+[PASS] no DVD drive of pve01 holds media
+[PASS] ISO copy deleted: True
+==>    Planned rules from the module
+       planned rules: 17; host-routed prefixes: 2; 2 prefix(es), SHA-256 6fa2b454e4d3c8d59e5d390e6ff264a54e2a16e96929cadee6ab480a8e348bff
+[PASS] probe VM created, adapter connected to homelab-pve01
+==>    Matrix: 55 trials (each: add on the connected adapter, then disconnect and connect to force the switch to apply the rules)
+[PASS] C1    ACCEPTED add=accepted connect=accepted control good: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w100
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] C2    REJECTED add=REJECTED connect=-        control bad (stateful deny, docs: stateful always allows): Outbound Deny stateful TCP local:omitted remote:10.0.0.0/8 w100
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+[PASS] P01   ACCEPTED add=accepted connect=accepted planned: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22
+[PASS] P02   ACCEPTED add=accepted connect=accepted planned: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006
+[PASS] P03   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:::/0 w4989
+[PASS] P04   ACCEPTED add=accepted connect=accepted planned: Inbound Deny stateless noproto local:ANY remote:::/0 w4988
+[PASS] P05   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:0.0.0.0/8 w4899
+[PASS] P06   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:10.0.0.0/8 w4898
+[PASS] P07   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:100.64.0.0/10 w4897
+[PASS] P08   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:127.0.0.0/8 w4896
+[PASS] P09   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:169.254.0.0/16 w4895
+[PASS] P10   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:172.16.0.0/12 w4894
+[PASS] P11   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:192.168.0.0/16 w4893
+[PASS] P12   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:224.0.0.0/4 w4892
+[PASS] P13   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:240.0.0.0/4 w4891
+[PASS] P14   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:(host-routed) w4890
+[PASS] P15   ACCEPTED add=accepted connect=accepted planned: Outbound Deny stateless noproto local:ANY remote:(host-routed) w4889
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] P16   REJECTED add=REJECTED connect=-        planned: Outbound Allow stateful noproto local:ANY remote:0.0.0.0/0 w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+[PASS] P17   ACCEPTED add=accepted connect=accepted planned: Inbound Deny stateless noproto local:ANY remote:0.0.0.0/0 w4000
+[PASS] L1    ACCEPTED add=accepted connect=accepted local omitted: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w100
+[PASS] L2    ACCEPTED add=accepted connect=accepted local 0.0.0.0/0: Outbound Deny stateless noproto local:0.0.0.0/0 remote:10.0.0.0/8 w100
+[PASS] L3    ACCEPTED add=accepted connect=accepted stateful param omitted: Outbound Deny - noproto local:ANY remote:10.0.0.0/8 w100
+[PASS] V1    ACCEPTED add=accepted connect=accepted ipv6 out, local omitted: Outbound Deny stateless noproto local:omitted remote:::/0 w4989
+[PASS] V2    ACCEPTED add=accepted connect=accepted ipv6 out, local ::/0: Outbound Deny stateless noproto local:::/0 remote:::/0 w4989
+[PASS] V3    ACCEPTED add=accepted connect=accepted ipv6 in, local omitted: Inbound Deny stateless noproto local:omitted remote:::/0 w4988
+[PASS] V4    ACCEPTED add=accepted connect=accepted ipv6 in, local ::/0: Inbound Deny stateless noproto local:::/0 remote:::/0 w4988
+[PASS] V5    ACCEPTED add=accepted connect=accepted remote ANY, local omitted (both families, outbound): Outbound Deny stateless noproto local:omitted remote:ANY w100
+[PASS] V6    ACCEPTED add=accepted connect=accepted remote omitted, local omitted (both families, outbound): Outbound Deny stateless noproto local:omitted remote:omitted w100
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] S1    REJECTED add=REJECTED connect=-        allow-any, no protocol, timeout 3600: Outbound Allow stateful noproto local:ANY remote:0.0.0.0/0 w4010 timeout:3600
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] S2    REJECTED add=REJECTED connect=-        allow-any, remote ANY, no protocol: Outbound Allow stateful noproto local:ANY remote:ANY w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] S3    REJECTED add=REJECTED connect=-        allow-any, local and remote omitted, no protocol: Outbound Allow stateful noproto local:omitted remote:omitted w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] S4    REJECTED add=REJECTED connect=-        allow-any as TCP+UDP+ICMP stateful: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 + Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009 + Outbound Allow stateful 1 local:ANY remote:0.0.0.0/0 w4008
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+[PASS] S5    ACCEPTED add=accepted connect=accepted allow-any as TCP+UDP stateful: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 + Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009
+[PASS] S6    ACCEPTED add=accepted connect=accepted allow-any as TCP+UDP stateful, timeout 3600: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 timeout:3600 + Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009 timeout:3600
+[PASS] S7    ACCEPTED add=accepted connect=accepted TCP stateful only: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010
+[PASS] S8    ACCEPTED add=accepted connect=accepted UDP stateful only: Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4010
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] S9    REJECTED add=REJECTED connect=-        ICMP (1) stateful only: Outbound Allow stateful 1 local:ANY remote:0.0.0.0/0 w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] S10   REJECTED add=REJECTED connect=-        protocol ANY (string) stateful: Outbound Allow stateful ANY local:ANY remote:0.0.0.0/0 w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+[PASS] S11   ACCEPTED add=accepted connect=accepted allow-any, STATELESS (consequence: replies blocked by inbound default deny): Outbound Allow stateless noproto local:ANY remote:0.0.0.0/0 w4010
+[PASS] S12   ACCEPTED add=accepted connect=accepted TCP stateful, port 443: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 port:443
+[PASS] I1    ACCEPTED add=accepted connect=accepted inbound ssh allow, timeout 3600: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22 timeout:3600
+[PASS] I2    ACCEPTED add=accepted connect=accepted inbound ssh allow, local omitted: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4999 port:22
+[PASS] I3    ACCEPTED add=accepted connect=accepted inbound ssh allow, local = guest address: Inbound Allow stateful TCP local:10.99.0.2 remote:10.99.0.1 w4999 port:22
+[PASS] I4    ACCEPTED add=accepted connect=accepted inbound ssh allow, local omitted, timeout 3600: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4999 port:22 timeout:3600
+[PASS] I5    ACCEPTED add=accepted connect=accepted inbound web allow, timeout 3600: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006 timeout:3600
+[PASS] I6    ACCEPTED add=accepted connect=accepted inbound web allow, local omitted: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4998 port:8006
+[PASS] I7    ACCEPTED add=accepted connect=accepted inbound web allow, local = guest address: Inbound Allow stateful TCP local:10.99.0.2 remote:10.99.0.1 w4998 port:8006
+[PASS] I8    ACCEPTED add=accepted connect=accepted inbound web allow, local omitted, timeout 3600: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4998 port:8006 timeout:3600
+[PASS] D1    ACCEPTED add=accepted connect=accepted default deny in, remote ANY, local omitted: Inbound Deny stateless noproto local:omitted remote:ANY w4000
+[PASS] D2    ACCEPTED add=accepted connect=accepted default deny in, remote and local omitted: Inbound Deny stateless noproto local:omitted remote:omitted w4000
+[PASS] W1    ACCEPTED add=accepted connect=accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w1
+[PASS] W5000 ACCEPTED add=accepted connect=accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w5000
+[PASS] W32767 ACCEPTED add=accepted connect=accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w32767
+[PASS] W65535 ACCEPTED add=accepted connect=accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w65535
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: Specified argument was out of the range of valid values.
+Parameter name: value"
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] W100000 REJECTED add=REJECTED connect=-        weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w100000
+             error: Specified argument was out of the range of valid values. Parameter name: value
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] P16a  REJECTED add=REJECTED connect=-        variant: local omitted: Outbound Allow stateful noproto local:omitted remote:0.0.0.0/0 w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] P16b  REJECTED add=REJECTED connect=-        variant: local 0.0.0.0/0: Outbound Allow stateful noproto local:0.0.0.0/0 remote:0.0.0.0/0 w4010
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+             events: VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) | VMMS-Admin:33016 Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+==>    Full planned set
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] F1    REJECTED add=REJECTED connect=-        full planned set, connected adapter then reconnect: 17 rules (w4999 down to w4000)
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+             events: VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) | VMMS-Admin:33016 Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+PS>TerminatingError(Connect-VMNetworkAdapter): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: Failed to modify device 'Ethernet Connection'.
+
+'homelab-acl-probe' failed to modify device 'Ethernet Connection'. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] F2    REJECTED add=accepted connect=REJECTED full planned set, added while DISCONNECTED then connect (replay of the install): 17 rules (w4999 down to w4000)
+             error: Failed to modify device 'Ethernet Connection'. 'homelab-acl-probe' failed to modify device 'Ethernet Connection'. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+             events: VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) | VMMS-Admin:33016 Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+==>    Cumulative bisect of the planned set (heaviest weight first)
+[PASS] B01   ACCEPTED add=accepted connect=accepted cumulative: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22
+[PASS] B02   ACCEPTED add=accepted connect=accepted cumulative: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22 + Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006
+[PASS] B03   ACCEPTED add=accepted connect=accepted cumulative: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22 + Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006 + Outbound Deny stateless noproto local:ANY remote:::/0 w4989
+[PASS] B04   ACCEPTED add=accepted connect=accepted cumulative: 4 rules (w4999 down to w4988)
+[PASS] B05   ACCEPTED add=accepted connect=accepted cumulative: 5 rules (w4999 down to w4899)
+[PASS] B06   ACCEPTED add=accepted connect=accepted cumulative: 6 rules (w4999 down to w4898)
+[PASS] B07   ACCEPTED add=accepted connect=accepted cumulative: 7 rules (w4999 down to w4897)
+[PASS] B08   ACCEPTED add=accepted connect=accepted cumulative: 8 rules (w4999 down to w4896)
+[PASS] B09   ACCEPTED add=accepted connect=accepted cumulative: 9 rules (w4999 down to w4895)
+[PASS] B10   ACCEPTED add=accepted connect=accepted cumulative: 10 rules (w4999 down to w4894)
+[PASS] B11   ACCEPTED add=accepted connect=accepted cumulative: 11 rules (w4999 down to w4893)
+[PASS] B12   ACCEPTED add=accepted connect=accepted cumulative: 12 rules (w4999 down to w4892)
+[PASS] B13   ACCEPTED add=accepted connect=accepted cumulative: 13 rules (w4999 down to w4891)
+[PASS] B14   ACCEPTED add=accepted connect=accepted cumulative: 14 rules (w4999 down to w4890)
+[PASS] B15   ACCEPTED add=accepted connect=accepted cumulative: 15 rules (w4999 down to w4889)
+PS>TerminatingError(Add-VMNetworkAdapterExtendedAcl): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+
+Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057)."
+PS>TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: No events were found that match the specified selection criteria."
+>> TerminatingError(Get-WinEvent): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: There is not an event log on the localhost computer that matches "Microsoft-Windows-Hyper-V-SynthNic-Admin"."
+[WARN] B16   REJECTED add=REJECTED connect=-        cumulative: 16 rules (w4999 down to w4010)
+             error: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+[WARN] first cumulative failure at rule number 16 (w4010)
+==>    Best alternative set built from MEASURED-accepted shapes
+       w4999: using P01 (planned)
+       w4998: using P02 (planned)
+       w4989: using P03 (planned)
+       w4988: using P04 (planned)
+       w4899: using P05 (planned)
+       w4898: using P06 (planned)
+       w4897: using P07 (planned)
+       w4896: using P08 (planned)
+       w4895: using P09 (planned)
+       w4894: using P10 (planned)
+       w4893: using P11 (planned)
+       w4892: using P12 (planned)
+       w4891: using P13 (planned)
+       w4890: using P14 (planned)
+       w4889: using P15 (planned)
+       w4010: using S5 (allow-any as TCP+UDP stateful)
+       w4000: using P17 (planned)
+       alternative set:
+         Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22
+         Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006
+         Outbound Deny stateless noproto local:ANY remote:::/0 w4989
+         Inbound Deny stateless noproto local:ANY remote:::/0 w4988
+         Outbound Deny stateless noproto local:ANY remote:0.0.0.0/8 w4899
+         Outbound Deny stateless noproto local:ANY remote:10.0.0.0/8 w4898
+         Outbound Deny stateless noproto local:ANY remote:100.64.0.0/10 w4897
+         Outbound Deny stateless noproto local:ANY remote:127.0.0.0/8 w4896
+         Outbound Deny stateless noproto local:ANY remote:169.254.0.0/16 w4895
+         Outbound Deny stateless noproto local:ANY remote:172.16.0.0/12 w4894
+         Outbound Deny stateless noproto local:ANY remote:192.168.0.0/16 w4893
+         Outbound Deny stateless noproto local:ANY remote:224.0.0.0/4 w4892
+         Outbound Deny stateless noproto local:ANY remote:240.0.0.0/4 w4891
+         Outbound Deny stateless noproto local:ANY remote:(host-routed) w4890
+         Outbound Deny stateless noproto local:ANY remote:(host-routed) w4889
+         Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010
+         Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009
+         Inbound Deny stateless noproto local:ANY remote:0.0.0.0/0 w4000
+[PASS] A1    ACCEPTED add=accepted connect=accepted alternative set, connected adapter then reconnect: 18 rules (w4999 down to w4000)
+[PASS] A2    ACCEPTED add=accepted connect=accepted alternative set, added while DISCONNECTED then connect: 18 rules (w4999 down to w4000)
+==>    DVD EJECT OUTCOME on pve01: no media was present
+==>    RESULTS
+
+       Id      Mode    Verdict  Add      Connect  Rule
+       --      ----    -------  ---      -------  ----
+       C1      live    ACCEPTED accepted accepted control good: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w100
+       C2      live    REJECTED REJECTED -        control bad (stateful deny, docs: stateful always allows): Outbound Deny stateful TCP local:omitted remote:10.0.0.0/8 w100
+       P01     live    ACCEPTED accepted accepted planned: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22
+       P02     live    ACCEPTED accepted accepted planned: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006
+       P03     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:::/0 w4989
+       P04     live    ACCEPTED accepted accepted planned: Inbound Deny stateless noproto local:ANY remote:::/0 w4988
+       P05     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:0.0.0.0/8 w4899
+       P06     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:10.0.0.0/8 w4898
+       P07     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:100.64.0.0/10 w4897
+       P08     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:127.0.0.0/8 w4896
+       P09     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:169.254.0.0/16 w4895
+       P10     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:172.16.0.0/12 w4894
+       P11     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:192.168.0.0/16 w4893
+       P12     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:224.0.0.0/4 w4892
+       P13     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:240.0.0.0/4 w4891
+       P14     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:(host-routed) w4890
+       P15     live    ACCEPTED accepted accepted planned: Outbound Deny stateless noproto local:ANY remote:(host-routed) w4889
+       P16     live    REJECTED REJECTED -        planned: Outbound Allow stateful noproto local:ANY remote:0.0.0.0/0 w4010
+       P17     live    ACCEPTED accepted accepted planned: Inbound Deny stateless noproto local:ANY remote:0.0.0.0/0 w4000
+       L1      live    ACCEPTED accepted accepted local omitted: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w100
+       L2      live    ACCEPTED accepted accepted local 0.0.0.0/0: Outbound Deny stateless noproto local:0.0.0.0/0 remote:10.0.0.0/8 w100
+       L3      live    ACCEPTED accepted accepted stateful param omitted: Outbound Deny - noproto local:ANY remote:10.0.0.0/8 w100
+       V1      live    ACCEPTED accepted accepted ipv6 out, local omitted: Outbound Deny stateless noproto local:omitted remote:::/0 w4989
+       V2      live    ACCEPTED accepted accepted ipv6 out, local ::/0: Outbound Deny stateless noproto local:::/0 remote:::/0 w4989
+       V3      live    ACCEPTED accepted accepted ipv6 in, local omitted: Inbound Deny stateless noproto local:omitted remote:::/0 w4988
+       V4      live    ACCEPTED accepted accepted ipv6 in, local ::/0: Inbound Deny stateless noproto local:::/0 remote:::/0 w4988
+       V5      live    ACCEPTED accepted accepted remote ANY, local omitted (both families, outbound): Outbound Deny stateless noproto local:omitted remote:ANY w100
+       V6      live    ACCEPTED accepted accepted remote omitted, local omitted (both families, outbound): Outbound Deny stateless noproto local:omitted remote:omitted w100
+       S1      live    REJECTED REJECTED -        allow-any, no protocol, timeout 3600: Outbound Allow stateful noproto local:ANY remote:0.0.0.0/0 w4010 timeout:3600
+       S2      live    REJECTED REJECTED -        allow-any, remote ANY, no protocol: Outbound Allow stateful noproto local:ANY remote:ANY w4010
+       S3      live    REJECTED REJECTED -        allow-any, local and remote omitted, no protocol: Outbound Allow stateful noproto local:omitted remote:omitted w4010
+       S4      live    REJECTED REJECTED -        allow-any as TCP+UDP+ICMP stateful: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 + Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009 + Outbound Allow stateful 1 local:ANY remote:0.0.0.0/0
+                                                  w4008
+       S5      live    ACCEPTED accepted accepted allow-any as TCP+UDP stateful: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 + Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009
+       S6      live    ACCEPTED accepted accepted allow-any as TCP+UDP stateful, timeout 3600: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 timeout:3600 + Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4009 timeout:3600
+       S7      live    ACCEPTED accepted accepted TCP stateful only: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010
+       S8      live    ACCEPTED accepted accepted UDP stateful only: Outbound Allow stateful UDP local:ANY remote:0.0.0.0/0 w4010
+       S9      live    REJECTED REJECTED -        ICMP (1) stateful only: Outbound Allow stateful 1 local:ANY remote:0.0.0.0/0 w4010
+       S10     live    REJECTED REJECTED -        protocol ANY (string) stateful: Outbound Allow stateful ANY local:ANY remote:0.0.0.0/0 w4010
+       S11     live    ACCEPTED accepted accepted allow-any, STATELESS (consequence: replies blocked by inbound default deny): Outbound Allow stateless noproto local:ANY remote:0.0.0.0/0 w4010
+       S12     live    ACCEPTED accepted accepted TCP stateful, port 443: Outbound Allow stateful TCP local:ANY remote:0.0.0.0/0 w4010 port:443
+       I1      live    ACCEPTED accepted accepted inbound ssh allow, timeout 3600: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22 timeout:3600
+       I2      live    ACCEPTED accepted accepted inbound ssh allow, local omitted: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4999 port:22
+       I3      live    ACCEPTED accepted accepted inbound ssh allow, local = guest address: Inbound Allow stateful TCP local:10.99.0.2 remote:10.99.0.1 w4999 port:22
+       I4      live    ACCEPTED accepted accepted inbound ssh allow, local omitted, timeout 3600: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4999 port:22 timeout:3600
+       I5      live    ACCEPTED accepted accepted inbound web allow, timeout 3600: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006 timeout:3600
+       I6      live    ACCEPTED accepted accepted inbound web allow, local omitted: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4998 port:8006
+       I7      live    ACCEPTED accepted accepted inbound web allow, local = guest address: Inbound Allow stateful TCP local:10.99.0.2 remote:10.99.0.1 w4998 port:8006
+       I8      live    ACCEPTED accepted accepted inbound web allow, local omitted, timeout 3600: Inbound Allow stateful TCP local:omitted remote:10.99.0.1 w4998 port:8006 timeout:3600
+       D1      live    ACCEPTED accepted accepted default deny in, remote ANY, local omitted: Inbound Deny stateless noproto local:omitted remote:ANY w4000
+       D2      live    ACCEPTED accepted accepted default deny in, remote and local omitted: Inbound Deny stateless noproto local:omitted remote:omitted w4000
+       W1      live    ACCEPTED accepted accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w1
+       W5000   live    ACCEPTED accepted accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w5000
+       W32767  live    ACCEPTED accepted accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w32767
+       W65535  live    ACCEPTED accepted accepted weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w65535
+       W100000 live    REJECTED REJECTED -        weight probe: Outbound Deny stateless noproto local:omitted remote:10.0.0.0/8 w100000
+       P16a    live    REJECTED REJECTED -        variant: local omitted: Outbound Allow stateful noproto local:omitted remote:0.0.0.0/0 w4010
+       P16b    live    REJECTED REJECTED -        variant: local 0.0.0.0/0: Outbound Allow stateful noproto local:0.0.0.0/0 remote:0.0.0.0/0 w4010
+       F1      live    REJECTED REJECTED -        full planned set, connected adapter then reconnect: 17 rules (w4999 down to w4000)
+       F2      offline REJECTED accepted REJECTED full planned set, added while DISCONNECTED then connect (replay of the install): 17 rules (w4999 down to w4000)
+       B01     live    ACCEPTED accepted accepted cumulative: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22
+       B02     live    ACCEPTED accepted accepted cumulative: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22 + Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006
+       B03     live    ACCEPTED accepted accepted cumulative: Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4999 port:22 + Inbound Allow stateful TCP local:ANY remote:10.99.0.1 w4998 port:8006 + Outbound Deny stateless noproto local:ANY remote:::/0 w4989
+       B04     live    ACCEPTED accepted accepted cumulative: 4 rules (w4999 down to w4988)
+       B05     live    ACCEPTED accepted accepted cumulative: 5 rules (w4999 down to w4899)
+       B06     live    ACCEPTED accepted accepted cumulative: 6 rules (w4999 down to w4898)
+       B07     live    ACCEPTED accepted accepted cumulative: 7 rules (w4999 down to w4897)
+       B08     live    ACCEPTED accepted accepted cumulative: 8 rules (w4999 down to w4896)
+       B09     live    ACCEPTED accepted accepted cumulative: 9 rules (w4999 down to w4895)
+       B10     live    ACCEPTED accepted accepted cumulative: 10 rules (w4999 down to w4894)
+       B11     live    ACCEPTED accepted accepted cumulative: 11 rules (w4999 down to w4893)
+       B12     live    ACCEPTED accepted accepted cumulative: 12 rules (w4999 down to w4892)
+       B13     live    ACCEPTED accepted accepted cumulative: 13 rules (w4999 down to w4891)
+       B14     live    ACCEPTED accepted accepted cumulative: 14 rules (w4999 down to w4890)
+       B15     live    ACCEPTED accepted accepted cumulative: 15 rules (w4999 down to w4889)
+       B16     live    REJECTED REJECTED -        cumulative: 16 rules (w4999 down to w4010)
+       A1      live    ACCEPTED accepted accepted alternative set, connected adapter then reconnect: 18 rules (w4999 down to w4000)
+       A2      offline ACCEPTED accepted accepted alternative set, added while DISCONNECTED then connect: 18 rules (w4999 down to w4000)
+       C2: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       P16: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       S1: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       S2: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       S3: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       S4: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       S9: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       S10: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       W100000: Specified argument was out of the range of valid values. Parameter name: value
+       P16a: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       P16b: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | events: VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) | VMMS-Admin:33016 Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+       F1: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | events: VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) | VMMS-Admin:33016 Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+       F2: Failed to modify device 'Ethernet Connection'. 'homelab-acl-probe' failed to modify device 'Ethernet Connection'. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | events: VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) | VMMS-Admin:33016 Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057). | VMMS-Admin:15090 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3)
+       B16: 'homelab-acl-probe' failed to modify resources. (Virtual machine ID AB076F64-AE27-4F32-95CC-3DAF48FAFEC3) Failed while applying switch port settings 'Ethernet Switch Port Extended ACL Settings' on switch 'homelab-pve01': The parameter is incorrect. (0x80070057).
+       results csv: %LOCALAPPDATA%\homelab\logs\acl-probe-20261006-152843.csv
+[PASS] probe VM and probe folder are gone
+**********************
+Windows PowerShell transcript end
+End time: 20261006152951
+**********************

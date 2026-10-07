@@ -52,6 +52,8 @@ on:
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  CACHE_URL: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'http://10.99.17.10:8080' || '' }}
+  BUILD_CACHE_RUNNER_CLASS: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'lxc-runner' || '' }}
 
 jobs:
   # Stage 1: Runner Telemetry
@@ -78,11 +80,14 @@ jobs:
           docker --version 2>/dev/null || true
           echo ".NET SDK Version:"
           dotnet --version 2>/dev/null || true
-          echo "MinIO Health Check:"
-          curl -s -m 2 -I http://10.99.20.20:9000/minio/health/live 2>/dev/null | grep -E "HTTP/|Server" || echo "MinIO unreachable (Clean build fallback active)"
+          if [ -n "$CACHE_URL" ]; then
+            echo "Build Cache Status:"
+            curl -s -m 2 "$CACHE_URL/status" || echo "Build cache unreachable (cold build fallback active)"
+            echo ""
+          fi
           echo "=========================================================="
 
-  # Stage 2: .NET Solution Build & Remote Cache Restore
+  # Stage 2: .NET Solution Build & Build Cache Restore
   dotnet-build:
     name: Build (.NET)
     needs: [telemetry]
@@ -91,7 +96,9 @@ jobs:
           && fromJSON('["ubuntu-latest"]')
           || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     outputs:
-      cache_hit: ${{ steps.restore-cache.outputs.cache_hit }}
+      cache_hit: ${{ steps.restore-outputs.outputs.hit }}
+      cache_hit_nuget: ${{ steps.restore-nuget.outputs.hit }}
+      cache_hit_dotnet_outputs: ${{ steps.restore-outputs.outputs.hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
     steps:
       - name: Checkout Repository
@@ -109,12 +116,25 @@ jobs:
         shell: bash
         run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
-      - name: Restore Remote MinIO Cache
-        id: restore-cache
-        uses: ./.github/actions/minio-cache
+      - name: Restore NuGet Cache
+        id: restore-nuget
+        uses: ./.github/actions/build-cache
         with:
           mode: restore
-          branch: ${{ inputs.target_branch }}
+          kind: nuget
+          stats-file: ${{ runner.temp }}/build-cache-stats.jsonl
+
+      - name: Restore NuGet Packages (Locked)
+        shell: bash
+        run: dotnet restore apps/backend/SdetTestingRig.sln --locked-mode
+
+      - name: Restore Build Outputs Cache
+        id: restore-outputs
+        uses: ./.github/actions/build-cache
+        with:
+          mode: restore
+          kind: dotnet-outputs
+          stats-file: ${{ runner.temp }}/build-cache-stats.jsonl
 
       - name: Compile Solution (/p:Deterministic=true)
         id: compile
@@ -123,7 +143,7 @@ jobs:
           echo "==> Building .NET 8 Backend Solution..."
           BUILD_START=$(date +%s%N)
           set +e
-          dotnet build apps/backend/SdetTestingRig.sln --configuration Release /p:Deterministic=true
+          dotnet build apps/backend/SdetTestingRig.sln --configuration Release --no-restore /p:Deterministic=true
           rc=$?
           set -e
           BUILD_MS=$(( ($(date +%s%N) - BUILD_START) / 1000000 ))
@@ -132,6 +152,31 @@ jobs:
           echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
           echo "=========================================================="
           exit $rc
+
+      - name: Pack Cache Payloads
+        if: ${{ always() && steps.compile.outcome == 'success' && env.CACHE_URL != '' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/cache-payload"
+          tar -C "$NUGET_PACKAGES" -cf "$RUNNER_TEMP/cache-payload/nuget.tar" .
+          find apps/backend apps/fixtures -type d \( -name bin -o -name obj \) -prune -print0             | tar --null -T - -cf "$RUNNER_TEMP/cache-payload/dotnet-outputs.tar"
+
+      - name: Upload Cache Payloads
+        if: ${{ always() && steps.compile.outcome == 'success' && env.CACHE_URL != '' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: cache-payload-dotnet
+          path: ${{ runner.temp }}/cache-payload/
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Cache Hit Report
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/build-cache-stats.jsonl" ]; then
+            PYTHONPATH=scripts/ci python3 -m build_cache report --stats-file "$RUNNER_TEMP/build-cache-stats.jsonl"
+          fi
 
   # Stage 3: .NET Unit & Integration Tests
   dotnet-test:
@@ -176,56 +221,87 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Stage 4: .NET Cache Update & MinIO Upload
+  # Stage 4: .NET Cache Update (writer job: no third-party code runs here)
   dotnet-cache-save:
     name: Cache (.NET)
     needs: [dotnet-build, dotnet-test]
     environment: cache-writer
-    if: always() && needs.dotnet-build.result == 'success' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: always() && needs.dotnet-build.result == 'success' && !inputs.force_ubuntu_runner && github.repository == 'ugritchaichana/booth-homelab' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: >
       ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
           && fromJSON('["ubuntu-latest"]')
           || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
     steps:
-      - name: Checkout Repository (Preserve Binaries)
+      - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          clean: false
+          persist-credentials: false
 
-      - name: Ensure Executable Permissions
-        shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
+      - name: Download Cache Payloads
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: cache-payload-dotnet
+          path: ${{ runner.temp }}/cache-payload
 
-      - name: Configure Writer Alias
-        id: writer
+      - name: Unpack Cache Payloads
         shell: bash
-        env:
-          MC_CONFIG_DIR: ${{ runner.temp }}/mc
-          WRITER_ACCESS_KEY: ${{ secrets.MINIO_WRITER_ACCESS_KEY }}
-          WRITER_SECRET_KEY: ${{ secrets.MINIO_WRITER_SECRET_KEY }}
         run: |
-          if [ -z "$WRITER_ACCESS_KEY" ] || [ -z "$WRITER_SECRET_KEY" ]; then
-            echo "::warning::MinIO writer credentials not configured; skipping cache save."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          elif ! command -v mc >/dev/null 2>&1; then
-            echo "::warning::mc not found on this runner; skipping cache save."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          elif mc alias set minio-writer http://10.99.20.20:9000 "$WRITER_ACCESS_KEY" "$WRITER_SECRET_KEY" >/dev/null 2>&1; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Writer alias setup failed; skipping cache save."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          fi
+          mkdir -p "$NUGET_PACKAGES"
+          tar -C "$NUGET_PACKAGES" -xf "$RUNNER_TEMP/cache-payload/nuget.tar"
+          tar -xf "$RUNNER_TEMP/cache-payload/dotnet-outputs.tar"
 
-      - name: Save Remote MinIO Cache
-        if: steps.writer.outputs.configured == 'true'
+      - name: Save NuGet Cache
+        uses: ./.github/actions/build-cache
         env:
-          MC_CONFIG_DIR: ${{ runner.temp }}/mc
-        uses: ./.github/actions/minio-cache
+          CACHE_WRITER_PASSWORD: ${{ secrets.CACHE_WRITER_PASSWORD }}
+          BUILD_CACHE_WRITER_TOKEN: '1'
         with:
           mode: save
-          branch: ${{ inputs.target_branch }}
-          commit_sha: ${{ github.sha }}
+          kind: nuget
+
+      - name: Save Build Outputs Cache
+        uses: ./.github/actions/build-cache
+        env:
+          CACHE_WRITER_PASSWORD: ${{ secrets.CACHE_WRITER_PASSWORD }}
+          BUILD_CACHE_WRITER_TOKEN: '1'
+        with:
+          mode: save
+          kind: dotnet-outputs
+
+  # Stage 4b: Angular dependency cache update (writer job: no third-party code runs here)
+  angular-cache-save:
+    name: Cache (Angular)
+    needs: [angular-jest]
+    environment: cache-writer
+    if: always() && needs.angular-jest.result == 'success' && !inputs.force_ubuntu_runner && github.repository == 'ugritchaichana/booth-homelab' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: >
+      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download Cache Payload
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: cache-payload-node-modules
+          path: ${{ runner.temp }}/cache-payload
+
+      - name: Unpack Cache Payload
+        shell: bash
+        run: tar -C apps/frontend -xf "$RUNNER_TEMP/cache-payload/node_modules.tar"
+
+      - name: Save node_modules Cache
+        uses: ./.github/actions/build-cache
+        env:
+          CACHE_WRITER_PASSWORD: ${{ secrets.CACHE_WRITER_PASSWORD }}
+          BUILD_CACHE_WRITER_TOKEN: '1'
+        with:
+          mode: save
+          kind: node_modules
 
   # Stage 5: Angular Jest Unit Tests
   angular-jest:
@@ -236,6 +312,7 @@ jobs:
           || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
+      cache_hit_node_modules: ${{ steps.run-angular.outputs.cache_hit_node_modules }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -256,6 +333,22 @@ jobs:
         id: run-angular
         uses: ./.github/actions/run-angular-jest
 
+      - name: Pack node_modules Payload
+        if: ${{ steps.run-angular.outputs.cache_hit_node_modules != 'true' && env.CACHE_URL != '' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/cache-payload"
+          tar -C apps/frontend -cf "$RUNNER_TEMP/cache-payload/node_modules.tar" node_modules
+
+      - name: Upload node_modules Payload
+        if: ${{ steps.run-angular.outputs.cache_hit_node_modules != 'true' && env.CACHE_URL != '' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: cache-payload-node-modules
+          path: ${{ runner.temp }}/cache-payload/
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Archive Angular Coverage
         if: always()
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
@@ -268,7 +361,7 @@ jobs:
   # Stage 6: Performance & Quality Summary Report
   summary:
     name: Report
-    needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-jest]
+    needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-cache-save, angular-jest]
     if: ${{ !cancelled() }}
     runs-on: >
       ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
@@ -278,11 +371,15 @@ jobs:
       - name: Generate Pipeline Summary Report
         shell: bash
         run: |
-          CACHE_HIT="${{ needs.dotnet-build.outputs.cache_hit }}"
+          HIT_NUGET="${{ needs.dotnet-build.outputs.cache_hit_nuget }}"
+          HIT_OUTPUTS="${{ needs.dotnet-build.outputs.cache_hit_dotnet_outputs }}"
+          HIT_NODE="${{ needs.angular-jest.outputs.cache_hit_node_modules }}"
           BUILD_MS="${{ needs.dotnet-build.outputs.build_duration_ms }}"
           DOTNET_TEST_MS="${{ needs.dotnet-test.outputs.test_duration_ms }}"
           ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
           RUNNER_LABEL="${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest)' || 'Proxmox VE Self-Hosted (LXC)' }}"
+
+          if [ -n "$CACHE_URL" ]; then CACHE_ENDPOINT="Build cache service"; CACHE_STATE="Enabled"; else CACHE_ENDPOINT="Disabled (no CACHE_URL)"; CACHE_STATE="Off"; echo "Build Cache: disabled (no CACHE_URL)"; fi
 
           echo "=========================================================="
           echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
@@ -290,7 +387,9 @@ jobs:
           echo "Runner Mode:          ${RUNNER_LABEL}"
           echo "Branch / Ref:         ${{ inputs.target_branch }}"
           echo "Base Ref:             ${{ inputs.base_ref }}"
-          echo "Cache Hit Status:     ${CACHE_HIT:-false}"
+          echo "Cache nuget:          ${HIT_NUGET:-false}"
+          echo "Cache dotnet-outputs: ${HIT_OUTPUTS:-false}"
+          echo "Cache node_modules:   ${HIT_NODE:-false}"
           echo "Build Duration:       ${BUILD_MS:-N/A} ms"
           echo ".NET Test Duration:   ${DOTNET_TEST_MS:-N/A} ms"
           echo "Angular Test Duration:${ANGULAR_MS:-N/A} ms"
@@ -305,7 +404,7 @@ jobs:
             echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms** | ${{ needs.dotnet-build.result == 'success' && '✅ Success' || '❌ Failed' }} |"
             echo "| **.NET Unit & Integration Tests** | ${RUNNER_LABEL} | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet-test.result == 'success' && '✅ Success' || '❌ Failed' }} |"
             echo "| **Angular Jest Unit Tests** | ${RUNNER_LABEL} | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **MinIO S3 Cache Transfer** | Virtual Bus (\`10.99.20.20:9000\`) | Cache Hit: \`${CACHE_HIT:-false}\` | ⚡ Fast |"
+            echo "| **Build Cache** | ${CACHE_ENDPOINT} | nuget: \`${HIT_NUGET:-false}\`, dotnet-outputs: \`${HIT_OUTPUTS:-false}\`, node_modules: \`${HIT_NODE:-false}\` | ${CACHE_STATE} |"
             echo ""
             echo "### Infrastructure Execution Model"
             echo "- 🏗️ **Runner Infrastructure:** ${RUNNER_LABEL}"

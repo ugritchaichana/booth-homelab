@@ -1,53 +1,33 @@
-# OpenTofu / Terraform Proxmox VE IaC Rig
+# OpenTofu
 
-Declarative Infrastructure-as-Code for provisioning self-hosted GitHub Actions CI runners and high-speed MinIO S3 caching appliances on Proxmox VE 8.4 using the modern `bpg/proxmox` provider.
+| Path | Purpose |
+|---|---|
+| `stacks/proxmox-host/` | The host root module; `var.host` selects an inventory entry, so another host is data, not code. Declares the guest network: the `guests` vnet and, when the host entry has `cache_network`, the `cache` vnet. Run it through the wrapper `scripts/iac/tofu.sh` (see its README). |
+| `stacks/cache-service/` | The unprivileged container `cache01` on the `cache` vnet that hosts the build cache; created stopped and started by Ansible after a firewall read-back (ADR 0045, 0048). |
+| `stacks/r15-probe/` | Throwaway container and VM, linked clones of the golden templates, that carry the guest firewall policy for the R15 isolation proof; applied only during the proof and destroyed after it (ADR 0031, 0044). Its firewall policy comes from `iac/policy/runner-class.yml`. |
+| `modules/proxmox/sdn/` | A simple SDN zone, vnets with `isolate_ports`, and subnets with SNAT, static addressing and no DHCP (ADR 0030, 0045). |
+| `modules/proxmox/template-source/` | Resolves a golden template class (`lxc-runner` or `vm-docker`) to the one template that carries the marker, the class and the tag `current` (or a pinned version); the plan stops unless exactly one template in pool `templates` and inside the class VMID block matches (ADR 0044). |
+| `modules/flavor/` | Resolves a `provider/instance` flavor name to `cores`, `memory_mb`, `disk_gb` plus ready `vm` and `container` size objects (ADR 0017). Its tests run with the host stack's tests in `stacks/proxmox-host/tests/flavor.tftest.hcl`. |
+| `flavors.json` | Instance flavor catalog read by `modules/flavor/`. |
 
----
+Provider-specific code stays under `modules/<provider>/`; stacks call it with values from `iac/inventory/hosts.yml`. State is local and encrypted per stack and host (ADR 0013, 0051); the wrapper keeps it on the WSL filesystem and each stack's README says where.
 
-## 🌟 Multi-Cloud Instance Flavor Catalog
+## Guest network
 
-Instead of hardcoding memory and vCPU numbers, this setup abstracts sizing using industry-standard public cloud VM tiers. OpenTofu ingests [`flavors.json`](./flavors.json) and translates cloud instance profiles directly into Proxmox hardware specifications.
+The host stack reads `guest_network` (`zone`, `vnet`, `cidr`, `gateway`) and, optionally, `cache_network` of the selected host. The module refuses a subnet that overlaps the management network `10.99.0.0/24`, is not an IPv4 /16 to /28 network, leaves the gateway outside it, or overlaps another vnet. It runs the SDN apply through `proxmox_sdn_applier`, an experimental provider resource. Guest firewall options and guest DNS belong to the stack that creates the guest (ADR 0025).
 
-### Supported Providers & Popular Profiles:
-| Provider | Default Flavors | vCPU | RAM | Disk | Sizing Rationale |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **AWS** | `t3.nano` .. `t3.xlarge`, `c5.large`, `m5.large` | 2 - 4 | 0.5 - 16 GB | 10 - 80 GB | Burstable baseline for CI/CD |
-| **GCP** | `e2-micro` .. `e2-standard-4`, `c2-standard-4` | 2 - 4 | 1 - 16 GB | 15 - 80 GB | Cost-efficient compute |
-| **Azure** | `Standard_B1s` .. `Standard_D4s_v5` | 1 - 4 | 1 - 16 GB | 15 - 80 GB | Standard enterprise tiers |
-| **Hetzner** | `cx22`, `cx32`, `cx42`, `cpx21`, `cpx31` | 2 - 8 | 4 - 16 GB | 40 - 160 GB | High-performance baremetal cloud |
-| **DigitalOcean** | `s-1vcpu-1gb` .. `s-2vcpu-4gb`, `c-2`, `c-4` | 1 - 4 | 1 - 8 GB | 25 - 100 GB | Developer droplets |
+## Checks without a host
 
----
+The stack's state encryption needs a passphrase of at least 32 characters for `test`; use a throwaway one:
 
-## 🚀 Quickstart Execution
-
-### 1. Initialize OpenTofu
-```bash
-tofu init
+```sh
+export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
+tofu fmt -check -recursive iac/tofu
+(cd iac/tofu/stacks && tflint --recursive --config "$PWD/../../../.tflint.hcl")
+tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false
+tofu -chdir=iac/tofu/stacks/proxmox-host test
 ```
 
-Remote state lives in the MinIO bucket `tofu-state`. Locking uses an S3 lock object (`use_lockfile`) and needs OpenTofu >= 1.10.
+Repeat the last two lines for `cache-service` and `r15-probe`. Each stack's `tests/` holds `tofu test` files with a mocked provider: the policy of the network objects, the overlap and range rejections, a two-host plan from `tests/fixtures/hosts.yml`, the fail-closed template lookup and the exact firewall groups. `docs/knowledge/test-catalogue.md` lists what each file proves.
 
-### 2. Plan Deployment
-```bash
-# Example 1: Using AWS Flavor Catalog
-tofu plan -var="cloud_provider=aws" -var="runner_dotnet_flavor=t3.medium"
-
-# Example 2: Using Hetzner Cloud Catalog
-tofu plan -var="cloud_provider=hetzner" -var="runner_dotnet_flavor=cx22"
-```
-
-### 3. Apply Provisioning
-```bash
-tofu apply -auto-approve
-```
-
----
-
-## 📦 Provisioned Topology
-
-| VMID | Hostname | OS / Engine | IP Address | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **102** | `gha-runner-01` | Debian 12 (Bookworm) | `10.99.20.101/24` | .NET 8 LTS, Docker-in-LXC (`nesting=1,keyctl=1`) |
-| **103** | `gha-runner-angular` | Debian 12 (Bookworm) | `10.99.20.103/24` | Node.js 22 LTS, Angular Jest headless jsdom |
-| **104** | `minio-s3` | Alpine Linux 3.23 | `10.99.20.20/24` | In-memory MinIO S3 cache (`:9000`), Console (`:9001`) |
+CI finds root modules by layout, so a new stack is a new directory under `stacks/`. Per-guest firewall options and rules belong to the stack that creates the guest, except for clones, which inherit them from the template (ADR 0025, 0044).

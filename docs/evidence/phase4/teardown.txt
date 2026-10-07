@@ -1,0 +1,9 @@
+cleaned
+destroy1 rc=0 elapsed=7s
+Plan: 0 to add, 0 to change, 3 to destroy.
+      9302 tmpl-vm-docker-v7    stopped    2048              20.00 0         
+      9304 tmpl-vm-docker-v6    stopped    2048              20.00 0         
+9050       running                 cache01             
+9202       stopped                 tmpl-lxc-runner-v6  
+9204       stopped                 tmpl-lxc-runner-v5  
+  data 24.10 

@@ -1,118 +1,85 @@
-# AGENTS.md: Universal AI Agent Operating Guide
+# AGENTS.md
 
-This document is the authoritative, machine-readable operational guide for AI coding assistants (Antigravity, Claude Code, Cursor, Copilot, Windsurf, etc.) operating on the `Booth-homelab` repository.
+Guidance for any AI coding agent or human contributor working in this repository. It is vendor-neutral; `CLAUDE.md` only imports this file.
 
----
+## What this repository is
 
-## 1. Project Mission & Architecture
+A neutral homelab CI platform: Proxmox VE 9 as a Hyper-V VM on a Windows workstation, built from code (OpenTofu + Ansible, SOPS + age), with two-layer guest isolation, golden templates and a build cache. Phases 0 to 4 are built and measured. The runner pool controller, workflow cutover, observability and backups, and the rebuild-from-zero and portability proofs are **not built**: they are handed off in `docs/handoff/README.md`. Overview: `README.md`. Operations: `RUNBOOK.md`.
 
-**Booth-homelab** is a Continuous Testing (SDET) and Infrastructure-as-Code (IaC) rig engineered to execute parallel automated test suites locally with sub-second remote caching and zero-trust network isolation.
+## Sources of truth
 
-### Core Stack
-- **Hypervisor:** Proxmox VE 8.4.0 (Kernel `Linux 6.8.12-9-pve`, Debian 12 Bookworm)
-- **CI Runners (LXC):**
-  - **CT 102 (`gha-runner-01` / `10.99.20.101`):** .NET 8 LTS, Docker-in-LXC (`nesting=1,keyctl=1`), AST dependency graph diff runner.
-  - **CT 103 (`gha-runner-angular` / `10.99.20.103`):** Node.js 20 LTS, Angular Jest with pure headless `jsdom` (strict 1.5 GB RAM ceiling).
-- **Remote Cache (LXC):**
-  - **CT 104 (`minio-s3` / `10.99.20.20`):** Alpine Linux 3.23 MinIO S3 API (`:9000`), Web Console (`:9001`), Zstandard compression, in-memory bridge throughput >800 MiB/s.
-- **Network Isolation:**
-  - Layer 2 bridge port isolation on `vmbr1` (`isolated on` for `veth102i0` and `veth103i0`).
-  - Layer 3/4 `HOMELAB-FORWARD` netfilter chain: East-West runner traffic dropped, runner access to `:9001` dropped, runner internet egress restricted to ports 53, 80, 443, 123.
-- **S3 Bucket Policy:**
-  - `build-cache` and `test-artifacts`: private (no anonymous access). Runners read through a bucket-scoped IAM reader (`iac/minio/policies/build-cache-reader.json`); the writer credential is held only by the master cache-save job via the `cache-writer` GitHub Environment.
+| Question | Read |
+|---|---|
+| What is required, what was measured, which decision was taken | `docs/platform/requirements.md` (requirements `R1`..., measured rows, decisions `D1`...) |
+| Why a choice was made | `docs/adr/` (index in `docs/adr/README.md`) |
+| What a run proved | `docs/evidence/<phase>/INDEX.md` |
+| Defects the real host exposed, what each test proves | `docs/knowledge/` |
+| What is not built | `docs/handoff/README.md` |
 
----
+Never delete earlier content of the requirements document: mark a changed decision `SUPERSEDED` and append the new one. The same goes for ADRs: write a new one and add "Superseded by NNNN" to the old.
 
-## 2. Deterministic Verification Commands (AI Execution Gate)
+## Identity and process
 
-Every AI agent MUST verify changes using these automated commands. Do not conclude tasks without concrete exit code 0 output:
+- Commit only with the identity configured for this repository. Never commit with a work or employer identity; check `git config user.email` first.
+- Every change goes through a pull request. The agent opens it and never merges; the owner merges.
+- PR title: `^(feat|maintenance|refactor|fix|config|infra|chore|e2e|test): <subject>`. A bare type and a colon, no scope in parentheses.
+- At most 30 changed files per pull request. Split a larger change, even a mechanical one.
+- Document first: scope, open questions and a blast-radius estimate (what breaks and how many, furthest environment reached, time to detect, time to roll back) are written before work starts.
+- One ADR per finalized decision, in the pull request that finalizes it (`docs/adr/README.md` has the template and the file-name rule). Add the index line and the decision-log row.
+- Host changes (converge, `tofu apply`, R15 runs) cannot run in hosted CI. Run them locally and paste the real output into the pull request body.
 
-```bash
-# 1. Run .NET 8 Backend Unit & Integration Tests (6 tests / 3 suites):
-dotnet test apps/backend/SdetTestingRig.sln --verbosity quiet
+## Neutrality and language
 
-# 2. Run Angular Jest Standalone Tests (19 tests / 4 suites):
-# On Proxmox Runner CT 103:
-python scripts/ci/run_ct103_tests.py
-# Or inside apps/frontend (if node_modules installed):
-npm test --prefix apps/frontend -- --silent
+- English only, in code, comments, commits, pull requests and docs (ADR 0002).
+- Name no employer, organization, team or person. Say "owner", "maintainers" or "the previous agent".
+- Use only lab addresses (`10.99.0.0/16`) and documentation ranges. Real hostnames, user names and non-lab addresses stay out of the repository and out of published evidence.
+- Check for Thai text before pushing:
 
-# 3. Verify .NET AST Transitive Dependency Graph Diff Runner (5 scenarios):
-pwsh -File ./tests/verify-affected-graph.ps1
-
-# 4. Verify Enterprise Zero-Trust Firewall (13/13 assertions):
-python scripts/proxmox/verify-enterprise-firewall.py
-
-# 5. Verify Language Compliance (Must return 0 Thai characters across repo):
-python -c "import os, re; p=re.compile(r'[\u0E00-\u0E7F]'); found=[os.path.join(r,f) for r,_,fs in os.walk('.') if '.git' not in r for f in fs if f.endswith(('.md','.py','.sh','.ps1','.cs','.ts')) and p.search(open(os.path.join(r,f),encoding='utf-8',errors='ignore').read())]; print('PASS: 0 Thai chars' if not found else f'FAIL: {found}')"
+```sh
+python3 -c "import subprocess,re,sys;p=re.compile('['+chr(3584)+'-'+chr(3711)+']');bad=[f for f in subprocess.check_output(['git','ls-files'],text=True).splitlines() if p.search(open(f,encoding='utf-8',errors='ignore').read())];print(bad or 'ok');sys.exit(bool(bad))"
 ```
 
----
+## Secrets
 
-## 3. Local Sandbox Fallback (No Proxmox Required)
+- Secrets live in SOPS files under `iac/secrets/` (one file per consumer and host, one writer each) and in GitHub environment secrets. Never commit decrypted output or an age identity.
+- Never put a secret on a command line (`argv`): pass it on stdin (`sops set --value-stdin`) or through the environment of one process. Never print one; print names only.
+- Rotate by changing the value, not by re-encrypting it: old commits stay decryptable.
+- `gitleaks` runs in CI and as a pre-commit hook.
 
-If operating on a development machine without direct access to the Proxmox hypervisor, spin up the local Docker MinIO S3 sandbox:
+## Evidence
 
-```powershell
-# Start local S3 cache sandbox with CREEP-hardened policies
-docker compose -f sandbox/docker-compose.sandbox.yml up -d
+- Publish run output with `scripts/evidence/publish.py`; read `docs/knowledge/README.md` first. Raw files, the value map and the deny list stay on the operator's machine.
+- A published file is never hand-edited. When the checker flags a value, extend the map and run the publisher again.
+- Check what is committed: `python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac`.
+- Every number in a document cites a requirements row, an evidence file or a run id. If you cannot back a number, remove it.
 
-# Verify sandbox policies and read/write separation
-pwsh -File sandbox/verify-sandbox.ps1
+## Engineering rules
 
-# Teardown sandbox cleanly
-pwsh -File sandbox/teardown.ps1
-```
+- Test first: a new check must be shown red before it is green. A test that never failed proves nothing.
+- Never buy speed with a false green: do not narrow a check, unskip to pad a denominator or soft-fail a step.
+- One owner per object: Ansible owns OS configuration, the API identity and the firewall files; OpenTofu owns SDN, guests and guest firewall options (ADR 0025).
+- Keep host-specific code (Hyper-V, Windows firewall) apart from the portable core (Proxmox roles, stacks, templates, workflows).
+- Pin tools by version and hash. Pin third-party actions by commit SHA.
+- Shell scripts use LF line endings (`.gitattributes`). Windows scripts stay compatible with PowerShell 5.1. Commands written for users on Windows use `cmd` syntax.
+- Comments are rare: say why, never what. No changelog in comments.
 
----
+## Running the tests
 
-## 4. The 8 Core Engineering Pillars (Operating Standards)
+Run from the repository root in WSL Debian after `scripts/bootstrap/operator-toolchain.sh`. Full list with what each proves: `docs/knowledge/test-catalogue.md`.
 
-1. **Clean Code Style:** Single responsibility, intention-revealing names, zero dead code.
-2. **Idiomatic Best Practices:** Idiomatic .NET 8 C#, Angular Standalone TypeScript, modern Python, and POSIX shell.
-3. **Compact, High-Signal Comments:** Explain "Why" and non-obvious invariants; never restate obvious code.
-4. **100% Universal English:** All repository code, comments, commits, PRs, docs, and wiki MUST be in English.
-5. **Deterministic Verification:** Every implementation or bugfix must be proven with automated CLI execution.
-6. **Zero-Trust Security & Secrets Hygiene:** Fail-closed networks, least privilege, zero plaintext secrets in git.
-7. **Observability & Telemetry:** Emit structured output and exit codes enabling 60-second root cause diagnosis.
-8. **Hardware Headroom Awareness:** Respect memory limits (Angular jsdom 1.5 GB limit) and ensure one-command disaster recovery.
+| Area | Command | CI job |
+|---|---|---|
+| Isolation and template shell tests | `for t in tests/isolation/test-*.sh; do bash "$t"; done` | Ansible Lint, Syntax & Molecule |
+| Ansible static checks | `ansible-lint --profile production iac/ansible` | same |
+| Ansible role (needs Docker) | `cd iac/ansible/roles/base && molecule test` | same |
+| OpenTofu | `tofu fmt -check -recursive iac/tofu`, then per stack `tofu -chdir=iac/tofu/stacks/<stack> init -backend=false` and `... test` with `TF_VAR_state_passphrase` set to a throwaway 32+ character value | OpenTofu Lint & Validate |
+| Cache client | `python3 -m unittest discover -s tests/cache -p 'test_*.py'`; `bash tests/cache/test_stale_binaries.sh` needs .NET SDK 8 | Cache client CI |
+| Evidence tooling | `python3 -m unittest discover -s tests/evidence -v` | Evidence Publisher Gate |
+| Affected-test selector | `bash tests/verify-affected-graph.sh` and `pwsh -File tests/verify-affected-graph.ps1` | Affected Test Selector CI |
+| Sample solution | `dotnet test apps/backend/SdetTestingRig.sln`; `npm ci && npm test --prefix apps/frontend` | SDET Homelab CI Pipeline |
 
----
+During an iteration run only the test of the file you changed; run the whole set once at the end.
 
-## 5. Known Empirical Traps & Hard-Learned Solutions
+## Working on the host
 
-| Trap | Failure Symptom | Surgical Solution |
-| :--- | :--- | :--- |
-| **OpenSSH Interactive Prompt** | `ssh root@100.121.209.85` in PowerShell hangs indefinitely | Always use Python `paramiko` with explicit password for non-interactive execution |
-| **Actions Checkout Order** | Composite actions fail with file not found | `actions/checkout@v4` must always be the very first step in every GitHub Actions job |
-| **LXC File Injection** | Files placed in `/tmp` on Proxmox host are invisible inside containers | Use `pct push <vmid> <host_path> <container_path>` |
-| **Debian 12 UsrMerge** | `mc` binary path resolution errors | Resolve dynamically: `$(command -v mc || echo '/usr/bin/mc')` |
-| **Angular Memory Spike** | Container OOM kills Jest process | Never install Chrome/Playwright in CT 103; use headless `jsdom` + `jest-preset-angular` |
-| **Git Identity Mismatch** | Commits rejected by identity guard | Enforce `ugritchaichana` (`ugritchaichana@users.noreply.github.com`); never use corporate identity |
-
----
-
-## 6. Proxmox Remote Control Pattern (Python Paramiko)
-
-When an agent needs to inspect or configure the live Proxmox host, use this standard snippet:
-
-```python
-import paramiko
-
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect("100.121.209.85", username="root", password="[VAULT_PASSWORD]")
-stdin, stdout, stderr = ssh.exec_command("pct list")
-print(stdout.read().decode("utf-8", errors="ignore"))
-ssh.close()
-```
-
----
-
-## 7. Wiki Synchronization SOP
-
-The project documentation is mirrored live to the GitHub Wiki. Whenever editing files in `wiki/`, run:
-
-```bash
-python scripts/ci/sync_wiki.py
-```
+Operator commands run from WSL through the wrappers in `scripts/iac/`, which render the pinned SSH config, open the API forward and keep state encrypted. Do not call `tofu` or `ansible-playbook` directly against the host. Before a change that could lock you out of SSH or the firewall, read the dead-man description in `iac/ansible/README.md`. A converge can apply pending package updates and reboot the host. Procedures: `RUNBOOK.md`.

@@ -1,0 +1,22 @@
+---
+- name: Install chrony
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configure the time sources
+  ansible.builtin.template:
+    src: chrony-sources.j2
+    dest: /etc/chrony/sources.d/homelab.sources
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+
+- name: Enable chrony
+  ansible.builtin.service:
+    name: chrony
+    enabled: true
+    state: "{{ omit if base_container_test_mode | bool else 'started' }}"

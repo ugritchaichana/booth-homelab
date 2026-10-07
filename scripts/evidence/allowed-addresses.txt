@@ -1,0 +1,3 @@
+# One address per line followed by ' # <reason>'. A line without a reason is a load error.
+1.1.0.1 # PowerShell serialization version printed by the Phase 1 transcripts, not an address
+239.255.255.255 # upper boundary of the multicast range 224.0.0.0/4, named in the Phase 1 regression-gate notes
