@@ -1,0 +1,25 @@
+=== pr-save
+save without a credential (pull request):
+  {"bytes": 0, "detail": "no writer credential", "key": "000000000000", "kind": "nuget", "ms": 0, "op": "save", "status": "skipped"}
+save with a wrong password (push to default branch):
+  {"bytes": 0, "detail": "nothing to archive", "key": "9f526c135295", "kind": "nuget", "ms": 0, "op": "save", "status": "empty"}
+=== corrupt
+corrupting the largest CAS blob on disk: size 71792850 bytes
+flipped one byte at offset 4096
+restore nuget:
+  {"bytes": 71792850, "detail": "blob digest dfd353005c2b != manifest c16695b671f1", "key": "9f526c135295", "kind": "nuget", "ms": 128, "op": "restore", "status": "rejected"}
+restore node_modules:
+  {"bytes": 28739312, "detail": "", "key": "a23e839b209c", "kind": "node_modules", "ms": 3526, "op": "restore", "status": "hit"}
+restore dotnet-outputs:
+  {"bytes": 4782691, "detail": "", "key": "ef870a0597ea", "kind": "dotnet-outputs", "ms": 190, "op": "restore", "status": "hit"}
+=== resave
+writer save after a rejected restore:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 1898, "op": "save", "status": "saved"}
+restore nuget:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 2418, "op": "restore", "status": "hit"}
+2026/10/07 08:09:41  GET 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:09:42  GET 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:09:47  GET 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:09:53  PUT 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:09:53  PUT 200     10.99.16.21 /ac/<sha>
+2026/10/07 08:10:05  GET 200     10.99.16.21 /cas/<sha>

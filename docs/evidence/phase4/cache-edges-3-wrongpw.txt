@@ -1,0 +1,9 @@
+save without a credential (pull request):
+  {"bytes": 0, "detail": "no writer credential", "key": "000000000000", "kind": "nuget", "ms": 0, "op": "save", "status": "skipped"}
+save with a wrong password (push to default branch):
+  {"bytes": 71792850, "detail": "server refused the write with HTTP 401", "key": "9f526c135295", "kind": "nuget", "ms": 1827, "op": "save", "status": "refused"}
+writer save after a rejected restore:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 2982, "op": "save", "status": "saved"}
+2026/10/07 08:15:42  PUT 200     10.99.16.21 /cas/<empty-blob-sha>
+2026/10/07 08:15:42  PUT 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:15:42  PUT 200     10.99.16.21 /ac/<sha>

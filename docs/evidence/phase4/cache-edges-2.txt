@@ -1,0 +1,36 @@
+=== pr-save
+save without a credential (pull request):
+  {"bytes": 0, "detail": "no writer credential", "key": "000000000000", "kind": "nuget", "ms": 0, "op": "save", "status": "skipped"}
+save with a wrong password (push to default branch):
+  {"bytes": 71792850, "detail": "PUT failed: BrokenPipeError", "key": "9f526c135295", "kind": "nuget", "ms": 2534, "op": "save", "status": "unreachable"}
+=== unreachable
+inactive
+restore while the service is stopped:
+  {"bytes": 0, "detail": "store unreachable: GET failed: TimeoutError", "key": "9f526c135295", "kind": "nuget", "ms": 2003, "op": "restore", "status": "miss"}
+  elapsed_ms=2198
+  dotnet restore after the miss: ok (2588 ms)
+active
+=== restart
+active
+2026/10/07 08:10:38 Loading existing files in /var/lib/bazel-remote/data.
+2026/10/07 08:10:38 Will evict at max size: 8.00 GB
+2026/10/07 08:10:38 Finished loading disk cache files.
+2026/10/07 08:10:38 Loaded 7 existing disk cache items.
+restore after the restart:
+restore nuget:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 2450, "op": "restore", "status": "hit"}
+=== kill9
+killed main pid
+PUT during kill: 100
+active
+GET after restart: 200
+stray temp files: 1
+=== concurrent
+two concurrent writer saves of the same key:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 2519, "op": "save", "status": "saved"}
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 2580, "op": "save", "status": "saved"}
+fatal: Unable to read current working directory: No such file or directory
+error: index-pack died
+fatal: remote transport reported error
+restore nuget:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 2544, "op": "restore", "status": "hit"}

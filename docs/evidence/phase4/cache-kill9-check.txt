@@ -1,0 +1,22 @@
+== CAS files, newest first (name pattern <sha>-<size>-<random>.v1)
+c16695b671f1 size_on_disk=71792850 declared=355863656.v1 name_matches_content=yes served_matches_name=yes served_code=200
+44af0228ddd5 size_on_disk=57475072 declared=215478924.v1 name_matches_content=NO served_matches_name=NO served_code=200
+a12f2493d607 size_on_disk=4782691 declared=765380108.v1 name_matches_content=yes served_matches_name=yes served_code=200
+9a96728dad8b size_on_disk=28739312 declared=552131146.v1 name_matches_content=yes served_matches_name=yes served_code=200
+281035f9f125 size_on_disk=30 declared=990135990.v1 name_matches_content=yes served_matches_name=yes served_code=200
+== journal around the kill
+2026/10/07 08:10:55 Sorting cache files by atime.
+2026/10/07 08:10:55 Building LRU index.
+2026/10/07 08:10:55 Will evict at max size: 8.00 GB
+2026/10/07 08:10:55 Finished loading disk cache files.
+2026/10/07 08:10:55 Authentication: basic
+2026/10/07 08:10:55 Access mode: authentication required for writes, unauthenticated reads allowed
+2026/10/07 08:10:55 Mangling non-empty instance names with AC keys: disabled
+2026/10/07 08:10:55 Loaded 8 existing disk cache items.
+2026/10/07 08:10:55 Endpoint metrics: enabled
+2026/10/07 08:10:55 HTTP AC validation: disabled
+2026/10/07 08:10:55 Starting HTTP server on address 10.99.17.10:8080
+2026/10/07 08:11:04  PUT 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:11:04  PUT 200     10.99.16.21 /cas/<sha>
+2026/10/07 08:11:04  PUT 200     10.99.16.21 /ac/<sha>
+2026/10/07 08:11:04  PUT 200     10.99.16.21 /ac/<sha>
