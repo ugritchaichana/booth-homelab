@@ -1,0 +1,19 @@
+probe key loaded (len 90)
+== cache-service plan rc=1
+│ Error: No value for required variable
+== r15-probe plan rc=0
+  # proxmox_virtual_environment_container.probe will be updated in-place
+      ~ tags                                 = [
+          ~ hostname = "r15-probe-lxc" -> "r15-probe-lxc-runner-v6"
+  # proxmox_virtual_environment_vm.probe will be updated in-place
+      ~ name                                 = "r15-probe-vm" -> "r15-probe-vm-docker-v7"
+      ~ tags                                 = [
+Plan: 0 to add, 2 to change, 0 to destroy.
+          + name    = "r15-probe-lxc-runner-v6"
+          + name    = "r15-probe-vm-docker-v7"
+keys found: 1
+== cache-service plan rc=0
+  # proxmox_virtual_environment_container.cache will be updated in-place
+      ~ tags                                 = [
+          ~ hostname = "cache01" -> "build-cache-debian-13"
+Plan: 0 to add, 1 to change, 0 to destroy.

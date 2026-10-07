@@ -1,0 +1,29 @@
+== 2026-10-07T21:31:05+07:00 pve01 guest state after the close-out
+guest-firewall-guard: ok, 9 guest(s) checked on pve01
+== cache status read from probe 9101
+ "CurrSize": 105336832,
+ "MaxSize": 8589934592,
+ "NumFiles": 7,
+ "GitTags": "v2.6.2",
+== containers (pct list)
+VMID       Status     Lock         Name                
+9050       running                 build-cache-debian-13
+9101       running                 r15-probe-lxc-runner-v6
+9202       stopped                 tmpl-lxc-runner-v6  
+9204       stopped                 tmpl-lxc-runner-v5  
+9501       running                 demo-lxc-runner-v6  
+== virtual machines (qm list: vmid, name, status)
+9102 r15-probe-vm-docker-v7 running
+9302 tmpl-vm-docker-v7 stopped
+9304 tmpl-vm-docker-v6 stopped
+9502 demo-vm-docker-v7 running
+== tags
+lxc 9050 tags: build-cache;src-debian-13
+lxc 9101 tags: r15-probe;src-lxc-runner-v6
+lxc 9202 tags: current;homelab-template;lxc-runner;v6
+lxc 9204 tags: homelab-template;lxc-runner;v5
+lxc 9501 tags: flavor-aws-t3.medium;flavor-guest;src-lxc-runner-v6
+qemu 9102 tags: r15-probe;src-vm-docker-v7
+qemu 9302 tags: current;homelab-template;v7;vm-docker
+qemu 9304 tags: homelab-template;v6;vm-docker
+qemu 9502 tags: flavor-aws-t3.medium;flavor-guest;src-vm-docker-v7
