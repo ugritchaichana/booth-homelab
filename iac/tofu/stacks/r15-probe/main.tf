@@ -1,21 +1,11 @@
-resource "proxmox_download_file" "image" {
-  node_name          = local.node_name
-  datastore_id       = var.import_datastore_id
-  content_type       = "import"
-  url                = local.image_url
-  file_name          = local.image_file
-  checksum           = var.image_sha512
-  checksum_algorithm = "sha512"
-}
+module "template_source" {
+  source   = "../../modules/proxmox/template-source"
+  for_each = toset([for guest in values(local.guests) : guest.template_class])
 
-resource "proxmox_download_file" "lxc_template" {
-  node_name          = local.node_name
-  datastore_id       = var.import_datastore_id
-  content_type       = "vztmpl"
-  url                = "http://download.proxmox.com/images/system/${local.template_file}"
-  file_name          = local.template_file
-  checksum           = var.lxc_template_sha512
-  checksum_algorithm = "sha512"
+  node    = local.node_name
+  class   = each.key
+  pin     = lookup(var.template_pins, each.key, null)
+  pool_id = var.template_pool_id
 }
 
 resource "proxmox_virtual_environment_container" "probe" {
@@ -36,14 +26,14 @@ resource "proxmox_virtual_environment_container" "probe" {
     swap      = 0
   }
 
-  disk {
-    datastore_id = var.vm_datastore_id
-    size         = 2
+  clone {
+    vm_id = module.template_source[local.guests.lxc.template_class].vmid
+    full  = false
   }
 
-  operating_system {
-    template_file_id = proxmox_download_file.lxc_template.id
-    type             = "debian"
+  disk {
+    datastore_id = var.vm_datastore_id
+    size         = module.template_source[local.guests.lxc.template_class].disk_gb
   }
 
   network_interface {
@@ -104,11 +94,15 @@ resource "proxmox_virtual_environment_vm" "probe" {
     dedicated = 512
   }
 
+  clone {
+    vm_id = module.template_source[local.guests.vm.template_class].vmid
+    full  = false
+  }
+
   disk {
     datastore_id = var.vm_datastore_id
-    import_from  = proxmox_download_file.image.id
     interface    = "scsi0"
-    size         = 4
+    size         = module.template_source[local.guests.vm.template_class].disk_gb
     discard      = "on"
   }
 
