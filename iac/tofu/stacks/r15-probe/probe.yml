@@ -14,5 +14,6 @@ r15_guests:
     login_user: debian
 r15_control_port: 22
 r15_control_key: /root/.ssh/r15_probe_ed25519
+r15_known_hosts: /var/lib/homelab/r15/known_hosts
 r15_vendor_snippet: r15-probe-vendor.yaml
 r15_snippet_dir: /var/lib/vz/snippets

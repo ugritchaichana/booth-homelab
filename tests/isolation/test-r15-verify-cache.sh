@@ -153,6 +153,17 @@ shown = env.from_string(by_name["Show which allowed guest stays up during the re
 if "[9050]" not in shown:
     fail("the red-first run must print which allowed guest stayed up: %r" % shown)
 
+keygen = next(p for p in plays if "r15_keygen" in p.get("tags", []))
+forget = next((t for t in keygen["tasks"] if t["name"] == "Forget the guest host keys of the previous probe generation"), None)
+if forget is None or forget["ansible.builtin.file"].get("state") != "absent" or forget["ansible.builtin.file"].get("path") != "{{ r15_known_hosts }}":
+    fail("the keygen play must delete the probe known_hosts file so each probe generation starts clean")
+elif keygen["tasks"][0] is not forget:
+    fail("the known_hosts file must be deleted before the key is generated")
+if "UserKnownHostsFile={{ r15_known_hosts }}" not in play["vars"]["r15_ssh_base"] or "StrictHostKeyChecking=accept-new" not in play["vars"]["r15_ssh_base"]:
+    fail("the probe ssh options must use the same known_hosts file with accept-new inside a generation")
+if "r15_known_hosts" not in open(sys.argv[1].replace("playbooks/r15-verify.yml", "../tofu/stacks/r15-probe/probe.yml"), encoding="utf-8").read():
+    fail("probe.yml must define r15_known_hosts")
+
 fetch, _ = by_name["Fetch every output to this machine"]
 if "'cache'" not in fetch["loop"] or "r15_cache_enabled" not in fetch["loop"]:
     fail("the fetch loop must add the cache output when the cache is enabled")
