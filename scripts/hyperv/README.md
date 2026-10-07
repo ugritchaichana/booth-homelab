@@ -9,6 +9,7 @@ Creates one nested-virtualization VM, `pve01`, on a Windows 11 Pro (or Server 20
 | `Test-R15Controls.ps1` | Windows-side paired controls for the R15 proof: reaches the same targets from the host while the guest is blocked (`tests/isolation/README.md`). |
 | `HomelabHyperV.psm1` | Shared functions (config loading, CIDR math, port ACL plan and sync, firewall rule, rights checks). |
 | `pve01.psd1` | All names, sizes, addresses, MAC, ports, thresholds. Another host gets its own `.psd1` via `-ConfigPath`. |
+| `tests/hyperv/` | Pester 5.7.1 unit tests with every Hyper-V and network cmdlet mocked, so no Hyper-V role is needed: after `Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck`, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\hyperv\Invoke-HyperVTests.ps1` (prints the line coverage of `HomelabHyperV.psm1`). |
 
 ## Design in one table
 

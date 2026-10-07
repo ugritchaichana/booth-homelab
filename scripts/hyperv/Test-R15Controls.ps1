@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 if (-not (Test-Path -LiteralPath $TargetsFile -PathType Leaf)) {
     throw "No targets file at $TargetsFile. Copy tests/isolation/targets.example.env to targets.env first."
 }
