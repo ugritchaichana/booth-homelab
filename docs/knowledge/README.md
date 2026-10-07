@@ -20,7 +20,7 @@ Role: the operator who holds the raw run output, on the operator workstation. Th
 
 ```
 python3 scripts/evidence/publish.py --repo . \
-  --allow-addresses-from iac --allow-addresses-from tests \
+  --allow-addresses-from iac \
   --map <value-map.json> \
   --mask-script <mask-script.py> \
   --deny-list <deny-list.txt> \
@@ -45,11 +45,11 @@ Check what is committed, as CI does:
 
 ```
 python3 scripts/evidence/publish.py --check docs/evidence docs/knowledge \
-  --allow-addresses-from iac --allow-addresses-from tests
+  --allow-addresses-from iac
 python3 -m unittest discover -s tests/evidence -v
 ```
 
-`--check` prints `file:line:rule` and never the matched text. Hard rules fail the run: an IPv4 address outside `10.99.0.0/16` and the explicit allowlist (loopback, `0.0.0.0`, `1.1.1.1`, `1.0.0.1`, the documentation ranges, netmasks, any address already present in a git-tracked file under a directory named by `--allow-addresses-from` except `iac/secrets/`, and any address listed with a reason in `scripts/evidence/allowed-addresses.txt`), a Windows user path, a path segment naming the operator's tooling directory, an email address (a systemd unit name such as `name@instance.service` and a `.arpa` special-use name are not emails), a tailnet domain, a private-key header, an age secret key prefix, a PVE API token with a value, a GitHub token prefix, a Thai character and the credential-mask marker. Version-like tokens (a four-part dotted number glued to a version suffix or prefix, as in a package version) and non-ASCII characters are soft: they are listed for review and do not fail the run.
+`--check` prints `file:line:rule` and never the matched text. Hard rules fail the run: an IPv4 address outside `10.99.0.0/16` and the explicit allowlist (loopback, `0.0.0.0`, `1.1.1.1`, `1.0.0.1` and their IPv6 counterparts, the documentation ranges, netmasks, any address already present in a git-tracked file under a directory named by `--allow-addresses-from` except `iac/secrets/` and `tests/evidence/` (the checker's own test vectors are never a source), and any address listed with a reason in `scripts/evidence/allowed-addresses.txt`), a Windows user path, a path segment naming the operator's tooling directory, an email address (a systemd unit name such as `name@instance.service` and a `.arpa` special-use name are not emails), a tailnet domain, a private-key header, an age secret key prefix, a PVE API token with a value, a GitHub token prefix, a global IPv6 address (anything in the global unicast range outside the documentation ranges and the public resolvers allowed above; link-local, unique-local, loopback and documentation addresses are not flagged), a basic-auth credential of the cache writer account (the account name, a colon and anything but a placeholder), a bcrypt hash prefix, a Thai character and the credential-mask marker. Version-like tokens (a four-part dotted number glued to a version suffix or prefix, as in a package version) and non-ASCII characters are soft: they are listed for review and do not fail the run.
 
 Operators can add a hard word check that never reaches the repository: `--deny-list <file>` (one word per line, `#` comments; the file lives outside the repository, by default in the local application data directory under `homelab/deny-list.txt`) flags any case-insensitive occurrence as `file:line:deny-list` without printing the word. CI runs without it.
 
