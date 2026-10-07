@@ -1,0 +1,9 @@
+binary: /usr/local/lib/bazel-remote/2.6.2/bazel-remote (Incorrect Usage: flag provided but not defined: -version)
+budget: 
+written: 40 x 32 MiB = 1280 MiB into a 1 GiB budget
+present=32 evicted=8 first_present_after_eviction=b10
+hot blob b5 (read after every write): 200
+oldest cold blob b1: 404
+newest blob b40: 200
+disk used by the test dir: 1028 MiB
+cleaned: yes

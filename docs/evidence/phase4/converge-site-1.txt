@@ -1,0 +1,1178 @@
+
+PLAY [Apply the baseline to every host] ****************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [pve01]
+
+TASK [Measure the connection user] *********************************************
+ok: [pve01]
+
+TASK [Require the automation user as the connection user] **********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the base role] *****************************************************
+included: base for pve01
+
+TASK [base : Assert test mode is a real boolean and only on a container connection] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Read the dead-man timer state] ************************************
+ok: [pve01]
+
+TASK [base : Refuse to run while a dead-man timer is armed] ********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Look for a stale dead-man marker] *********************************
+ok: [pve01]
+
+TASK [base : Refuse to run with a stale dead-man marker and no timer] **********
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Assert the automation identity inputs] ****************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Install sudo] *****************************************************
+ok: [pve01]
+
+TASK [base : Create the automation user] ***************************************
+ok: [pve01]
+
+TASK [base : Authorize only the automation keys] *******************************
+ok: [pve01]
+
+TASK [base : Grant passwordless sudo through a validated drop-in] **************
+ok: [pve01]
+
+TASK [base : Install chrony] ***************************************************
+ok: [pve01]
+
+TASK [base : Configure the time sources] ***************************************
+ok: [pve01]
+
+TASK [base : Enable chrony] ****************************************************
+ok: [pve01]
+
+TASK [base : Create the journald drop-in directory] ****************************
+ok: [pve01]
+
+TASK [base : Cap the persistent and volatile journal] **************************
+ok: [pve01]
+
+TASK [base : Apply pending handlers before the SSH change] *********************
+
+TASK [base : Assert the SSH hardening inputs] **********************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Install the SSH server] *******************************************
+ok: [pve01]
+
+TASK [base : Keep the SSH server enabled and running] **************************
+ok: [pve01]
+
+TASK [base : Install the boot-time dead-man unit] ******************************
+ok: [pve01]
+
+TASK [base : Enable the boot-time dead-man unit] *******************************
+ok: [pve01]
+
+TASK [base : Read the current SSH drop-in] *************************************
+ok: [pve01]
+
+TASK [base : Read the current root authorized keys without following a link] ***
+ok: [pve01]
+
+TASK [base : Resolve the root authorized keys file that holds the keys] ********
+ok: [pve01]
+
+TASK [base : Preview the SSH drop-in change] ***********************************
+ok: [pve01]
+
+TASK [base : Preview the root key restriction] *********************************
+ok: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmHHyrP8ciEVn2cPYz8n43B4kfZ6sGGDVZKEowbRwej pve01-operator-windows)
+
+TASK [base : Preview the root key revocation] **********************************
+ok: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEANBAu7R74mRL2B/qtUUx1mXyHj7pY/l+IrKQcFOJ/q pve01-automation-wsl)
+
+TASK [base : Look for the root SSH directory] **********************************
+ok: [pve01]
+
+TASK [base : Assert the root SSH directory exists before arming] ***************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [base : Record whether an SSH change is pending] **************************
+ok: [pve01]
+
+TASK [base : Log in as the automation user and run sudo] ***********************
+skipping: [pve01]
+
+TASK [base : Recreate the dead-man state directory] ****************************
+skipping: [pve01] => (item=absent) 
+skipping: [pve01] => (item=directory) 
+skipping: [pve01]
+
+TASK [base : Back up the current SSH drop-in] **********************************
+skipping: [pve01]
+
+TASK [base : Back up the current root authorized keys] *************************
+skipping: [pve01]
+
+TASK [base : Write the dead-man restore script] ********************************
+skipping: [pve01]
+
+TASK [base : Mark the dead-man as armed for the next boot] *********************
+skipping: [pve01]
+
+TASK [base : Clear any failed dead-man unit] ***********************************
+skipping: [pve01]
+
+TASK [base : Arm the dead-man] *************************************************
+skipping: [pve01]
+
+TASK [base : Restrict the break-glass root keys to the management source] ******
+skipping: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmHHyrP8ciEVn2cPYz8n43B4kfZ6sGGDVZKEowbRwej pve01-operator-windows) 
+skipping: [pve01]
+
+TASK [base : Revoke the retired root keys] *************************************
+skipping: [pve01] => (item=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEANBAu7R74mRL2B/qtUUx1mXyHj7pY/l+IrKQcFOJ/q pve01-automation-wsl) 
+skipping: [pve01]
+
+TASK [base : Read the root key file after the edit] ****************************
+skipping: [pve01]
+
+TASK [base : Assert each kept root key appears once with its source restriction] ***
+skipping: [pve01] => (item=pve01-operator-windows) 
+skipping: [pve01]
+
+TASK [base : Assert no revoked root key remains] *******************************
+skipping: [pve01] => (item=pve01-automation-wsl) 
+skipping: [pve01]
+
+TASK [base : Install the SSH hardening drop-in] ********************************
+skipping: [pve01]
+
+TASK [base : Validate the merged SSH configuration] ****************************
+skipping: [pve01]
+
+TASK [base : Reload the SSH server] ********************************************
+skipping: [pve01]
+
+TASK [base : Log in again as the automation user and run sudo] *****************
+skipping: [pve01]
+
+TASK [base : Read the effective SSH settings] **********************************
+skipping: [pve01]
+
+TASK [base : Assert the effective SSH settings] ********************************
+skipping: [pve01]
+
+TASK [base : Read the dead-man timer] ******************************************
+skipping: [pve01]
+
+TASK [base : Look for the dead-man fired marker] *******************************
+skipping: [pve01]
+
+TASK [base : Assert the dead-man did not fire] *********************************
+skipping: [pve01]
+
+TASK [base : Remove the armed marker before cancelling the timer] **************
+skipping: [pve01]
+
+TASK [base : Cancel the dead-man] **********************************************
+skipping: [pve01]
+
+TASK [base : Remove the dead-man state] ****************************************
+skipping: [pve01]
+
+PLAY [Configure the Proxmox hosts] *********************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [pve01]
+
+TASK [Measure the connection user] *********************************************
+ok: [pve01]
+
+TASK [Require the automation user as the connection user] **********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the Hyper-V guest role] ********************************************
+included: hyperv_guest for pve01
+
+TASK [hyperv_guest : Block the vsock transport from loading] *******************
+ok: [pve01]
+
+TASK [hyperv_guest : Unload the blocked modules] *******************************
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Read installed packages] **********************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read services] ********************************************
+ok: [pve01]
+
+TASK [hyperv_guest : Assert no host-integration daemon is installed or running] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [hyperv_guest : Read the loaded kernel modules] ***************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read what modprobe would do for each blocked module] ******
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Assert the blocked modules are not loaded and cannot load] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the Proxmox host role] *********************************************
+included: pve_host for pve01
+
+TASK [pve_host : Disable the pve-enterprise repository] ************************
+ok: [pve01]
+
+TASK [pve_host : Disable the ceph enterprise repository] ***********************
+ok: [pve01]
+
+TASK [pve_host : Enable the pve-no-subscription repository] ********************
+ok: [pve01]
+
+TASK [pve_host : Refresh the apt cache after a repository change] **************
+skipping: [pve01]
+
+TASK [pve_host : Refresh the apt cache and apply a full upgrade] ***************
+ASYNC OK on pve01: jid=j258863066848.3689
+ok: [pve01]
+
+TASK [pve_host : Check for a pending reboot marker] ****************************
+ok: [pve01]
+
+TASK [pve_host : Read the running kernel] **************************************
+ok: [pve01]
+
+TASK [pve_host : Find the kernel that boots by default] ************************
+ok: [pve01]
+
+TASK [pve_host : Assert a boot default kernel was found] ***********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_host : Reboot when the running kernel is not the boot default] *******
+skipping: [pve01]
+
+TASK [pve_host : Read the kernel the host runs after any reboot] ***************
+ok: [pve01]
+
+TASK [pve_host : Assert the host runs its boot default kernel] *****************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_host : Read the nested virtualisation parameter] *********************
+ok: [pve01] => (item=/sys/module/kvm_amd/parameters/nested)
+ok: [pve01] => (item=/sys/module/kvm_intel/parameters/nested)
+
+TASK [pve_host : Count the CPU virtualisation flags] ***************************
+ok: [pve01]
+
+TASK [pve_host : Assert nested KVM is available] *******************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Check the Hyper-V guest block again after the possible reboot] ***********
+included: hyperv_guest for pve01
+
+TASK [hyperv_guest : Block the vsock transport from loading] *******************
+ok: [pve01]
+
+TASK [hyperv_guest : Unload the blocked modules] *******************************
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Read installed packages] **********************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read services] ********************************************
+ok: [pve01]
+
+TASK [hyperv_guest : Assert no host-integration daemon is installed or running] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [hyperv_guest : Read the loaded kernel modules] ***************************
+ok: [pve01]
+
+TASK [hyperv_guest : Read what modprobe would do for each blocked module] ******
+ok: [pve01] => (item=hv_sock)
+
+TASK [hyperv_guest : Assert the blocked modules are not loaded and cannot load] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the OpenTofu API identity role] ************************************
+included: pve_api_identity for pve01
+
+TASK [pve_api_identity : Assert the identity cannot manage identities or the host] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_api_identity : Assert the identity can clone templates but never delete, retag or clone anything else] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_api_identity : Read the Proxmox users] *******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Create the provisioning user without a password] ******
+skipping: [pve01]
+
+TASK [pve_api_identity : Read the Proxmox roles] *******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Create the missing roles] *****************************
+skipping: [pve01] => (item=HomelabGuests) 
+skipping: [pve01] => (item=HomelabTemplateClone) 
+skipping: [pve01] => (item=HomelabDisks) 
+skipping: [pve01] => (item=HomelabTemplates) 
+skipping: [pve01] => (item=HomelabNodeDownload) 
+skipping: [pve01] => (item=HomelabGuestNetwork) 
+skipping: [pve01] => (item=HomelabNetworkAdmin) 
+skipping: [pve01]
+
+TASK [pve_api_identity : Replace the privileges of roles that differ] **********
+skipping: [pve01] => (item=HomelabGuests) 
+skipping: [pve01] => (item=HomelabTemplateClone) 
+skipping: [pve01] => (item=HomelabDisks) 
+skipping: [pve01] => (item=HomelabTemplates) 
+skipping: [pve01] => (item=HomelabNodeDownload) 
+skipping: [pve01] => (item=HomelabGuestNetwork) 
+skipping: [pve01] => (item=HomelabNetworkAdmin) 
+skipping: [pve01]
+
+TASK [pve_api_identity : Read the resource pools] ******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Create the missing resource pools] ********************
+skipping: [pve01] => (item=homelab) 
+skipping: [pve01] => (item=templates) 
+skipping: [pve01]
+
+TASK [pve_api_identity : Read the tokens of the provisioning user] *************
+ok: [pve01]
+
+TASK [pve_api_identity : Find the current token] *******************************
+ok: [pve01]
+
+TASK [pve_api_identity : Assert an existing token is privilege-separated] ******
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_api_identity : Count the stored secret characters] *******************
+ok: [pve01 -> localhost]
+
+TASK [pve_api_identity : Assert the stored secret is present] ******************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_api_identity : Create the directory of the secret file before any token exists] ***
+skipping: [pve01]
+
+TASK [pve_api_identity : Remove the token before rotating it] ******************
+skipping: [pve01]
+
+TASK [pve_api_identity : Create the privilege-separated token] *****************
+skipping: [pve01]
+
+TASK [pve_api_identity : Keep the token secret in memory] **********************
+skipping: [pve01]
+
+TASK [pve_api_identity : Assert the new token is the expected one] *************
+skipping: [pve01]
+
+TASK [pve_api_identity : Look for the secret file] *****************************
+skipping: [pve01]
+
+TASK [pve_api_identity : Create the secret file holding only the token id] *****
+skipping: [pve01]
+
+TASK [pve_api_identity : Store the token secret through stdin] *****************
+skipping: [pve01]
+
+TASK [pve_api_identity : Store the token id] ***********************************
+skipping: [pve01]
+
+TASK [pve_api_identity : Forget the secret in memory] **************************
+skipping: [pve01]
+
+TASK [pve_api_identity : Read the ACL entries] *********************************
+ok: [pve01]
+
+TASK [pve_api_identity : Compute the grants already in place] ******************
+ok: [pve01]
+
+TASK [pve_api_identity : Remove grants of the identity that are not declared] ***
+skipping: [pve01] => (item=/nodes/pve01 HomelabNodeDownload tofu@pve) 
+skipping: [pve01] => (item=/nodes/pve01 HomelabNodeDownload tofu@pve!provisioner) 
+skipping: [pve01] => (item=/pool/homelab HomelabGuests tofu@pve) 
+skipping: [pve01] => (item=/pool/homelab HomelabGuests tofu@pve!provisioner) 
+skipping: [pve01] => (item=/pool/templates HomelabTemplateClone tofu@pve) 
+skipping: [pve01] => (item=/pool/templates HomelabTemplateClone tofu@pve!provisioner) 
+skipping: [pve01] => (item=/sdn HomelabNetworkAdmin tofu@pve) 
+skipping: [pve01] => (item=/sdn HomelabNetworkAdmin tofu@pve!provisioner) 
+skipping: [pve01] => (item=/sdn/zones/hlab/guests HomelabGuestNetwork tofu@pve) 
+skipping: [pve01] => (item=/sdn/zones/hlab/guests HomelabGuestNetwork tofu@pve!provisioner) 
+skipping: [pve01] => (item=/sdn/zones/localnetwork NoAccess tofu@pve) 
+skipping: [pve01] => (item=/sdn/zones/localnetwork NoAccess tofu@pve!provisioner) 
+skipping: [pve01] => (item=/storage/local HomelabTemplates tofu@pve) 
+skipping: [pve01] => (item=/storage/local HomelabTemplates tofu@pve!provisioner) 
+skipping: [pve01] => (item=/storage/local-lvm HomelabDisks tofu@pve) 
+skipping: [pve01] => (item=/storage/local-lvm HomelabDisks tofu@pve!provisioner) 
+skipping: [pve01]
+
+TASK [pve_api_identity : Grant each role to the user and the privilege-separated token] ***
+skipping: [pve01] => (item=/pool/homelab HomelabGuests) 
+skipping: [pve01] => (item=/pool/templates HomelabTemplateClone) 
+skipping: [pve01] => (item=/storage/local-lvm HomelabDisks) 
+skipping: [pve01] => (item=/storage/local HomelabTemplates) 
+skipping: [pve01] => (item=/nodes/pve01 HomelabNodeDownload) 
+skipping: [pve01] => (item=/sdn/zones/hlab/guests HomelabGuestNetwork) 
+skipping: [pve01] => (item=/sdn HomelabNetworkAdmin) 
+skipping: [pve01] => (item=/sdn/zones/localnetwork NoAccess) 
+changed: [pve01] => (item=/sdn/zones/hlab/cache HomelabGuestNetwork)
+
+TASK [pve_api_identity : Read the ACL entries again] ***************************
+ok: [pve01]
+
+TASK [pve_api_identity : Assert the identity holds exactly the declared grants] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_api_identity : Delete roles that this role no longer declares] *******
+skipping: [pve01] => (item=HomelabProvisioner) 
+skipping: [pve01]
+
+TASK [Apply the Proxmox firewall role] *****************************************
+included: pve_firewall for pve01
+
+TASK [pve_firewall : Assert the firewall inputs] *******************************
+ok: [pve01]
+
+TASK [pve_firewall : Read the dead-man timer state] ****************************
+ok: [pve01]
+
+TASK [pve_firewall : Refuse to run while a firewall dead-man timer is armed] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_firewall : Look for a stale dead-man marker] *************************
+ok: [pve01]
+
+TASK [pve_firewall : Refuse to run with a stale dead-man marker and no timer] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_firewall : Render the firewall files] ********************************
+ok: [pve01]
+
+TASK [pve_firewall : Look for the current cluster firewall file] ***************
+ok: [pve01]
+
+TASK [pve_firewall : Look for the current host firewall file] ******************
+ok: [pve01]
+
+TASK [pve_firewall : Read the current cluster firewall file] *******************
+ok: [pve01]
+
+TASK [pve_firewall : Read the current host firewall file] **********************
+ok: [pve01]
+
+TASK [pve_firewall : Record which firewall files need a change] ****************
+ok: [pve01]
+
+TASK [pve_firewall : Log in as the automation user and run sudo] ***************
+ok: [pve01]
+
+TASK [pve_firewall : Install the boot-time dead-man unit] **********************
+ok: [pve01]
+
+TASK [pve_firewall : Enable the boot-time dead-man unit] ***********************
+ok: [pve01]
+
+TASK [pve_firewall : Recreate the dead-man state directory] ********************
+ok: [pve01] => (item=absent)
+changed: [pve01] => (item=directory)
+
+TASK [pve_firewall : Back up the current cluster firewall file] ****************
+changed: [pve01]
+
+TASK [pve_firewall : Back up the current host firewall file] *******************
+changed: [pve01]
+
+TASK [pve_firewall : Write the dead-man restore script] ************************
+changed: [pve01]
+
+TASK [pve_firewall : Mark the dead-man as armed for the next boot] *************
+changed: [pve01]
+
+TASK [pve_firewall : Clear any failed dead-man unit] ***************************
+ok: [pve01]
+
+TASK [pve_firewall : Arm the dead-man] *****************************************
+changed: [pve01]
+
+TASK [pve_firewall : Create the cluster firewall directory] ********************
+ok: [pve01]
+
+TASK [pve_firewall : Write the host firewall file] *****************************
+skipping: [pve01]
+
+TASK [pve_firewall : Write the cluster firewall file that enables the firewall] ***
+changed: [pve01]
+
+TASK [pve_firewall : Wait until the firewall is enabled and has applied the files] ***
+FAILED - RETRYING: [pve01]: Wait until the firewall is enabled and has applied the files (12 retries left).
+ok: [pve01]
+
+TASK [pve_firewall : Compile the firewall files as the host parses them] *******
+ok: [pve01]
+
+TASK [pve_firewall : Assert the host parsed every line] ************************
+ok: [pve01]
+
+TASK [pve_firewall : Read the management ipset] ********************************
+ok: [pve01]
+
+TASK [pve_firewall : Read the host-routed ipset] *******************************
+ok: [pve01]
+
+TASK [pve_firewall : Read the host input chain] ********************************
+ok: [pve01]
+
+TASK [pve_firewall : Assert the kernel holds exactly the intended sets and management rules] ***
+ok: [pve01] => (item=(censored due to no_log))
+ok: [pve01] => (item=(censored due to no_log))
+
+TASK [pve_firewall : Test addresses that must be outside the public egress set] ***
+ok: [pve01] => (item=0.1.2.3)
+ok: [pve01] => (item=10.1.2.3)
+ok: [pve01] => (item=100.64.0.1)
+ok: [pve01] => (item=127.0.0.1)
+ok: [pve01] => (item=169.254.1.1)
+ok: [pve01] => (item=172.16.5.5)
+ok: [pve01] => (item=192.0.0.1)
+ok: [pve01] => (item=192.0.2.1)
+ok: [pve01] => (item=<target-home-router-web>)
+ok: [pve01] => (item=198.18.0.1)
+ok: [pve01] => (item=198.51.100.1)
+ok: [pve01] => (item=203.0.113.1)
+ok: [pve01] => (item=224.0.0.1)
+ok: [pve01] => (item=240.0.0.1)
+
+TASK [pve_firewall : Test addresses that must be inside the public egress set] ***
+ok: [pve01] => (item=1.1.1.1)
+ok: [pve01] => (item=8.8.8.8)
+ok: [pve01] => (item=172.15.255.255)
+ok: [pve01] => (item=172.32.0.1)
+ok: [pve01] => (item=100.63.255.255)
+ok: [pve01] => (item=100.128.0.1)
+ok: [pve01] => (item=192.0.1.1)
+ok: [pve01] => (item=198.20.0.1)
+ok: [pve01] => (item=203.0.114.1)
+
+TASK [pve_firewall : Check that the management console answers on the host loopback] ***
+ok: [pve01]
+
+TASK [pve_firewall : Log in again as the automation user and run sudo] *********
+ok: [pve01]
+
+TASK [pve_firewall : Read the dead-man timer] **********************************
+ok: [pve01]
+
+TASK [pve_firewall : Look for the dead-man fired marker] ***********************
+ok: [pve01]
+
+TASK [pve_firewall : Assert the dead-man did not fire] *************************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_firewall : Remove the armed marker before cancelling the timer] ******
+changed: [pve01]
+
+TASK [pve_firewall : Cancel the dead-man] **************************************
+changed: [pve01]
+
+TASK [pve_firewall : Remove the dead-man state] ********************************
+changed: [pve01]
+
+TASK [pve_firewall : Wait until the firewall is enabled and has applied the files] ***
+skipping: [pve01]
+
+TASK [pve_firewall : Compile the firewall files as the host parses them] *******
+skipping: [pve01]
+
+TASK [pve_firewall : Assert the host parsed every line] ************************
+skipping: [pve01]
+
+TASK [pve_firewall : Read the management ipset] ********************************
+skipping: [pve01]
+
+TASK [pve_firewall : Read the host-routed ipset] *******************************
+skipping: [pve01]
+
+TASK [pve_firewall : Read the host input chain] ********************************
+skipping: [pve01]
+
+TASK [pve_firewall : Assert the kernel holds exactly the intended sets and management rules] ***
+skipping: [pve01] => (item=(censored due to no_log)) 
+skipping: [pve01] => (item=(censored due to no_log)) 
+skipping: [pve01]
+
+TASK [pve_firewall : Test addresses that must be outside the public egress set] ***
+skipping: [pve01] => (item=0.1.2.3) 
+skipping: [pve01] => (item=10.1.2.3) 
+skipping: [pve01] => (item=100.64.0.1) 
+skipping: [pve01] => (item=127.0.0.1) 
+skipping: [pve01] => (item=169.254.1.1) 
+skipping: [pve01] => (item=172.16.5.5) 
+skipping: [pve01] => (item=192.0.0.1) 
+skipping: [pve01] => (item=192.0.2.1) 
+skipping: [pve01] => (item=<target-home-router-web>) 
+skipping: [pve01] => (item=198.18.0.1) 
+skipping: [pve01] => (item=198.51.100.1) 
+skipping: [pve01] => (item=203.0.113.1) 
+skipping: [pve01] => (item=224.0.0.1) 
+skipping: [pve01] => (item=240.0.0.1) 
+skipping: [pve01]
+
+TASK [pve_firewall : Test addresses that must be inside the public egress set] ***
+skipping: [pve01] => (item=1.1.1.1) 
+skipping: [pve01] => (item=8.8.8.8) 
+skipping: [pve01] => (item=172.15.255.255) 
+skipping: [pve01] => (item=172.32.0.1) 
+skipping: [pve01] => (item=100.63.255.255) 
+skipping: [pve01] => (item=100.128.0.1) 
+skipping: [pve01] => (item=192.0.1.1) 
+skipping: [pve01] => (item=198.20.0.1) 
+skipping: [pve01] => (item=203.0.114.1) 
+skipping: [pve01]
+
+TASK [pve_firewall : Check that the management console answers on the host loopback] ***
+skipping: [pve01]
+
+TASK [pve_firewall : Install the guest firewall guard] *************************
+changed: [pve01]
+
+TASK [pve_firewall : Create the guest firewall guard policy directory] *********
+changed: [pve01]
+
+TASK [pve_firewall : Write the guest firewall guard policy] ********************
+changed: [pve01]
+
+TASK [pve_firewall : Install the guest firewall guard service] *****************
+changed: [pve01]
+
+TASK [pve_firewall : Install the guest firewall guard timer] *******************
+ok: [pve01]
+
+TASK [pve_firewall : Enable the guest firewall guard timer] ********************
+ok: [pve01]
+
+TASK [pve_firewall : Run the guest firewall guard once and require a clean result] ***
+ok: [pve01]
+
+TASK [pve_firewall : Keep the host from learning IPv6 routes from guests] ******
+ok: [pve01] => (item={'key': 'net.ipv6.conf.default.accept_ra', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.all.accept_ra', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.default.autoconf', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.all.autoconf', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.default.forwarding', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.all.forwarding', 'value': '0'})
+
+TASK [pve_firewall : Read the IPv6 settings the kernel holds] ******************
+ok: [pve01] => (item={'key': 'net.ipv6.conf.default.accept_ra', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.all.accept_ra', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.default.autoconf', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.all.autoconf', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.default.forwarding', 'value': '0'})
+ok: [pve01] => (item={'key': 'net.ipv6.conf.all.forwarding', 'value': '0'})
+
+TASK [pve_firewall : Look for the lab vnet bridges] ****************************
+ok: [pve01] => (item=guests)
+ok: [pve01] => (item=cache)
+
+TASK [pve_firewall : Read the IPv6 settings of the lab vnet bridges] ***********
+ok: [pve01] => (item=['guests', 'accept_ra'])
+ok: [pve01] => (item=['guests', 'autoconf'])
+
+TASK [pve_firewall : Assert the host ignores router advertisements and does not route IPv6] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Apply the golden template build framework role] **************************
+included: pve_templates for pve01
+
+TASK [pve_templates : Assert the template framework inputs] ********************
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_templates : Assert each class block and build address] ***************
+ok: [pve01] => (item=lxc-runner) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "key": "lxc-runner",
+        "value": {
+            "base": "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst",
+            "build_address": "10.99.16.30",
+            "cores": 2,
+            "disk_gb": 8,
+            "login_user": "root",
+            "memory": 2048,
+            "type": "lxc",
+            "verify_hook": "",
+            "vmid_base": 9200
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [pve01] => (item=vm-docker) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "key": "vm-docker",
+        "value": {
+            "base": "local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2",
+            "build_address": "10.99.16.31",
+            "cores": 2,
+            "cpu": "x86-64-v2-AES",
+            "disk_gb": 20,
+            "login_user": "debian",
+            "memory": 2048,
+            "type": "qemu",
+            "verify_hook": "",
+            "vmid_base": 9300
+        }
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [pve_templates : Create the guest-facing group] ***************************
+ok: [pve01]
+
+TASK [pve_templates : Create the guest-facing user] ****************************
+ok: [pve01]
+
+TASK [pve_templates : Create the root-owned framework directories] *************
+ok: [pve01] => (item=/etc/homelab-template)
+ok: [pve01] => (item=/usr/local/libexec/homelab-template)
+ok: [pve01] => (item=/usr/local/share/homelab-template)
+ok: [pve01] => (item=/usr/local/share/homelab-template/common)
+ok: [pve01] => (item=/usr/local/share/homelab-template/bundles)
+ok: [pve01] => (item=/var/lib/homelab/templates)
+
+TASK [pve_templates : Create the root-owned work directory] ********************
+ok: [pve01]
+
+TASK [pve_templates : Look at every parent directory of the work directory] ****
+ok: [pve01] => (item=/)
+ok: [pve01] => (item=/var)
+ok: [pve01] => (item=/var/lib)
+
+TASK [pve_templates : Require that the guest-facing user can traverse to the work directory] ***
+ok: [pve01] => (item=/) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "invocation": {
+            "module_args": {
+                "checksum_algorithm": "sha1",
+                "follow": false,
+                "get_attributes": true,
+                "get_checksum": true,
+                "get_mime": true,
+                "path": "/"
+            }
+        },
+        "item": "/",
+        "stat": {
+            "atime": 1791292844.9154174,
+            "attr_flags": "e",
+            "attributes": [
+                "extents"
+            ],
+            "block_size": 4096,
+            "blocks": 8,
+            "charset": "binary",
+            "ctime": 1791276971.0376983,
+            "dev": 64513,
+            "device_type": 0,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 2,
+            "isblk": false,
+            "ischr": false,
+            "isdir": true,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": false,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/directory",
+            "mode": "0755",
+            "mtime": 1791276971.0376983,
+            "nlink": 18,
+            "path": "/",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 4096,
+            "uid": 0,
+            "version": "0",
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [pve01] => (item=/var) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "invocation": {
+            "module_args": {
+                "checksum_algorithm": "sha1",
+                "follow": false,
+                "get_attributes": true,
+                "get_checksum": true,
+                "get_mime": true,
+                "path": "/var"
+            }
+        },
+        "item": "/var",
+        "stat": {
+            "atime": 1763492658.0,
+            "attr_flags": "e",
+            "attributes": [
+                "extents"
+            ],
+            "block_size": 4096,
+            "blocks": 8,
+            "charset": "binary",
+            "ctime": 1791292702.4889302,
+            "dev": 64513,
+            "device_type": 0,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 2621441,
+            "isblk": false,
+            "ischr": false,
+            "isdir": true,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": false,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/directory",
+            "mode": "0755",
+            "mtime": 1791292702.4889302,
+            "nlink": 11,
+            "path": "/var",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 4096,
+            "uid": 0,
+            "version": "3864457219",
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [pve01] => (item=/var/lib) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "invocation": {
+            "module_args": {
+                "checksum_algorithm": "sha1",
+                "follow": false,
+                "get_attributes": true,
+                "get_checksum": true,
+                "get_mime": true,
+                "path": "/var/lib"
+            }
+        },
+        "item": "/var/lib",
+        "stat": {
+            "atime": 1763492680.0,
+            "attr_flags": "e",
+            "attributes": [
+                "extents"
+            ],
+            "block_size": 4096,
+            "blocks": 8,
+            "charset": "binary",
+            "ctime": 1791349481.9018888,
+            "dev": 64513,
+            "device_type": 0,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 2621442,
+            "isblk": false,
+            "ischr": false,
+            "isdir": true,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": false,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/directory",
+            "mode": "0755",
+            "mtime": 1791349481.9018888,
+            "nlink": 43,
+            "path": "/var/lib",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 4096,
+            "uid": 0,
+            "version": "1397058854",
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [pve_templates : Install the root orchestrator] ***************************
+ok: [pve01]
+
+TASK [pve_templates : Install the guest-facing step] ***************************
+ok: [pve01]
+
+TASK [pve_templates : Install the in-guest bundle parts shared by every class] ***
+ok: [pve01] => (item=run.sh)
+ok: [pve01] => (item=playbook.yml)
+ok: [pve01] => (item=finalize.sh)
+ok: [pve01] => (item=seal.sh)
+ok: [pve01] => (item=scan-allowlist.txt)
+
+TASK [pve_templates : Render the orchestrator configuration] *******************
+ok: [pve01]
+
+TASK [pve_templates : Install the build units] *********************************
+ok: [pve01] => (item=homelab-template-guest@.service)
+ok: [pve01] => (item=homelab-template-build@.service)
+ok: [pve01] => (item=homelab-template-failure@.service)
+
+TASK [pve_templates : Create the guest unit drop-in directory] *****************
+ok: [pve01]
+
+TASK [pve_templates : Pin the guest unit to the guest subnet and the work directory] ***
+ok: [pve01]
+
+TASK [pve_templates : Reload systemd when a unit changed] **********************
+skipping: [pve01]
+
+TASK [pve_templates : Find the class bundles shipped with the role] ************
+ok: [pve01 -> localhost]
+
+TASK [pve_templates : Create the deployed bundle directories] ******************
+ok: [pve01] => (item=lxc-runner)
+ok: [pve01] => (item=vm-docker)
+
+TASK [pve_templates : Deploy each class version file first so a change is seen on its own] ***
+ok: [pve01] => (item=lxc-runner)
+changed: [pve01] => (item=vm-docker)
+
+TASK [pve_templates : Create the directory of pending builds] ******************
+ok: [pve01]
+
+TASK [pve_templates : Record a pending build for each class whose versions.yml changed, so a failed converge cannot lose it] ***
+changed: [pve01] => (item=vm-docker)
+
+TASK [pve_templates : Deploy every class bundle, root-owned] *******************
+ok: [pve01] => (item=lxc-runner)
+changed: [pve01] => (item=vm-docker)
+
+TASK [pve_templates : Assert every class has a base image pin whose file name matches its base volume] ***
+ok: [pve01] => (item=lxc-runner) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "key": "lxc-runner",
+        "value": {
+            "base": "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst",
+            "build_address": "10.99.16.30",
+            "cores": 2,
+            "disk_gb": 8,
+            "login_user": "root",
+            "memory": 2048,
+            "type": "lxc",
+            "verify_hook": "",
+            "vmid_base": 9200
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [pve01] => (item=vm-docker) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "key": "vm-docker",
+        "value": {
+            "base": "local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2",
+            "build_address": "10.99.16.31",
+            "cores": 2,
+            "cpu": "x86-64-v2-AES",
+            "disk_gb": 20,
+            "login_user": "debian",
+            "memory": 2048,
+            "type": "qemu",
+            "verify_hook": "",
+            "vmid_base": 9300
+        }
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [pve_templates : Create the import directory of local] ********************
+ok: [pve01]
+
+TASK [pve_templates : Download each class base image to its storage path, pinned by sha512] ***
+ok: [pve01] => (item=lxc-runner)
+ok: [pve01] => (item=vm-docker)
+
+TASK [pve_templates : Read the content types of the local storage] *************
+ok: [pve01]
+
+TASK [pve_templates : Add snippets to the local storage and keep the existing content types] ***
+skipping: [pve01]
+
+TASK [pve_templates : Read the content types of the local storage again] *******
+ok: [pve01]
+
+TASK [pve_templates : Assert snippets is present and no content type was lost] ***
+ok: [pve01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [pve_templates : Install the weekly rebuild service] **********************
+ok: [pve01]
+
+TASK [pve_templates : Install the weekly rebuild timer] ************************
+ok: [pve01]
+
+TASK [pve_templates : Reload systemd when the weekly units changed] ************
+skipping: [pve01]
+
+TASK [pve_templates : Enable the weekly timer] *********************************
+ok: [pve01]
+
+TASK [pve_templates : Find the pending builds] *********************************
+ok: [pve01]
+
+TASK [pve_templates : Start each pending build without waiting] ****************
+changed: [pve01] => (item=vm-docker)
+
+TASK [pve_templates : Clear the pending marker of each started build] **********
+changed: [pve01] => (item=vm-docker)
+
+PLAY RECAP *********************************************************************
+pve01                      : ok=171  changed=20   unreachable=0    failed=0    skipped=57   rescued=0    ignored=0   
+

@@ -1,0 +1,77 @@
+
+PLAY [Prepare the cache container for Ansible] *********************************
+
+TASK [Install python3 when the template lacks it] ******************************
+ok: [cache01]
+
+PLAY [Configure the build cache service] ***************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [cache01]
+
+TASK [Apply the cache_service role] ********************************************
+included: cache_service for cache01
+
+TASK [cache_service : Assert the inputs before changing anything] **************
+ok: [cache01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [cache_service : Assert the writer password reached the role] *************
+ok: [cache01]
+
+TASK [cache_service : Install the packages the role needs] *********************
+changed: [cache01]
+
+TASK [cache_service : Create the service group] ********************************
+changed: [cache01]
+
+TASK [cache_service : Create the service user without a shell or a home] *******
+changed: [cache01]
+
+TASK [cache_service : Require the data directory to be the mount point] ********
+ok: [cache01]
+
+TASK [cache_service : Create the data directory on the mount point] ************
+changed: [cache01]
+
+TASK [cache_service : Create the binary directory for the version] *************
+changed: [cache01]
+
+TASK [cache_service : Download the pinned bazel-remote binary and verify its digest] ***
+[WARNING]: Module remote_tmp /root/.ansible/tmp did not exist and was created with a mode of 0700, this may cause issues when running as another user. To avoid this, create the remote_tmp dir with the correct permissions manually
+changed: [cache01]
+
+TASK [cache_service : Point the stable path at the pinned version] *************
+changed: [cache01]
+
+TASK [cache_service : Create the configuration directory] **********************
+changed: [cache01]
+
+TASK [cache_service : Create the htpasswd file with its final owner and mode] ***
+changed: [cache01]
+
+TASK [cache_service : Check the stored writer hash against the password] *******
+ok: [cache01]
+
+TASK [cache_service : Write the bcrypt hash of the writer password, reading it from stdin] ***
+changed: [cache01]
+
+TASK [cache_service : Install the systemd unit] ********************************
+changed: [cache01]
+
+TASK [cache_service : Apply pending restarts before the readiness check] *******
+
+RUNNING HANDLER [cache_service : Restart bazel-remote] *************************
+changed: [cache01]
+
+TASK [cache_service : Enable and start the service] ****************************
+changed: [cache01]
+
+TASK [cache_service : Wait for the HTTP listener] ******************************
+ok: [cache01]
+
+PLAY RECAP *********************************************************************
+cache01                    : ok=21   changed=13   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
