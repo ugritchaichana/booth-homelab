@@ -20,7 +20,7 @@ from build_cache.adapters.http_store import HttpStore
 from build_cache.adapters.tar_archiver import TarArchiver
 from build_cache.application.restore import restore
 from build_cache.application.save import save
-from build_cache.domain.models import Manifest, StoreUnavailable, WriteRefused
+from build_cache.domain.models import Manifest, StoreUnavailable, WriteFailed, WriteRefused
 from build_cache.domain.policy import WriteDecision
 
 PASSWORD = "s3cret-Pa55-do-not-leak"
@@ -30,6 +30,7 @@ ALLOW = WriteDecision(True, "test")
 class FakeCacheServer:
     def __init__(self, delay: float = 0.0):
         self.ac, self.cas, self.requests, self.delay = {}, {}, [], delay
+        self.fail_puts = self.fail_gets = False
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -50,6 +51,8 @@ class FakeCacheServer:
             def do_GET(self):
                 outer.requests.append((self.command, self.path, self.headers.get("Authorization")))
                 time.sleep(outer.delay)
+                if outer.fail_gets:
+                    return self._reply(500)
                 table, _, name = self._store()
                 if table is None or name not in table:
                     return self._reply(404)
@@ -68,8 +71,8 @@ class FakeCacheServer:
                 table, kind, name = self._store()
                 if table is None:
                     return self._reply(404)
-                if kind == "cas" and hashlib.sha256(body).hexdigest() != name:
-                    return self._reply(400)
+                if outer.fail_puts or (kind == "cas" and hashlib.sha256(body).hexdigest() != name):
+                    return self._reply(500)
                 table[name] = body
                 self._reply(200)
 
@@ -152,10 +155,23 @@ class HttpStoreTests(unittest.TestCase):
         self.assertEqual(result.status, "refused")
         self.assertEqual(self.server.requests, [])
 
-    def test_cas_put_with_a_body_that_does_not_match_its_digest_is_rejected(self):
-        with self.assertRaises(WriteRefused):
+    def test_cas_put_with_a_body_that_does_not_match_its_digest_fails_with_500_and_stores_nothing(self):
+        with self.assertRaises(WriteFailed):
             self.writer().put_blob(hashlib.sha256(b"one").hexdigest(), b"another")
         self.assertEqual(self.server.cas, {})
+        self.assertIsNone(self.reader().get_blob(hashlib.sha256(b"one").hexdigest()))
+
+    def test_a_5xx_on_put_is_a_failed_save_distinct_from_unreachable_and_refused(self):
+        self.server.fail_puts = True
+        result = save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("HTTP 500", result.detail)
+        self.assertEqual(self.server.ac, {})
+
+    def test_a_5xx_on_get_stays_a_miss(self):
+        self.server.fail_gets = True
+        result = restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
+        self.assertEqual(result.status, "miss")
 
     def test_tampered_blob_on_the_server_is_a_rejected_restore(self):
         save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)

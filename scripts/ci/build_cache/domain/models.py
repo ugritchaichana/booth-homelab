@@ -13,6 +13,10 @@ class WriteRefused(Exception):
     pass
 
 
+class WriteFailed(Exception):
+    pass
+
+
 class ManifestError(ValueError):
     pass
 

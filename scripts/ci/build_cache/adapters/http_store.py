@@ -5,7 +5,7 @@ import http.client
 import os
 from urllib.parse import urlsplit
 
-from ..domain.models import KEY_RE, SHA256_RE, Manifest, StoreUnavailable, WriteRefused
+from ..domain.models import KEY_RE, SHA256_RE, Manifest, StoreUnavailable, WriteFailed, WriteRefused
 
 WRITER_USER = "ci-writer"
 CONNECT_TIMEOUT = 2.0
@@ -78,8 +78,10 @@ class HttpStore:
         status, _ = self._request("PUT", path, data, self._write_headers)
         if status in (200, 201, 204):
             return
-        if status in (400, 401, 403):
+        if status in (401, 403):
             raise WriteRefused(f"server refused the write with HTTP {status}")
+        if status >= 500:
+            raise WriteFailed(f"server failed the write with HTTP {status}")
         raise StoreUnavailable(f"write answered HTTP {status}")
 
     def _request(self, method: str, path: str, body: bytes | None, headers: dict[str, str] | None) -> tuple[int, bytes]:
