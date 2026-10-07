@@ -52,8 +52,8 @@ on:
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
-  CACHE_URL: ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && '' || 'http://10.99.17.10:8080' }}
-  BUILD_CACHE_RUNNER_CLASS: ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && '' || 'lxc-runner' }}
+  CACHE_URL: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'http://10.99.17.10:8080' || '' }}
+  BUILD_CACHE_RUNNER_CLASS: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'lxc-runner' || '' }}
 
 jobs:
   # Stage 1: Runner Telemetry
@@ -379,7 +379,7 @@ jobs:
           ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
           RUNNER_LABEL="${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest)' || 'Proxmox VE Self-Hosted (LXC)' }}"
 
-          if [ -n "$CACHE_URL" ]; then CACHE_ENDPOINT="Build cache service"; CACHE_STATE="Enabled"; else CACHE_ENDPOINT="Disabled (no CACHE_URL)"; CACHE_STATE="Off"; fi
+          if [ -n "$CACHE_URL" ]; then CACHE_ENDPOINT="Build cache service"; CACHE_STATE="Enabled"; else CACHE_ENDPOINT="Disabled (no CACHE_URL)"; CACHE_STATE="Off"; echo "Build Cache: disabled (no CACHE_URL)"; fi
 
           echo "=========================================================="
           echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
