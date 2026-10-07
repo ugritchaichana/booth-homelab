@@ -81,3 +81,7 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0038 | [Build golden templates with a root orchestrator, a sandboxed guest-facing step and in-guest Ansible](0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) | Accepted |
 | 0039 | [Keep templates as Proxmox templates on local-lvm, clone them linked and check clone origins before deleting one](0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) | Accepted |
 | 0040 | [Version templates with a monotonic number, a root-only current tag and automatic promotion](0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) | Accepted |
+| 0041 | [Let the template role own base images, snippets content and the weekly rebuild](adr\0041-let-the-template-role-own-base-images-snippets-content-and-the-weekly-rebuild.md) | Accepted |
+| 0042 | [Install runner template toolchains from release tarballs with pinned hashes](adr\0042-pin-runner-template-toolchains-by-hash.md) | Accepted |
+| 0043 | [Use Debian's docker.io in the VM class with a socket-only daemon](adr\0043-use-debians-docker-io-in-the-vm-class-with-a-socket-only-daemon.md) | Accepted |
+| 0044 | [Select golden templates fail closed and clone the R15 probe from them](adr\0044-select-golden-templates-fail-closed-and-clone-the-r15-probe-from-them.md) | Accepted |
