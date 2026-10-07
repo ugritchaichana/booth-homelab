@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/ci/build_cache/**'
       - 'tests/cache/**'
+      - 'tests/requirements-coverage-ci.txt'
       - '.github/workflows/reusable-sdet-pipeline.yml'
       - 'apps/**'
       - '.github/workflows/cache-ci.yml'
@@ -12,6 +13,7 @@ on:
     paths:
       - 'scripts/ci/build_cache/**'
       - 'tests/cache/**'
+      - 'tests/requirements-coverage-ci.txt'
       - '.github/workflows/reusable-sdet-pipeline.yml'
       - 'apps/**'
       - '.github/workflows/cache-ci.yml'
@@ -50,11 +52,17 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Install PyYAML
-        run: python3 -m pip install --require-hashes -r tests/cache/requirements-ci.txt
+      - name: Install PyYAML and coverage.py
+        run: python3 -m pip install --require-hashes -r tests/cache/requirements-ci.txt -r tests/requirements-coverage-ci.txt
 
-      - name: Unit tests and dependency rule
-        run: python3 -m unittest discover -s tests/cache -p 'test_*.py' -v
+      - name: Unit tests and dependency rule, measured
+        run: |
+          coverage run --branch --source=scripts/ci/build_cache -m unittest discover -s tests/cache -p 'test_*.py' -v
+          coverage report -m --precision=2 --fail-under=86
+
+      - name: Print the Line and Branch Split
+        run: |
+          coverage json -o - | python3 -c 'import json,sys; t=json.load(sys.stdin)["totals"]; print("lines %.2f%% (%d of %d), branches %.2f%% (%d of %d)" % (100*t["covered_lines"]/t["num_statements"], t["covered_lines"], t["num_statements"], 100*t["covered_branches"]/t["num_branches"], t["covered_branches"], t["num_branches"]))'
 
       - name: NuGet restore in locked mode
         run: dotnet restore apps/backend/SdetTestingRig.sln --locked-mode

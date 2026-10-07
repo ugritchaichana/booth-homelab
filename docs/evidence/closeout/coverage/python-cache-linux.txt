@@ -1,0 +1,25 @@
+Debian 13 (WSL), Python 3.13.5, coverage.py 7.16.2, installed with pip --require-hashes from tests/requirements-coverage-ci.txt
+
+----------------------------------------------------------------------
+Ran 128 tests in 15.212s
+
+OK (skipped=1)
+Name                                              Stmts   Miss Branch BrPart   Cover   Missing
+----------------------------------------------------------------------------------------------
+scripts/ci/build_cache/__init__.py                    0      0      0      0 100.00%
+scripts/ci/build_cache/__main__.py                    3      3      0      0   0.00%   1-5
+scripts/ci/build_cache/adapters/environment.py       44      1     12      0  98.21%   22
+scripts/ci/build_cache/adapters/fs_store.py          53      9      6      2  81.36%   28, 38, 47-48, 61-65
+scripts/ci/build_cache/adapters/http_store.py        99      6     26      5  91.20%   32, 65, 71, 94, 115, 128
+scripts/ci/build_cache/adapters/tar_archiver.py     139     33     54      5  74.09%   57, 101-103, 116, 118-122, 125-146, 155, 158-159
+scripts/ci/build_cache/application/ports.py          25      0      0      0 100.00%
+scripts/ci/build_cache/application/restore.py        51      7     10      0  88.52%   37, 49-52, 65-66
+scripts/ci/build_cache/application/save.py           37      1      6      1  95.35%   40
+scripts/ci/build_cache/cli.py                       169     19     40      6  86.12%   47, 64-76, 100-101, 135-136, 151, 169
+scripts/ci/build_cache/domain/keys.py                30      0      6      0 100.00%
+scripts/ci/build_cache/domain/models.py              54      8     10      4  78.12%   51, 53, 55, 57, 73-76
+scripts/ci/build_cache/domain/policy.py              42      1     16      1  96.55%   44
+----------------------------------------------------------------------------------------------
+TOTAL                                               746     88    186     24  86.05%
+fail-under 86 exit=0
+lines 88.20% (658 of 746), branches 77.42% (144 of 186)

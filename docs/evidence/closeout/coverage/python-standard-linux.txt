@@ -1,0 +1,16 @@
+Debian 13 (WSL), Python 3.13.5, coverage.py 7.16.2, installed with pip --require-hashes from tests/requirements-coverage-ci.txt
+
+----------------------------------------------------------------------
+Ran 13 tests in 2.709s
+
+OK
+<venv>/lib/python3.13/site-packages/coverage/control.py:967: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.16.2/messages.html#warning-no-data-collected
+  self._warn("No data was collected.", slug="no-data-collected")
+Combined 16 files, skipped 2
+Name                    Stmts   Miss Branch BrPart   Cover   Missing
+--------------------------------------------------------------------
+standard/scorecard.py     178     14     70     12  89.52%   29, 43, 46, 55, 61, 73->71, 83, 105, 108-109, 119->117, 136-138, 209-210, 214->exit
+--------------------------------------------------------------------
+TOTAL                     178     14     70     12  89.52%
+fail-under 89 exit=0
+lines 92.13% (164 of 178), branches 82.86% (58 of 70)

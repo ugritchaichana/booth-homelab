@@ -1,0 +1,12 @@
+$ ls iac/ansible/roles | wc -l
+7
+$ grep -c '^run "' iac/tofu/stacks/*/tests/*.tftest.hcl
+iac/tofu/stacks/cache-service/tests/cache.tftest.hcl:10
+iac/tofu/stacks/guest/tests/guest.tftest.hcl:25
+iac/tofu/stacks/proxmox-host/tests/flavor.tftest.hcl:6
+iac/tofu/stacks/proxmox-host/tests/sdn.tftest.hcl:11
+iac/tofu/stacks/proxmox-host/tests/two_hosts.tftest.hcl:3
+iac/tofu/stacks/r15-probe/tests/policy.tftest.hcl:10
+iac/tofu/stacks/r15-probe/tests/template_source.tftest.hcl:12
+$ ls tests/isolation/test-*.sh | wc -l
+19

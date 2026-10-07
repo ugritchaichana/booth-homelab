@@ -1,0 +1,13 @@
+Debian 13 (WSL), Python 3.13.5, coverage.py 7.16.2, installed with pip --require-hashes from tests/requirements-coverage-ci.txt
+
+----------------------------------------------------------------------
+Ran 52 tests in 1.672s
+
+OK
+Name                          Stmts   Miss Branch BrPart   Cover   Missing
+--------------------------------------------------------------------------
+scripts/evidence/publish.py     313     12    106     10  94.75%   126, 160, 210, 247, 301, 303, 345, 385-386, 402, 468, 473
+--------------------------------------------------------------------------
+TOTAL                           313     12    106     10  94.75%
+fail-under 94 exit=0
+lines 96.17% (301 of 313), branches 90.57% (96 of 106)
