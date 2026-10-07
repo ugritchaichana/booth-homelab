@@ -852,7 +852,7 @@ Decision record: ADR 0044 addendum. Templates stay sealed (ADR 0038); only the t
 | 4 | Create the clones | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 init`, then `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
 | 5 | Prove the clone source on the host | operator, WSL | `$pve sudo pct config 9101` and `$pve sudo qm config 9102` list no `template:`; `$pve sudo lvs -o lv_name,origin pve` shows the clone volumes with an `origin` of `base-<template vmid>-disk-N` |
 | 6 | Run the baseline | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>`; every `PROBE` row holds and `SUMMARY` exits 0 |
-| 7 | Tear down | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then delete the private key on the host (`$pve sudo rm /root/.ssh/r15_probe_ed25519`). No `pvesm free` is needed any more: no downloaded volume exists |
+| 7 | Tear down | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then delete the probe key, the probe snippet and the probe host keys on the host (`$pve sudo rm -f /root/.ssh/r15_probe_ed25519 /root/.ssh/r15_probe_ed25519.pub /var/lib/vz/snippets/r15-probe-vendor.yaml /var/lib/homelab/r15/known_hosts`); the next key generation also forgets the previous probes' host keys, which change with every new probe generation. No `pvesm free` is needed any more: no downloaded volume exists |
 
 Pin the probe to a version (to test the previous template): section 10.2 with the probe stack. A promoted new version replaces both probe guests on the next apply (the provider forces a new guest on a changed clone source); that is expected for this throwaway stack.
 
