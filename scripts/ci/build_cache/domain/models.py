@@ -17,6 +17,10 @@ class WriteFailed(Exception):
     pass
 
 
+class BadRequest(Exception):
+    pass
+
+
 class ManifestError(ValueError):
     pass
 

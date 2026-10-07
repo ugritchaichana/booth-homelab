@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import http.client
 import os
 from urllib.parse import urlsplit
 
-from ..domain.models import KEY_RE, SHA256_RE, Manifest, StoreUnavailable, WriteFailed, WriteRefused
+from ..domain.models import KEY_RE, SHA256_RE, Manifest, BadRequest, StoreUnavailable, WriteFailed, WriteRefused
 
 WRITER_USER = "ci-writer"
 CONNECT_TIMEOUT = 2.0
@@ -40,11 +41,11 @@ class HttpStore:
         )
 
     def get_pointer(self, key: str) -> Manifest | None:
-        body = self._get(f"/ac/{self._checked_key(key)}")
+        body = self._get(f"/ac/{self._ac_name(key)}")
         return None if body is None else Manifest.from_json(body.decode("utf-8", "replace"))
 
     def put_pointer(self, key: str, manifest: Manifest) -> None:
-        self._put(f"/ac/{self._checked_key(key)}", manifest.to_json().encode("utf-8"))
+        self._put(f"/ac/{self._ac_name(key)}", manifest.to_json().encode("utf-8"))
 
     def get_blob(self, sha256: str) -> bytes | None:
         return self._get(f"/cas/{self._checked_sha(sha256)}")
@@ -53,10 +54,10 @@ class HttpStore:
         self._put(f"/cas/{self._checked_sha(sha256)}", data)
 
     @staticmethod
-    def _checked_key(key: str) -> str:
+    def _ac_name(key: str) -> str:
         if not KEY_RE.match(key):
             raise ValueError(f"malformed key: {key!r}")
-        return key
+        return hashlib.sha256(key.encode()).hexdigest()
 
     @staticmethod
     def _checked_sha(sha256: str) -> str:
@@ -70,6 +71,8 @@ class HttpStore:
             return body
         if status == 404:
             return None
+        if status == 400:
+            raise BadRequest("read answered HTTP 400")
         raise StoreUnavailable(f"read answered HTTP {status}")
 
     def _put(self, path: str, data: bytes) -> None:
@@ -78,6 +81,8 @@ class HttpStore:
         status, _ = self._request("PUT", path, data, self._write_headers)
         if status in (200, 201, 204):
             return
+        if status == 400:
+            raise BadRequest("write answered HTTP 400")
         if status in (401, 403):
             raise WriteRefused(f"server refused the write with HTTP {status}")
         if status >= 500:

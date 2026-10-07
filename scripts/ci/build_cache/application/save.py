@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Sequence
 
-from ..domain.models import Manifest, WriteFailed, WriteRefused
+from ..domain.models import BadRequest, Manifest, WriteFailed, WriteRefused
 from ..domain.policy import WriteDecision
 from .ports import STORE_FAILURES, Archiver, Outcome, Store
 
@@ -45,6 +45,8 @@ def save(
         store.put_pointer(key, manifest)
     except WriteRefused as exc:
         return outcome("refused", len(packed.data), str(exc))
+    except BadRequest as exc:
+        return outcome("error", len(packed.data), f"bad request, client bug: {exc}")
     except WriteFailed as exc:
         return outcome("failed", len(packed.data), str(exc))
     except STORE_FAILURES as exc:

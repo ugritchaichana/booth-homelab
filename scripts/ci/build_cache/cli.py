@@ -158,7 +158,7 @@ def run_report(args: argparse.Namespace) -> int:
         tally = counts[kind]
         n = sum(tally.values())
         total, total_hits = total + n, total_hits + tally["hit"]
-        print(f"{kind}: {tally['hit']}/{n} hit ({100 * tally['hit'] / n:.1f}%), miss={tally['miss']}, rejected={tally['rejected']}")
+        print(f"{kind}: {tally['hit']}/{n} hit ({100 * tally['hit'] / n:.1f}%), miss={tally['miss']}, rejected={tally['rejected']}, error={tally['error']}")
     ratio = f"{100 * total_hits / total:.1f}%" if total else "n/a"
     print(f"all: {total_hits}/{total} hit ({ratio})")
     return 0

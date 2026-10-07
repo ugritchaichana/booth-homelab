@@ -1,9 +1,11 @@
 import argparse
 import contextlib
 import hashlib
+import http.client
 import io
 import json
 import os
+import re
 import shutil
 import socket
 import tempfile
@@ -23,6 +25,7 @@ from build_cache.application.save import save
 from build_cache.domain.models import Manifest, StoreUnavailable, WriteFailed, WriteRefused
 from build_cache.domain.policy import WriteDecision
 
+NAME_RE = re.compile(r"^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$")
 PASSWORD = "s3cret-Pa55-do-not-leak"
 ALLOW = WriteDecision(True, "test")
 
@@ -51,6 +54,8 @@ class FakeCacheServer:
             def do_GET(self):
                 outer.requests.append((self.command, self.path, self.headers.get("Authorization")))
                 time.sleep(outer.delay)
+                if not NAME_RE.match(self.path):
+                    return self._reply(400)
                 if outer.fail_gets:
                     return self._reply(500)
                 table, _, name = self._store()
@@ -63,6 +68,8 @@ class FakeCacheServer:
             def do_PUT(self):
                 outer.requests.append((self.command, self.path, self.headers.get("Authorization")))
                 body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                if not NAME_RE.match(self.path):
+                    return self._reply(400)
                 import base64
 
                 expected = "Basic " + base64.b64encode(f"ci-writer:{PASSWORD}".encode()).decode()
@@ -114,6 +121,7 @@ class HttpStoreTests(unittest.TestCase):
         (self.src / "obj" / "a.dll").write_bytes(b"binary-a")
         self.archiver = TarArchiver(prefer_zstd=False)
         self.key = key_for("dotnet-outputs", "http")
+        self.ac_name = hashlib.sha256(self.key.encode()).hexdigest()
         self.server = FakeCacheServer()
         self.server.__enter__()
         self.addCleanup(self.server.__exit__)
@@ -127,7 +135,7 @@ class HttpStoreTests(unittest.TestCase):
     def test_authorized_write_is_accepted_and_a_reader_gets_a_hit(self):
         saved = save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
         self.assertEqual(saved.status, "saved")
-        self.assertIn(self.key, self.server.ac)
+        self.assertIn(self.ac_name, self.server.ac)
         hit = restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
         self.assertEqual(hit.status, "hit")
         self.assertEqual((self.dest / "obj" / "a.dll").read_bytes(), b"binary-a")
@@ -168,6 +176,36 @@ class HttpStoreTests(unittest.TestCase):
         self.assertIn("HTTP 500", result.detail)
         self.assertEqual(self.server.ac, {})
 
+    def test_the_adapter_only_ever_sends_64_hex_names_and_the_fake_refuses_prefixed_keys(self):
+        save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
+        self.assertTrue(self.server.requests)
+        for method, path, _ in self.server.requests:
+            self.assertRegex(path, NAME_RE, (method, path))
+        connection = http.client.HTTPConnection(*self.server.server.server_address[:2])
+        connection.request("GET", f"/ac/{self.key}")
+        self.assertEqual(connection.getresponse().status, 400)
+        connection.close()
+
+    def test_a_pointer_that_names_another_key_is_rejected_over_http(self):
+        other = key_for("dotnet-outputs", "other")
+        save("dotnet-outputs", other, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        self.server.ac[self.ac_name] = self.server.ac[hashlib.sha256(other.encode()).hexdigest()]
+        result = restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
+        self.assertEqual(result.status, "rejected")
+
+    def test_a_400_on_get_is_an_error_not_an_outage(self):
+        with mock.patch.object(HttpStore, "_request", return_value=(400, b"")):
+            result = restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
+        self.assertEqual(result.status, "error")
+        self.assertIn("bad request", result.detail)
+        self.assertNotIn("unreachable", result.detail)
+
+    def test_a_400_on_put_is_an_error_save(self):
+        with mock.patch.object(HttpStore, "_request", return_value=(400, b"")):
+            result = save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
+        self.assertEqual(result.status, "error")
+
     def test_a_5xx_on_get_stays_a_miss(self):
         self.server.fail_gets = True
         result = restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
@@ -175,7 +213,7 @@ class HttpStoreTests(unittest.TestCase):
 
     def test_tampered_blob_on_the_server_is_a_rejected_restore(self):
         save("dotnet-outputs", self.key, self.src, ["obj"], self.writer(), self.archiver, ALLOW)
-        sha = self.server.ac and Manifest.from_json(self.server.ac[self.key].decode()).sha256
+        sha = self.server.ac and Manifest.from_json(self.server.ac[self.ac_name].decode()).sha256
         self.server.cas[sha] = b"tampered"
         result = restore("dotnet-outputs", self.key, self.dest, self.reader(), self.archiver)
         self.assertEqual(result.status, "rejected")

@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from ..domain.models import ArchiveRejected, ManifestError
+from ..domain.models import ArchiveRejected, BadRequest, ManifestError
 from .ports import STORE_FAILURES, Archiver, Outcome, Store
 
 log = logging.getLogger("build_cache")
@@ -34,6 +34,8 @@ def restore(
         manifest = store.get_pointer(key)
     except ManifestError as exc:
         return outcome("rejected", detail=f"unreadable pointer: {exc}")
+    except BadRequest as exc:
+        return outcome("error", detail=f"bad request, client bug: {exc}")
     except STORE_FAILURES as exc:
         return outcome("miss", detail=f"store unreachable: {exc}")
     if manifest is None:
@@ -43,6 +45,8 @@ def restore(
 
     try:
         blob = store.get_blob(manifest.sha256)
+    except BadRequest as exc:
+        return outcome("error", detail=f"bad request, client bug: {exc}")
     except STORE_FAILURES as exc:
         return outcome("miss", detail=f"store unreachable: {exc}")
     if blob is None:
