@@ -29,3 +29,9 @@ variable "api_endpoint" {
     error_message = "api_endpoint must be a loopback https URL ending in a slash."
   }
 }
+
+variable "inventory_file" {
+  description = "Inventory file to read; null selects iac/inventory/hosts.yml. Tests point it at a fixture."
+  type        = string
+  default     = null
+}

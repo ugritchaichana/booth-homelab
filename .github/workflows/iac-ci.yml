@@ -49,6 +49,8 @@ jobs:
         run: '"$RUNNER_TEMP/tflint" --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"'
 
       - name: Initialize, Validate and Test Every Root Module
+        env:
+          TF_VAR_state_passphrase: ci-test-only-passphrase-not-a-secret-0123456789
         run: |
           roots=$(find iac/tofu -name '*.tf' -not -path '*/modules/*' -not -path '*/.terraform/*' -printf '%h\n' | sort -u)
           if [ -z "$roots" ]; then
