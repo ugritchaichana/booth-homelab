@@ -82,6 +82,7 @@ check_all() {
   refuse "policy_out ACCEPT" '{"enable": 1, "policy_in": "DROP", "ipfilter": 1}' "$good_rules" "$good_config"
   refuse "ipfilter off" '{"enable": 1, "policy_in": "DROP", "policy_out": "DROP"}' "$good_rules" "$good_config"
   refuse "NIC without the firewall flag" "$good_options" "$good_rules" '{"net0": "name=eth0,bridge=cache,gw=10.99.17.1,ip=10.99.17.10/24,type=veth"}'
+  refuse "a second NIC" "$good_options" "$good_rules" '{"net0": "name=eth0,bridge=cache,firewall=1,ip=10.99.17.10/24,type=veth", "net1": "name=eth1,bridge=guests,type=veth"}'
   refuse "NIC on another vnet" "$good_options" "$good_rules" '{"net0": "name=eth0,bridge=guests,firewall=1,ip=10.99.17.10/24,type=veth"}'
   return "$failures"
 }

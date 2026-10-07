@@ -30,6 +30,7 @@
       - (cache_gate_rules.stdout | from_json) | map(attribute='action') | sort | list == ['cache-ingress', 'guest-egress']
       - (cache_gate_config.stdout | from_json).net0 is regex('(^|,)bridge=' ~ cache_vnet ~ '(,|$)')
       - (cache_gate_config.stdout | from_json).net0 is regex('(^|,)firewall=1(,|$)')
+      - (cache_gate_config.stdout | from_json) | list | select('match', '^net[1-9][0-9]*$') | list | length == 0
     fail_msg: The container firewall or NIC does not match the cache policy; the container was not started
     quiet: true
 

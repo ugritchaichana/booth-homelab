@@ -71,6 +71,15 @@ for directive in (
     "CapabilityBoundingSet=",
     "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX",
     "MemoryMax=768M",
+    "ProtectKernelTunables=yes",
+    "ProtectKernelModules=yes",
+    "ProtectControlGroups=yes",
+    "PrivateDevices=yes",
+    "RestrictNamespaces=yes",
+    "RestrictSUIDSGID=yes",
+    "LockPersonality=yes",
+    "SystemCallFilter=@system-service",
+    "SystemCallArchitectures=native",
     "Restart=on-failure",
     "User=bazel-remote",
 ):
@@ -177,6 +186,7 @@ mutate "drop htpasswd_file" templates/bazel-remote.service.j2 '/--htpasswd_file/
 mutate "drop the address wait from the unit" templates/bazel-remote.service.j2 '/wait-for-address/d'
 mutate "drop the sweep from the unit" templates/bazel-remote.service.j2 '/^ExecStartPre=/d'
 mutate "drop the grpc off switch" templates/bazel-remote.service.j2 '/--grpc_address none/d'
+mutate "drop the syscall filter" templates/bazel-remote.service.j2 '/^SystemCallFilter=/d'
 mutate "loosen ProtectSystem" templates/bazel-remote.service.j2 's/^ProtectSystem=strict/ProtectSystem=full/'
 mutate "put the password in the unit" templates/bazel-remote.service.j2 '/^\[Install\]/i Environment=PW={{ cache_writer_password }}'
 mutate "drop no_log" tasks/main.yml '/^  no_log: true/d'
