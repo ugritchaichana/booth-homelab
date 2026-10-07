@@ -50,4 +50,4 @@ The provider endpoint is `https://127.0.0.1:18006/`, the local end of an SSH for
 
 ## Checks without a host
 
-The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false && tofu -chdir=iac/tofu/stacks/proxmox-host test`.
+The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/proxmox-host init -backend=false && tofu -chdir=iac/tofu/stacks/proxmox-host validate && tofu -chdir=iac/tofu/stacks/proxmox-host test`.

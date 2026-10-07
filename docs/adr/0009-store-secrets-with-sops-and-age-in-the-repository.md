@@ -23,8 +23,8 @@ Encrypt IaC secrets with SOPS for a single age recipient (`.sops.yaml:2-3`, rule
 
 ## Rationale and trade-offs
 
-- One identity makes a fork or VPS move a one-key change and keeps the secret file reviewable; the cost is a single point of loss: without the offline copy every secret is unrecoverable (`iac/secrets/README.md`, Recovery and rotation, first bullet).
-- Rule learned, measured 2026-10-06: if the age identity is exposed, change the secrets; re-encrypting does not help, because old ciphertext stays in history and stays decryptable (`iac/secrets/README.md`, Recovery and rotation, second bullet). The first identity was exposed before any install, after its ciphertext of the root password was already in a public commit. Both the identity and the root password were replaced, a new recipient was set, and the ISO was rebuilt (`f70f3ac`). The old ciphertext remains in branch history but protects a password that was never used.
+- One identity makes a fork or VPS move a one-key change and keeps the secret file reviewable; the cost is a single point of loss: without the offline copy every secret is unrecoverable (`iac/secrets/README.md`, Recovery and rotation, the single-recipient bullet).
+- Rule learned, measured 2026-10-06: if the age identity is exposed, change the secrets; re-encrypting does not help, because old ciphertext stays in history and stays decryptable (`iac/secrets/README.md`, Recovery and rotation, the leaked-identity bullet). The first identity was exposed before any install, after its ciphertext of the root password was already in a public commit. Both the identity and the root password were replaced, a new recipient was set, and the ISO was rebuilt (`f70f3ac`). The old ciphertext remains in branch history but protects a password that was never used.
 - ACLs on the key files limit non-administrator principals only; local administrators can read the key regardless (D42, accepted).
 - gitleaks over the new commits found no leak (#58); the CI secret scan runs gitleaks too.
 - Revisit when a second maintainer needs access (add a recipient), or when the cache service lands and a different secret backend is worth its cost.

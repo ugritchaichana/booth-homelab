@@ -30,6 +30,6 @@ Then follow `tests/isolation/README.md`. Teardown: `bash scripts/iac/tofu.sh r15
 
 ## Checks without a host
 
-The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/r15-probe init -backend=false && tofu -chdir=iac/tofu/stacks/r15-probe test`.
+The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/r15-probe init -backend=false && tofu -chdir=iac/tofu/stacks/r15-probe validate && tofu -chdir=iac/tofu/stacks/r15-probe test`.
 
 `tests/policy.tftest.hcl` asserts the firewall options, the two rules, the on-boot and NIC flags, the addresses, the source filter and the clone sources (the resolved VMIDs, `full = false`, pool `homelab`, a pin) with literal values, and rejects a private key and an address outside the subnet. `tests/template_source.tftest.hcl` covers the resolution rule of the module: zero matches, two matches, a `current` tag on a non-template, a template outside the pool or the VMID block, an unknown class and a pin. The expected values are literals in the test, not read from `iac/policy/runner-class.yml`.

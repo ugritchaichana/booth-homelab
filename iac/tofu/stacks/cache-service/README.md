@@ -28,6 +28,6 @@ bash scripts/iac/tofu.sh cache-service pve01 apply
 
 ## Checks without a host
 
-The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/cache-service init -backend=false && tofu -chdir=iac/tofu/stacks/cache-service test`.
+The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/cache-service init -backend=false && tofu -chdir=iac/tofu/stacks/cache-service validate && tofu -chdir=iac/tofu/stacks/cache-service test`.
 
 `tests/cache.tftest.hcl` reads `tests/fixtures/hosts.yml` and asserts the shape with literal values: the NIC, address, size, template, mount point, reserved ids, firewall options and the exact two rule groups. It also rejects a private key, an id inside a template block, a data volume the cache limit does not fit, a host without the cache keys and the gateway as the address.

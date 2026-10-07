@@ -21,8 +21,8 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `pve_host/` | Proxmox repositories (`pve-no-subscription`), full upgrade, reboot on a new kernel, nested-KVM assert. | ADR 0005 |
 | `pve_api_identity/` | OpenTofu's API user `tofu@pve`, seven purpose roles, the pools `homelab` and `templates`, ACLs and the privilege-separated token. | ADR 0026, 0036 |
 | `pve_firewall/` | `cluster.fw`, `host.fw`, the `guest-egress` and `cache-ingress` security groups, the firewall dead-man and the guest firewall guard timer. | ADR 0025, 0027, 0037, 0047 |
-| `pve_templates/` | Golden template framework: the `homelab-template` root orchestrator (`build`, `rollback`, `status`, `repair`), the non-root sandboxed guest-facing step, the in-guest `finalize.sh`, class bundles `lxc-runner` and `vm-docker`, base images pinned by sha512, `snippets` content, the weekly rebuild timer. | ADR 0038 to 0043; `RUNBOOK.md`, Golden templates |
-| `cache_service/` | `bazel-remote` pinned by version and sha256 in the cache container, service user, htpasswd with one writer, the address wait and CAS sweep before each start, a hardened systemd unit. | ADR 0048, 0050; `RUNBOOK.md`, Cache: health, purge, rotation |
+| `pve_templates/` | Golden template framework: the `homelab-template` root orchestrator (`build`, `rollback`, `status`, `repair`), the non-root sandboxed guest-facing step, the in-guest `finalize.sh`, class bundles `lxc-runner` and `vm-docker`, base images pinned by sha512, `snippets` content, the weekly rebuild timer. | ADR 0038 to 0043; `RUNBOOK.md`, Day-2 operations, Golden templates |
+| `cache_service/` | `bazel-remote` pinned by version and sha256 in the cache container, service user, htpasswd with one writer, the address wait and CAS sweep before each start, a hardened systemd unit. | ADR 0048, 0050; `RUNBOOK.md`, Day-2 operations, Cache: health, purge, rotation |
 
 ## Toolchain
 

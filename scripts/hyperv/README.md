@@ -157,7 +157,7 @@ Limits to know:
 
 ## Measured on this host
 
-Results with their evidence files: `docs/handoff/results.md` (sections Isolation (R15) and Host, reboots and cold starts). The rows are in `docs/platform/requirements.md` section 3; transcripts are in `docs/evidence/phase1/` and `docs/evidence/phase2/`.
+Results with their evidence files: [docs/handoff/results.md](../../docs/handoff/results.md) (sections Isolation (R15) and Host, reboots and cold starts). The rows are in `docs/platform/requirements.md` section 3; transcripts are in `docs/evidence/phase1/` and `docs/evidence/phase2/`.
 
 ## Not covered
 
