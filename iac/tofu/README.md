@@ -2,7 +2,8 @@
 
 | Path | Purpose |
 |---|---|
-| `stacks/proxmox-host/` | The only root module; `var.host` selects an inventory entry, so another host is data, not code. Run it through the wrapper `scripts/iac/tofu.sh` (see its README). |
+| `stacks/proxmox-host/` | The host root module; `var.host` selects an inventory entry, so another host is data, not code. Run it through the wrapper `scripts/iac/tofu.sh` (see its README). |
+| `stacks/r15-probe/` | Throwaway container and VM that carry the guest firewall policy for the R15 isolation proof; applied only during the proof and destroyed after it (ADR 0031). Its firewall policy comes from `iac/policy/runner-class.yml`. |
 | `modules/proxmox/sdn/` | The guest network: a simple SDN zone, a vnet with `isolate_ports`, and a subnet with SNAT, static addressing and no DHCP (ADR 0030). |
 | `flavors.json` | Instance flavor catalog kept for the runner work of Phase 3; nothing reads it yet. |
 
@@ -26,4 +27,4 @@ tofu -chdir=iac/tofu/stacks/proxmox-host test
 
 `tests/` holds `tofu test` files with a mocked provider: policy of the network objects, the overlap and range rejections, and a two-host plan from `tests/fixtures/hosts.yml`.
 
-CI finds root modules by layout, so a new stack is a new directory under `stacks/`.
+CI finds root modules by layout, so a new stack is a new directory under `stacks/`. Per-guest firewall options and rules belong to the stack that creates the guest (ADR 0025).

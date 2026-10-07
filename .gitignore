@@ -31,6 +31,7 @@ coverage/
 # Environment & Secrets
 .env
 *.env
+!tests/isolation/targets.example.env
 *.key
 *.pem
 

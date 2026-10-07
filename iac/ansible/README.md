@@ -9,6 +9,7 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `requirements-ci.txt` | Hash-locked Python toolchain for CI and local linting. |
 | `playbooks/bootstrap.yml` | First contact as `root`: switches the Proxmox repositories, then creates the automation user. |
 | `playbooks/site.yml` | Steady state, run as the automation user: `base`, then `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall` on the Proxmox hosts. |
+| `playbooks/r15-verify.yml` | R15 proof, run on demand: starts the probe guests, runs `tests/isolation/r15-probe.sh` in each over the control channel, checks the guests' firewall options for drift, fetches the output (ADR 0031, ADR 0032). |
 | `roles/base/` | Provider-neutral Debian baseline. |
 | `roles/hyperv_guest/` | Blocks `hv_sock` and asserts no KVP, VSS or file-copy daemon. |
 | `roles/pve_host/` | Proxmox repositories, full upgrade, reboot on a new kernel, nested-KVM assert. |
