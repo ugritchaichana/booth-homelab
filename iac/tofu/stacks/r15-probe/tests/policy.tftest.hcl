@@ -49,50 +49,19 @@ variables {
   probe_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXAMPLEEXAMPLEEXAMPLEEXAMPLEEXAMPLEEXAMPLE0000 r15-test"
 }
 
-run "both_guests_carry_the_runner_class_firewall_options" {
+run "clones_inherit_the_template_firewall_and_the_stack_declares_none_of_it" {
   command = plan
 
   assert {
     condition = alltrue([
-      for options in [
-        proxmox_virtual_environment_firewall_options.lxc,
-        proxmox_virtual_environment_firewall_options.vm,
-        ] : (
-        options.enabled == true
-        && options.input_policy == "DROP"
-        && options.output_policy == "DROP"
-        && options.ipfilter == true
-        && options.log_level_out == "info"
-        && options.macfilter == true
-        && options.dhcp == false
-        && options.radv == false
-        && options.ndp == true
-      )
+      for f in fileset(path.module, "*.tf") : length(regexall("proxmox_virtual_environment_firewall_(rules|options)", file("${path.module}/${f}"))) == 0
     ])
-    error_message = "Each probe guest must run the firewall with policy_in DROP, policy_out DROP, ipfilter on, log_level_out info, macfilter on, and dhcp, radv off."
+    error_message = "The stack must not declare firewall rules or options for the clones: they inherit the template's, which is the runner-class policy R15 has to measure."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_firewall_options.lxc.output_policy == "DROP" && proxmox_virtual_environment_firewall_options.vm.output_policy == "DROP"
-    error_message = "Outbound policy DROP is what denies IPv6 egress: the security group holds IPv4 sets only."
-  }
-}
-
-run "each_guest_has_the_control_rule_and_the_egress_group" {
-  command = plan
-
-  assert {
-    condition = alltrue([
-      for rules in [
-        proxmox_virtual_environment_firewall_rules.lxc.rule,
-        proxmox_virtual_environment_firewall_rules.vm.rule,
-        ] : (
-        length(rules) == 2
-        && length([for r in rules : r if r.security_group == "guest-egress" && r.enabled]) == 1
-        && length([for r in rules : r if r.type == "in" && r.action == "ACCEPT" && r.proto == "tcp" && r.dport == "22" && r.source == "10.99.16.1" && r.enabled]) == 1
-      )
-    ])
-    error_message = "Each guest needs exactly two rules: security group guest-egress, and tcp/22 inbound from 10.99.16.1 only."
+    condition     = length(regexall("resource \"proxmox_virtual_environment_firewall_ipset\" \"vm_ipfilter\"", file("${path.module}/main.tf"))) == 1
+    error_message = "Templates carry no ipsets: the VM still needs ipfilter-net0 declared here."
   }
 }
 
@@ -211,12 +180,12 @@ run "address_outside_the_host_subnet_is_rejected" {
   ]
 }
 
-run "no_tags_at_create_because_a_pool_scoped_token_cannot_inherit_them" {
+run "probe_clones_overwrite_the_inherited_template_tags" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.probe.tags == null && proxmox_virtual_environment_vm.probe.tags == null
-    error_message = "Tags are checked on /vms/<id> without the pool, so a pool-scoped token cannot set them at create time."
+    condition     = proxmox_virtual_environment_container.probe.tags == tolist(["r15-probe"]) && proxmox_virtual_environment_vm.probe.tags == tolist(["r15-probe"])
+    error_message = "A linked clone inherits the template's tags, current included; the probe guests must overwrite them with r15-probe."
   }
 }
 
@@ -263,5 +232,14 @@ run "template_sources_output_reports_the_resolved_vmids" {
   assert {
     condition     = output.template_sources["lxc-runner"] == 9203 && output.template_sources["vm-docker"] == 9303
     error_message = "template_sources must report the resolved VMID per class."
+  }
+}
+
+run "the_vm_clone_installs_the_probe_key_from_the_vendor_data_snippet" {
+  command = plan
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.probe.initialization[0].vendor_data_file_id == "local:snippets/r15-probe-vendor.yaml"
+    error_message = "The VM clone must reference the vendor-data snippet that the keygen step writes, or sshd stays sealed."
   }
 }

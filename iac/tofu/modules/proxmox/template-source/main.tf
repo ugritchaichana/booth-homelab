@@ -11,9 +11,13 @@ locals {
 
   guests = local.is_lxc ? data.proxmox_virtual_environment_containers.all[0].containers : data.proxmox_virtual_environment_vms.all[0].vms
 
+  pool_kind    = local.is_lxc ? "lxc" : "qemu"
+  pool_members = [for m in data.proxmox_virtual_environment_pool.templates.members : m.vm_id if m.type == local.pool_kind && m.node_name == var.node]
+
   matches = [
     for g in local.guests : g
     if g.node_name == var.node
+    && contains(local.pool_members, g.vm_id)
     && contains(g.tags, local.marker)
     && contains(g.tags, var.class)
     && contains(g.tags, local.want_tag)
@@ -21,9 +25,6 @@ locals {
 
   one_match = length(local.matches) == 1
   match     = local.one_match ? local.matches[0] : null
-
-  pool_kind    = local.is_lxc ? "lxc" : "qemu"
-  pool_members = [for m in data.proxmox_virtual_environment_pool.templates.members : m.vm_id if m.type == local.pool_kind && m.node_name == var.node]
 }
 
 data "proxmox_virtual_environment_containers" "all" {

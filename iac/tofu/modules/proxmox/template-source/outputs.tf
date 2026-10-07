@@ -9,17 +9,12 @@ output "vmid" {
 
   precondition {
     condition     = local.one_match
-    error_message = "Expected exactly one ${var.class} template on ${var.node} tagged ${local.marker}, ${var.class} and ${local.want_tag}, found ${length(local.matches)} (${local.selector})."
+    error_message = "Expected exactly one ${var.class} guest in pool ${var.pool_id} on ${var.node} tagged ${local.marker}, ${var.class} and ${local.want_tag}, found ${length(local.matches)} (${local.selector})."
   }
 
   precondition {
     condition     = local.one_match ? local.match.template == true : true
     error_message = "The guest selected for ${var.class} by ${local.selector} is not a template."
-  }
-
-  precondition {
-    condition     = local.one_match ? contains(local.pool_members, local.match.vm_id) : true
-    error_message = "The ${var.class} template selected by ${local.selector} is not a member of pool ${var.pool_id}."
   }
 
   precondition {

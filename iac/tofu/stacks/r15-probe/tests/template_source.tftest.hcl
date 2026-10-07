@@ -222,3 +222,26 @@ run "a_non_whole_pin_is_rejected" {
 
   expect_failures = [var.pin]
 }
+
+run "a_clone_outside_the_pool_carrying_the_template_tags_is_ignored" {
+  command = plan
+
+  module {
+    source = "../../modules/proxmox/template-source"
+  }
+
+  override_data {
+    target = data.proxmox_virtual_environment_containers.all
+    values = {
+      containers = [
+        { name = "tmpl-lxc-runner-v2", node_name = "pve01", status = "stopped", tags = ["homelab-template", "lxc-runner", "v2", "current"], template = true, vm_id = 9203 },
+        { name = "r15-probe-lxc", node_name = "pve01", status = "running", tags = ["homelab-template", "lxc-runner", "v2", "current"], template = false, vm_id = 9101 },
+      ]
+    }
+  }
+
+  assert {
+    condition     = output.vmid == 9203
+    error_message = "A linked clone outside pool templates inherits the template tags and must never be a candidate or a second match."
+  }
+}
