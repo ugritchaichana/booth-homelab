@@ -1,0 +1,10 @@
+== 2026-10-07 19:25:05 +0700 sshd -T on pve01 (selected keys)
+maxauthtries 6
+permitrootlogin without-password
+pubkeyauthentication yes
+passwordauthentication no
+kbdinteractiveauthentication no
+authenticationmethods any
+== password login attempt as root (pubkey disabled on the client)
+root@10.99.0.2: Permission denied (publickey).
+exit=255
