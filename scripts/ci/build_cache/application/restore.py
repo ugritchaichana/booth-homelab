@@ -7,7 +7,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from ..domain.models import ArchiveRejected, ManifestError
+from ..domain.models import ArchiveRejected, BadRequest, ManifestError, UnsafeRuntime
+from ..domain.policy import ExtractionRules
 from .ports import STORE_FAILURES, Archiver, Outcome, Store
 
 log = logging.getLogger("build_cache")
@@ -22,6 +23,7 @@ def restore(
     store: Store,
     archiver: Archiver,
     on_extracted: OnExtracted | None = None,
+    rules: ExtractionRules = ExtractionRules(),
 ) -> Outcome:
     started = time.monotonic_ns()
 
@@ -34,6 +36,8 @@ def restore(
         manifest = store.get_pointer(key)
     except ManifestError as exc:
         return outcome("rejected", detail=f"unreadable pointer: {exc}")
+    except BadRequest as exc:
+        return outcome("error", detail=f"bad request, client bug: {exc}")
     except STORE_FAILURES as exc:
         return outcome("miss", detail=f"store unreachable: {exc}")
     if manifest is None:
@@ -43,6 +47,8 @@ def restore(
 
     try:
         blob = store.get_blob(manifest.sha256)
+    except BadRequest as exc:
+        return outcome("error", detail=f"bad request, client bug: {exc}")
     except STORE_FAILURES as exc:
         return outcome("miss", detail=f"store unreachable: {exc}")
     if blob is None:
@@ -52,7 +58,9 @@ def restore(
         return outcome("rejected", len(blob), f"blob digest {actual[:12]} != manifest {manifest.sha256[:12]}")
 
     try:
-        names = archiver.unpack(blob, manifest.compression, dest)
+        names = archiver.unpack(blob, manifest.compression, dest, rules)
+    except UnsafeRuntime as exc:
+        return outcome("error", len(blob), f"extraction refused: {exc}")
     except ArchiveRejected as exc:
         return outcome("rejected", len(blob), f"archive refused: {exc}")
     except OSError as exc:

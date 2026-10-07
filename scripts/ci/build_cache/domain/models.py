@@ -9,6 +9,22 @@ class StoreUnavailable(Exception):
     pass
 
 
+class WriteRefused(Exception):
+    pass
+
+
+class WriteFailed(Exception):
+    pass
+
+
+class BadRequest(Exception):
+    pass
+
+
+class UnsafeRuntime(Exception):
+    pass
+
+
 class ManifestError(ValueError):
     pass
 
