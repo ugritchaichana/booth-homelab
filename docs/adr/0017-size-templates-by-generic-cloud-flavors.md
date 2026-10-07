@@ -9,7 +9,7 @@
 
 Runners and services are cloned from golden templates, and every clone needs a vCPU, memory and disk size. The owner wants a neutral baseline that can be adapted later by editing data, not code (R3, R16). Sizing numbers scattered through resource definitions are hard to review and impossible to reuse for another host.
 
-The tree already resolves sizes from a catalog: `iac/tofu/flavors.json` maps a provider and an instance name to `cores`, `memory_mb`, `disk_gb` and `balloon_mb`, and `iac/tofu/main.tf:9-11` looks the values up with `local.resolve_flavor[var.cloud_provider][var.runner_dotnet_flavor]`. The catalog holds five providers (`iac/tofu/flavors.json:6`, `:20`, `:31`, `:42`, `:52`).
+The tree already resolves sizes from a catalog: `iac/tofu/flavors.json` maps a provider and an instance name to `cores`, `memory_mb`, `disk_gb` and `balloon_mb`, and the module `iac/tofu/modules/flavor/` looks the values up by `provider/instance` name (`iac/tofu/modules/flavor/main.tf:2-10`). The catalog holds five providers (`iac/tofu/flavors.json:6`, `:20`, `:31`, `:42`, `:52`).
 
 ## Options considered
 
@@ -30,5 +30,5 @@ Option 2. Size comes from a flavor name in `iac/tofu/flavors.json`. Example: `aw
 - A catalog lookup keeps sizing reviewable in one file and keeps the stack provider-neutral, which is what the owner needs to adapt it in a fork. The owner stated: use generic cloud flavors now and adapt to other baselines later.
 - The numbers are the catalog's choice, not a copy of a cloud's hardware: public clouds do not attach a fixed disk size to an instance type, so `disk_gb` and `balloon_mb` are values this repository picks. Do not read a flavor as a promise of cloud-equivalent performance.
 - The flavor is resolved at plan time, so changing a catalog entry changes every clone of that flavor at its next apply; templates carry versions so a rollback is a variable change.
-- The R3 plan and catalog tests are not in the tree at this commit; the catalog and lookup are.
+- The R3 catalog and plan tests are in `iac/tofu/stacks/proxmox-host/tests/flavor.tftest.hcl`.
 - Revisit when an adopter needs a size no public flavor describes: add a catalog entry rather than a new mechanism.
