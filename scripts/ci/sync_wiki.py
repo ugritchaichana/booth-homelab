@@ -22,7 +22,13 @@ if TOKEN:
 else:
     REPO_WIKI_URL = f"https://github.com/{REPO_NAME}.wiki.git"
 
+BOT_NAME = "github-actions[bot]"
+BOT_EMAIL = "41898283+github-actions[bot]@users.noreply.github.com"
+
 WIKI_SOURCE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "wiki"))
+
+def redact(text):
+    return text.replace(TOKEN, "***") if TOKEN else text
 
 def check_wiki_remote():
     """Check if GitHub Wiki Git repository has been initialized."""
@@ -40,7 +46,7 @@ def sync_wiki():
         print(f"[ERROR] Source wiki directory not found at: {WIKI_SOURCE_DIR}")
         sys.exit(1)
 
-    print(f"[*] Checking GitHub Wiki remote availability: {REPO_WIKI_URL}")
+    print(f"[*] Checking GitHub Wiki remote availability for {REPO_NAME}")
     if not check_wiki_remote():
         print("[!] GitHub Wiki repository has not been initialized yet.")
         print("[!] Note: GitHub creates the wiki.git repository ONLY after the first page is created in the web UI.")
@@ -60,7 +66,7 @@ def sync_wiki():
             errors="replace"
         )
         if clone_res.returncode != 0:
-            print(f"[ERROR] Failed to clone wiki: {clone_res.stderr}")
+            print(f"[ERROR] Failed to clone wiki: {redact(clone_res.stderr)}")
             sys.exit(1)
 
         # Copy all files from wiki/ into cloned repository
@@ -72,8 +78,8 @@ def sync_wiki():
             print(f"    -> Copied: {os.path.basename(src_file)}")
 
         # Configure local git identity
-        subprocess.run(["git", "-C", temp_dir, "config", "user.name", "ugritchaichana"], check=True)
-        subprocess.run(["git", "-C", temp_dir, "config", "user.email", "ugritchaichana@users.noreply.github.com"], check=True)
+        subprocess.run(["git", "-C", temp_dir, "config", "user.name", BOT_NAME], check=True)
+        subprocess.run(["git", "-C", temp_dir, "config", "user.email", BOT_EMAIL], check=True)
 
         # Stage and check diff
         subprocess.run(["git", "-C", temp_dir, "add", "."], check=True)
@@ -92,8 +98,20 @@ def sync_wiki():
         )
         print(commit_res.stdout.strip())
 
+        branch_res = subprocess.run(
+            ["git", "-C", temp_dir, "symbolic-ref", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        branch = branch_res.stdout.strip()
+        if branch_res.returncode != 0 or not branch:
+            print("[ERROR] Could not read the wiki default branch from the clone.")
+            sys.exit(1)
+
         push_res = subprocess.run(
-            ["git", "-C", temp_dir, "push", "origin", "master"],
+            ["git", "-C", temp_dir, "push", "origin", branch],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -102,7 +120,7 @@ def sync_wiki():
         if push_res.returncode == 0:
             print("[✓] Successfully synchronized all wiki pages to https://github.com/ugritchaichana/booth-homelab/wiki")
         else:
-            print(f"[ERROR] Failed to push to wiki: {push_res.stderr}")
+            print(f"[ERROR] Failed to push to wiki: {redact(push_res.stderr)}")
             sys.exit(1)
 
 if __name__ == "__main__":

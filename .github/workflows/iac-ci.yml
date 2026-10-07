@@ -26,6 +26,25 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Verify Shared Stack Files Are Identical
+        run: |
+          status=0
+          for name in encryption.tf providers.tf versions.tf; do
+            files=(iac/tofu/stacks/*/"$name")
+            if [ ! -e "${files[0]}" ] || [ "${#files[@]}" -lt 2 ]; then
+              echo "::error::fewer than two stacks hold $name under iac/tofu/stacks"
+              status=1
+              continue
+            fi
+            for file in "${files[@]:1}"; do
+              if ! diff -u "${files[0]}" "$file"; then
+                echo "::error file=$file::differs from ${files[0]}"
+                status=1
+              fi
+            done
+          done
+          exit "$status"
+
       - name: Setup OpenTofu CLI
         uses: opentofu/setup-opentofu@592200bd4b9bbf4772ace78f887668b1aee8f716 # v1.0.5
         with:

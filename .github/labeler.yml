@@ -27,5 +27,5 @@ homelab:
       - any-glob-to-any-file:
           - 'scripts/proxmox/**'
           - 'scripts/hyperv/**'
-          - 'scripts/host-bootstrap/**'
+          - 'scripts/bootstrap/**'
           - 'wiki/**'
