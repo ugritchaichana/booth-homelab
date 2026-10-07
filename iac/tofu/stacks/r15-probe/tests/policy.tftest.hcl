@@ -211,12 +211,12 @@ run "address_outside_the_host_subnet_is_rejected" {
   ]
 }
 
-run "no_tags_at_create_because_a_pool_scoped_token_cannot_inherit_them" {
+run "probe_clones_overwrite_the_inherited_template_tags" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.probe.tags == null && proxmox_virtual_environment_vm.probe.tags == null
-    error_message = "Tags are checked on /vms/<id> without the pool, so a pool-scoped token cannot set them at create time."
+    condition     = proxmox_virtual_environment_container.probe.tags == tolist(["r15-probe"]) && proxmox_virtual_environment_vm.probe.tags == tolist(["r15-probe"])
+    error_message = "A linked clone inherits the template's tags, current included; the probe guests must overwrite them with r15-probe."
   }
 }
 
