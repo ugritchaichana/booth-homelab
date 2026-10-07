@@ -7,7 +7,7 @@
 | Operator | an AI coding agent |
 | Canonical copy | This file is the canonical copy of the platform-v2 requirements once merged. |
 | Opened | 2026-10-06 |
-| Last updated | 2026-10-06 |
+| Last updated | 2026-10-07 |
 | Target repo | `ugritchaichana/booth-homelab` |
 | Links | [`standard/README.md`](../../standard/README.md) (#55) · PR #48–#56 · run [37355482969](https://github.com/ugritchaichana/booth-homelab/actions/runs/37355482969) |
 | Single goal | **This workstation runs Proxmox VE 9, rebuilt entirely from code, and runs the repo's CI on single-use runners that scale with the queue — faster than the 71 s hosted baseline, with no false green.** |
@@ -21,7 +21,7 @@ Document rules:
 
 ## 0. One-page summary
 
-> A new CI platform on this laptop replaces the retired host: 16 requirements, 9 phases, 0 open blocking questions. Phase 1 starts on the owner's go.
+> A new CI platform on this laptop replaces the retired host: 20 requirements, 9 phases. Phases 0-4 are done; Phases 5-8 are handed off (R19 amended).
 
 | | |
 |---|---|
@@ -183,7 +183,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 
 ### R9 — Clean architecture and large-scale engineering practice (2026-10-06)
 
-- **Raw request:** "Coding style is clean architecture plus big-tech enterprise best practice."
+- **Raw request:** "Coding style is clean architecture plus established industry best practice."
 - **Restated:**
   - The controller and tooling are layered as domain / application / infrastructure, with dependencies pointing inward.
   - Providers (Proxmox, VPS, …) are adapters behind ports.
@@ -455,6 +455,10 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | 68 | The reusable pipeline with the new cache wiring runs green on the hosted fallback with the cache disabled: every job green, the save jobs skipped outside a default-branch push, the Report prints `Build Cache: disabled (no CACHE_URL)` and each restore reports `miss (no store configured)` with 0 `store unreachable` lines. An earlier run (37597002154) was green too but showed a defect the audit found: the expression `cond && '' || url` always yields the URL because an empty string is falsy, so hosted jobs waited on 2-second connect timeouts; the expression is inverted and a workflow test now rejects that shape and any writer secret outside the cache save steps. The self-hosted path waits for the Phase 5 runners | `CONFIRMED` | SDET CI run 37602620111 |
 | 69 | Evidence in the repository (R20): Phases 1–3 published (50 files) and Phase 4; the checker exits 0 and a second, independent by-value scan against the operator map found 0 real values, after it had found three leaks the checker could not see (a user name after a backslash, a deny-listed word inside a command, an operator path), each fixed by extending the map before anything was pushed | `CONFIRMED` | evidence CI runs 37597435239 (tooling, after the allowlist fix) and 37600851460 (Phase 4 evidence); `docs/evidence/*/INDEX.md` |
 | 70 | Hardening from the phase-end security review, measured: the writer credential sits only in the environment of the cache client's save steps, which pack artifacts that the same run's build and test jobs uploaded (no install script or build runs beside it); restore extracts only the plan's paths, caps bytes and members, and refuses an interpreter older than the tarfile-filter fixes (3.11.13, 3.12.11, 3.13.4); the container start gate also refuses a second NIC; nine more systemd sandbox directives run in the unprivileged container (`systemd-analyze security`: "Overall exposure level for bazel-remote.service: 2.1 OK"); the evidence checker no longer trusts the checker's own test vectors. Two host findings on the way: re-created probe guests met the previous generation's host keys (now forgotten at key generation), and the guest bridge's IPv6 link-local changed after the SDN re-apply, which made the operator's target file stale | `CONFIRMED` | docs/evidence/phase4/cache-sandbox.txt; hosted SDET run 37602620111; cache CI run 37602586953 (workflow secret test) |
+| 71 | Flavor guests on pve01 (D83): `new-guest.sh` planned and created 9501 `demo-lxc-runner-v6` and 9502 `demo-vm-docker-v7` from `aws/t3.medium` (2 cores, 4096 MB, 30 GB). The container clone kept the template's 8 GB disk until a second apply resized it in 23 s, so the wrapper applies twice and requires a settled plan; the provider reads a VM's pool back as empty and the follow-up update failed with 403 Pool.Allocate, so `pool_id` is ignored for VMs. Settled plan "No changes"; with both started the guard reports "ok, 9 guest(s) checked" | `CONFIRMED` | docs/evidence/closeout/guest-plan-lxc.txt, guest-lxc-apply2.txt, guest-apply-vm.txt, guest-settled.txt, guest-start-guard.txt |
+| 72 | Guest names say role and source (owner): 9050 `build-cache-debian-13`, 9101 `r15-probe-lxc-runner-v6`, 9102 `r15-probe-vm-docker-v7`; plans in place only; the container hostnames were set with `pct set` first because the provider reboots a running container on a hostname change; settled plans exit 0; `ssh build-cache` works with strict host keys; cache converge `changed=0`; the cache still serves (`NumFiles: 7`) | `CONFIRMED` | docs/evidence/closeout/rename-plan.txt, rename-pct-set.txt, rename-apply.txt, rename-ssh-converge.txt, rename-final-state.txt |
+| 73 | Tests added in the close-out (D84), each shown red first: 334 Pester tests for the Hyper-V module (two defects fixed: a culture-sensitive `IndexOf` under th-TH and an empty ACL read-back message; StrictMode exposed two property reads); offline tests for roles `pve_host` and `hyperv_guest` with two new input guards; the cache client at 124 tests with the dependency rule over every module; a tar member guard for the writer jobs | `CONFIRMED` | hyperv-ci run 37628499263; PRs #104, #105, #106, #107 |
+| 74 | Line and branch coverage with regression floors (D84, D88): cache client 89.38% (floor 86, cache-ci run 37630718473), evidence publisher 94.75% (floor 94, evidence-ci run 37630718263), scorecard 89.52% (floor 89, run 37631138877), Hyper-V module 99.26% under pwsh 7 and 99.01% under Windows PowerShell (run 37628499263); shell by kcov, local only: `new-guest.sh` 97.83%, selector 80.68% | `CONFIRMED` | docs/knowledge/coverage.md; docs/evidence/closeout/coverage/ |
 
 ---
 
@@ -626,7 +630,7 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 
 ## 6. Decision log
 
-> 86 rows: 82 decided, 1 superseded (D13 by D19), 3 open: D10 (controller) and D11 (language) for design, D60 for the owner. D1 and D2 were reworded on 2026-10-06 to remove organization references (R16); their substance is unchanged.
+> 88 rows: 84 decided, 1 superseded (D13 by D19), 3 open: D10 (controller) and D11 (language) for design, D60 for the owner. D1 and D2 were reworded on 2026-10-06 to remove organization references (R16); their substance is unchanged.
 
 | # | Decision | Options | Chosen | **Deciding criterion** | Status | ADR |
 |---|---|---|---|---|---|---|
@@ -713,9 +717,11 @@ Requirements are appended as `R1`, `R2`, …; never insert in the middle and nev
 | D81 | Results in the repository (R20) | keep evidence outside / publish raw / regex masking / exact-value map + checker | sanitized copies by exact-value substitution from an operator-local map; a checker that flags and never rewrites; hash-anchored files byte-identical or withheld; the deny list stays outside the repository | owner (R20); a pattern mask once rewrote a package version | `DECIDED (2026-10-07)` | 0052 |
 | D82 | CI routing until the runner pool exists (release close) | keep the self-hosted default / deregister the old runners / hosted by default until Phase 5 | the caller workflow runs the reusable pipeline on hosted runners by default; the self-hosted path and cache wiring stay; Phase 6 flips it back | operator: own-repository runs queue 24 h on two offline runners of the retired host; the hosted path is green with the new wiring (row 68) | `DECIDED (2026-10-07)` | 0054 |
 | D83 | Creating a guest sized by a cloud flavor (release close-out) | Proxmox UI only (it has no instance-type field) / hand off to the Phase 5 controller / a guest stack plus one command now | a guest stack that reads `flavors.json` plus `scripts/iac/new-guest.sh`; guests are tagged with their flavor so the UI shows it | owner: "build it now"; operator: the catalog and its test existed but no stack used them (`module flavor` only in `flavor.tftest.hcl`) | `DECIDED (2026-10-07)` | 0055 |
-| D84 | Tests the release audit found missing | record as named gaps / write them now | Pester tests for `HomelabHyperV.psm1`, render and mutation tests for roles `pve_host` and `hyperv_guest`, and published line-coverage numbers | owner: write the tests now (not named gaps), plus "show the coverage numbers" | `DECIDED (2026-10-07)` | pending |
+| D84 | Tests the release audit found missing | record as named gaps / write them now | Pester tests for `HomelabHyperV.psm1`, render and mutation tests for roles `pve_host` and `hyperv_guest`, and published line-coverage numbers | owner: write the tests now (not named gaps), plus "show the coverage numbers" | `DECIDED (2026-10-07)` | 0057 |
 | D85 | General object storage (artifacts, backups, state) | build now / hand off / none | handed off to Phase 7 with backups; candidate Garage (S3-compatible, maintained; ADR 0048 rejected it only as a cache for lacking LRU) | owner: hand off | `DECIDED (2026-10-07)` | none (handoff item) |
 | D86 | Lab machines after the release | stop pve01 per D21 / keep everything running | keep pve01, `cache01`, the templates and the probes running as evidence that the platform works; D21's on-demand stop is suspended until the owner says otherwise | owner: "do not shut anything down or delete any machine yet" | `DECIDED (2026-10-07)` | none |
+| D87 | The affected-test selector had a Bash and an unreferenced PowerShell implementation | keep both with a parity test / keep one | keep the Bash selector only; delete the PowerShell copy and its harness | operator: no action or workflow ran the PowerShell copy; code review (release close-out) | `DECIDED (2026-10-07)` | 0056 |
+| D88 | Coverage tools and gates | none / coverage.py, Pester and kcov with floors | coverage.py for the Python suites and Pester's built-in coverage, each in CI; a floor at the measured total rounded down as a regression guard; kcov only locally because `ubuntu-latest` (24.04) has no kcov package | owner: "show the coverage numbers" (D84) | `DECIDED (2026-10-07)` | 0057 |
 
 ### Rejected options and why
 
@@ -802,7 +808,7 @@ Before Phase 6, which touches shared CI, run a risk assessment and summarize its
 | P | **Performance** — full-suite wall-clock and queue-to-start | Baselines: run [37355482969](https://github.com/ugritchaichana/booth-homelab/actions/runs/37355482969) (hosted, 71 s) and run [37341728563](https://github.com/ugritchaichana/booth-homelab/actions/runs/37341728563) attempt 2 (self-hosted, 174 s), vs runs after cutover | `not measured`: Phase 6 (handed off); the hosted fallback runs green with the new wiring (row 68) |
 | 1 | R1: PVE 9 here within budget; daily work unbroken | `pveversion`, `Get-VM`, `Get-Volume`, `wsl -l -v` | `done` (rows 35, 36, 40, 53) |
 | 2 | R2: timed rebuild from zero via the runbook is green | criterion 3.4 evidence | `not done`: Phase 8 (handed off) |
-| 3 | R3: flavor catalog test passes; plan sizes correctly | test + `tofu plan` | `done` (row 60, IaC CI run 37560039041) |
+| 3 | R3: flavor catalog test passes; plan sizes correctly | test + `tofu plan` | `done`: catalog test (row 60, IaC CI run 37560039041) and the guest stack sizes clones from it on pve01 (row 71) |
 | 4 | R4: plan 0; second Ansible run `changed=0`; IaC CI meets criterion 2.5 | run URLs | `done` (rows 46, 49, 54, 61) |
 | 5 | R5: N-host inventory, scoped ACLs, two template versions, clones removed after jobs | `pveum acl list`, logs | `partly met`: N-host inventory (row 60, two-host plan test), scoped ACLs (rows 48, 57), two template versions (row 56); clones removed after jobs is Phase 5 (handed off) |
 | 6 | R6: every unit is `workflow_call`; callers only `uses:` | actionlint + checker script | `not done`: Phase 6 (handed off) |
@@ -853,6 +859,7 @@ Before Phase 6, which touches shared CI, run a risk assessment and summarize its
 | 2026-10-07 | Owner decision on the release scope (asked with measured options: Phase 4 took about 3.5 hours; Phases 5–8 not started, estimated 12–20 hours as a HYPOTHESIS): the release ends after Phase 4. R19 now reads: Phases 0–4 complete and tested on this laptop, then the merge, the documentation pass, the previous agent's debt and a handoff package that hands Phases 5–8 (controller, workflow cutover, observability and backups, rebuild-from-zero and portability) to the team that builds production, with the research, designs and entry gates already written | Owner answer |
 | 2026-10-07 | Phase 4 DONE WHEN met: rows 61–70, decisions D73–D81 with ADRs 0045–0053, 7.2b actuals, Phase 5 entry gates from the phase-end review. Nine defects found only on the real host and fixed in PRs (container started before its firewall, server 500 on a digest mismatch, 64-hex names, wrong-password upload misread, partial blob served after a crash, first-start bind race, an address check blocked by the sandbox, stale probe host keys, a stale link-local target); the audit found a hosted-path expression defect (fixed) and record gaps (fixed) | Independent audit PASS after two re-gates |
 | 2026-10-07 | Release close-out reopened scope after the owner's eight points and the failed release audit: flavor guests by one command (D83), the missing tests plus coverage (D84), object storage to Phase 7 (D85), machines kept running (D86), worked examples for adopters, README badges and the About text. Mission document in the operator notes | Owner statement |
+| 2026-10-07 | Close-out results: rows 71-74 (flavor guests, renames, new tests, coverage), D87-D88, R3 to done; PRs #102-#110 plus the docs and examples PRs prepared for the owner's merge | Measured |
 
 ### Owner actions (besides merging)
 
