@@ -1,2 +1,2 @@
 ---
-*Booth Homelab • Continuous Testing & IaC Infrastructure • [ugritchaichana](https://github.com/ugritchaichana)*
+*Homelab CI platform. Source of truth: the repository (`docs/`, `RUNBOOK.md`). Pages here are mirrored from `wiki/`.*

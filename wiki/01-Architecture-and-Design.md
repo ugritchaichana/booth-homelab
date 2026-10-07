@@ -1,85 +1,68 @@
-# 01. Architecture and System Design
+# 01. Architecture and Design
 
-## 1. Overview & Hardware Constraints
+## Layers
 
-Booth Homelab is engineered to deliver high-density, reproducible CI/CD execution directly on workstation and local hardware. It utilizes nested virtualization to isolate execution runners from host operating system state while maximizing hardware performance.
+| Layer | What | Decision |
+|---|---|---|
+| Workstation | Windows 11 Pro with Hyper-V enabled; WSL Debian holds the operator toolchain (OpenTofu, Ansible, SOPS) | ADR 0010 |
+| Virtual appliance | Hyper-V Gen2 VM `pve01` running Proxmox VE 9, nested virtualization on | ADR 0003, 0004 |
+| Guests | LXC containers and KVM VMs on `local-lvm`, cloned from golden templates | ADR 0038, 0039 |
+| Services | The build cache container `cache01` | ADR 0045, 0048 |
 
-### Hardware Specifications
-- **Host Device:** Modern Multi-Core Workstation / Baremetal Node (AMD-V / VT-x Virtualization Passthrough)
-- **Host Operating System:** Windows 11 Pro / Enterprise
-- **Hypervisor:** Microsoft Hyper-V (Nested Virtualization enabled via `Set-VMProcessor -ExposeVirtualizationExtensions $true`)
-- **Virtual Appliance:** Proxmox VE 8.4.0 (Linux Kernel `6.8.12-9-pve`)
-- **Resource Allocation to Proxmox VM:**
-  - **vCPU:** 4 Cores (Dynamic core pinning)
-  - **RAM:** 10,240 MB (10 GB) with 1 GB ballooning headroom
-  - **Storage:** 64 GB Virtual Disk (ZFS / ext4 root volume)
+The VM has 12 vCPU, 20 GiB static RAM and a dynamic VHDX capped at 128 GiB (decision D19; the budget was lowered after the workstation's free RAM and disk were measured, requirements rows 28 and 29). Nested KVM works with Memory Integrity on (row 36). The VM starts on demand, never with Windows (D21).
 
----
-
-## 2. Network Topology & Dual-Bridge Architecture
-
-To prevent network loops and allow isolated high-speed inter-container communication, Proxmox is configured with two distinct network bridges:
+## Networks
 
 ```mermaid
 graph LR
-    WAN["Windows 11 Hyper-V Default Switch (172.x.x.x)"]
-    vmbr0["Proxmox vmbr0 (WAN Bridge / DHCP)"]
-    PVE["Proxmox Host (100.121.209.85 / Tailscale & Hyper-V)"]
-    NAT["iptables NAT Masquerade (POSTROUTING)"]
-    vmbr1["Proxmox vmbr1 (DMZ Bridge / 10.99.20.1/24)"]
-    
-    CT102["CT 102: Runner (10.99.20.101)"]
-    CT104["CT 104: MinIO S3 (10.99.20.20)"]
-    CT100["CT 100: Net Gateway (10.99.20.1)"]
-
-    WAN --> vmbr0
-    vmbr0 --> PVE
-    PVE --> NAT
-    NAT --> vmbr1
-    vmbr1 --> CT102
-    vmbr1 --> CT104
-    vmbr1 --> CT100
+    WSL["WSL operator toolchain"] -->|"ssh.exe -W through the Windows host"| MGMT
+    subgraph Host ["Windows workstation"]
+        NAT["WinNAT 10.99.0.0/24<br>host 10.99.0.1"]
+    end
+    subgraph PVE ["pve01 (10.99.0.2)"]
+        MGMT["management"]
+        subgraph Zone ["SDN zone hlab"]
+            GUESTS["vnet guests 10.99.16.0/24<br>port isolation, SNAT"]
+            CACHEV["vnet cache 10.99.17.0/24<br>routed, no SNAT to runners"]
+        end
+    end
+    NAT --- MGMT
+    GUESTS -->|"tcp 8080 only"| CACHEV
 ```
 
-### Network Interfaces Specification (`/etc/network/interfaces`)
-```ini
-auto lo
-iface lo inet loopback
+| Network | Range | Notes |
+|---|---|---|
+| Management (Hyper-V internal switch + WinNAT) | `10.99.0.0/24`; host `.1`, `pve01` `.2` | ADR 0006. The VM has no port mapping and the host opens no new listener |
+| `guests` vnet | `10.99.16.0/24`, gateway `.1` | Static addresses, no DHCP, `isolate_ports`, source-NATed out of `vmbr0` (ADR 0030, row 50) |
+| `cache` vnet | `10.99.17.0/24`, gateway `.1`, cache at `.10` | Routed through `pve01`; runner-to-cache traffic keeps the runner's address (ADR 0045, row 61) |
 
-# Hyper-V External Uplink (WAN)
-auto vmbr0
-iface vmbr0 inet dhcp
-    bridge-ports eth0
-    bridge-stp off
-    bridge-fd 0
+Remote access: SSH from WSL reaches `pve01` only through a `ProxyCommand` on the Windows `ssh.exe` with the host key pinned from SOPS (ADR 0011, 0022). `pve01` is not on the tailnet; the web UI is reached through a single forwarded port on the Windows host (ADR 0008).
 
-# Isolated DMZ Virtual Switch (LAN / Bus)
-auto vmbr1
-iface vmbr1 inet static
-    address 10.99.20.1/24
-    bridge-ports none
-    bridge-stp off
-    bridge-fd 0
-    # Enable IPv4 Forwarding and NAT Masquerade
-    post-up   iptables -t nat -A POSTROUTING -s 10.99.20.0/24 -o vmbr0 -j MASQUERADE
-    post-down iptables -t nat -D POSTROUTING -s 10.99.20.0/24 -o vmbr0 -j MASQUERADE
-```
+## Isolation (R15)
 
----
+Code that runs in a runner must reach no private network that the workstation is attached to: the VPN-routed prefixes, tailnet peers, the home LAN, the Windows host and the PVE management ports.
 
-## 3. LXC Container Matrix
+| Layer | Mechanism | Decision |
+|---|---|---|
+| 1 | Hyper-V extended port ACLs on the VM adapter (deny private, CGNAT, link-local and every prefix routed over another interface; allow stateful TCP and UDP out) plus a Windows Firewall block rule on the internal vEthernet | ADR 0007 |
+| 2 | Classic PVE firewall: `policy_out DROP` per guest, security group `guest-egress` (deny the host-routed set, then accept public IPv4), a `cache-ingress` group on the cache container, a guard timer that stops any guest whose firewall deviates | ADR 0027, 0037, 0047 |
 
-| CT ID | Hostname | Template / OS | IP Address | vCPU | RAM | Storage | Role |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **CT 100** | `net-gateway` | Alpine 3.23 Standard | `10.99.20.1` | 1 | 128 MB | 4 GB | Zero-Trust DMZ Gateway (nftables) |
-| **CT 101** | `shared-cache` | Alpine 3.23 Standard | `10.99.20.10` | 2 | 512 MB | 8 GB | BaGet NuGet & Verdaccio npm Cache |
-| **CT 102** | `gha-runner-01` | Debian 12 Standard | `10.99.20.101` | 2 | 2,048 MB | 12 GB | .NET 8 Unit & Integration Test Runner (`[dotnet]`) |
-| **CT 103** | `gha-runner-angular` | Debian 12 Standard | `10.99.20.103` | 2 | 1,536 MB | 12 GB | Angular Jest Unit Test Runner (`[angular]`) |
-| **CT 104** | `minio-s3` | Alpine 3.23 Standard | `10.99.20.20` | 2 | 512 MB | 16 GB | Distributed S3 Cache (Build & Artifacts) |
+Proof is red first with paired controls, run in four phases (baseline, container restart, PVE reboot, host reboot): requirements rows 38, 42, 51, 52, 59 and 66. Two rows stay `NOT MEASURED` in every phase because no positive control exists for them (row 52).
 
----
+## Guests and identifiers
 
-## 4. Architectural Invariants & Security
-1. **Runner Isolation:** Runners operate inside unprivileged LXC containers with strictly scoped capabilities (`features: nesting=1,keyctl=1`).
-2. **Branch-Scoped Cache Isolation & IAM:** MinIO storage uses branch prefixes (`branches/<branch-name>/`), scoped read-only PR credentials, and SHA256 integrity digest verification to prevent cache poisoning across pull requests.
-3. **Zero Host Pollution:** Build artifacts and package dependencies never leak into the host Proxmox root filesystem.
+| Guest | VMID | Source |
+|---|---|---|
+| `cache01` (container) | 9050 | Debian 13 container template, on the `cache` vnet |
+| Probe container and VM | 9101 and 9102 | Linked clones of the current templates, throwaway |
+| `lxc-runner` templates | block 9200 to 9299 | Built by `homelab-template` |
+| `vm-docker` templates | block 9300 to 9399 | Built by `homelab-template` |
+
+Runner guests do not exist yet (Phase 5).
+
+## Invariants
+
+1. Docker workloads run in VMs, never in privileged containers (ADR 0015).
+2. One owner per object: Ansible owns OS configuration, the OpenTofu API identity and the firewall files; OpenTofu owns SDN, guests and guest firewall options (ADR 0025).
+3. The API token cannot create users, change the host or delete a template; it can clone templates only from pool `templates` (ADR 0026, 0036).
+4. Host-specific code (Hyper-V, Windows firewall) stays apart from the portable core (Proxmox roles, stacks, templates, workflows), so an adopter can drop the host layer (R18).
