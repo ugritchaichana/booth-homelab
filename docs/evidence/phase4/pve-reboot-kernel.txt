@@ -1,0 +1,7 @@
+site3 rc=0 elapsed=165s
+pve01                      : ok=148  changed=0    unreachable=0    failed=0    skipped=80   rescued=0    ignored=0   
+nested=1 svm=12
+guest-firewall-guard: ok, 7 guest(s) checked on pve01
+active
+wait-for-address: 10.99.17.10 is configured after 1 seconds
+2026/10/07 08:33:30 Loaded 7 existing disk cache items.

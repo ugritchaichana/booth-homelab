@@ -1,0 +1,12 @@
+before: 2026-10-07 15:33:17
+9050 running cache01 ;9101 stopped r15-probe-lxc ;9202 stopped tmpl-lxc-runner-v6 ;9204 stopped tmpl-lxc-runner-v5 ;
+pve01 ssh back after 29 s; booted 2026-10-07 16:37:40
+cache CT 9050: status: running (34 s after reboot)
+bazel-remote: active (40 s after reboot)
+verify-cas: checked=4 quarantined=0 deleted=0 skipped=0 unreadable=0 seconds=1
+2026/10/07 09:37:56 Loaded 7 existing disk cache items.
+probe guests: status: running status: running 
+status: running
+status: running
+guard after reboot: 
+thin pool:  data 24.29 

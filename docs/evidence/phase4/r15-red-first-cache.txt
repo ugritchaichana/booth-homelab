@@ -1,0 +1,20 @@
+RUN guest=cache phase=red-first host=cache01 utc=2026-10-07T09:17:24Z
+PROBE egress_public_https tcp 1.1.1.1:443 open open PASS
+PROBE gateway_ssh tcp 10.99.16.1:22 open open PASS
+PROBE gateway_web_console tcp 10.99.16.1:8006 open open PASS
+PROBE management_ssh tcp 10.99.0.2:22 open open PASS
+PROBE management_web_console tcp 10.99.0.2:8006 open open PASS
+PROBE windows_host_smb tcp 10.99.0.1:445 blocked dropped PASS
+PROBE windows_host_lan_smb tcp <target-windows-host-lan-smb>:445 blocked dropped PASS
+PROBE windows_host_lan_netbios tcp <target-windows-host-lan-smb>:139 blocked dropped PASS
+PROBE home_router_web tcp <target-home-router-web>:80 blocked dropped PASS
+PROBE home_router_dns tcp <target-home-router-web>:53 blocked dropped PASS
+PROBE tailnet_self_smb tcp <target-tailnet-self-smb>:445 blocked dropped PASS
+PROBE mesh_self_smb tcp <target-mesh-self-smb>:445 blocked dropped PASS
+PROBE vpn_peer_web tcp <target-mesh-self-smb>:80 blocked dropped NOT MEASURED
+PROBE mesh_dns tcp <target-mesh-dns>:53 blocked dropped PASS
+PROBE harvested_prefix_host tcp <target-harvested-prefix-host>:443 blocked dropped NOT MEASURED
+PROBE egress_https curl deb.debian.org:443 200 200 PASS
+SUMMARY negatives_blocked=8/8 positives_ok=5/5 egress_curl=200
+
+EXIT 0
