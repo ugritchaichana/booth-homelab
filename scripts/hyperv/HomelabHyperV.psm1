@@ -1,3 +1,5 @@
+Set-StrictMode -Version Latest
+
 function Write-HomelabLog {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param(
@@ -315,8 +317,11 @@ function Assert-PveAclRule {
 
 function ConvertTo-PveAclKey {
     param([Parameter(Mandatory)]$Rule)
-    $remote = [string]$Rule.RemoteIPAddress
-    if ($null -eq $Rule.RemoteIPAddress) { $remote = [string]$Rule.Remote }
+    $remote = ''
+    foreach ($n in 'RemoteIPAddress', 'Remote') {
+        $p = $Rule.PSObject.Properties[$n]
+        if ($p -and $null -ne $p.Value) { $remote = [string]$p.Value; break }
+    }
     $remote = $remote.Trim().ToLowerInvariant() -replace '/32$', ''
     if ($remote -in @('any', '*', '')) { $remote = '0.0.0.0/0' }
     $proto = ([string]$Rule.Protocol).Trim().ToUpperInvariant()
@@ -356,7 +361,7 @@ function Format-PveAclTable {
         '(host-routed)'
     }
     ($Rule | Sort-Object Weight -Descending |
-        Select-Object Weight, Direction, Action, Stateful, Protocol, @{ n = 'Remote'; e = { if ($null -ne $_.RemoteIPAddress) { & $mask $_.RemoteIPAddress } else { & $mask $_.Remote } } }, LocalPort, Note |
+        Select-Object Weight, Direction, Action, Stateful, Protocol, @{ n = 'Remote'; e = { $p = $_.PSObject.Properties['RemoteIPAddress']; if ($p -and $null -ne $p.Value) { & $mask $p.Value } else { & $mask $_.Remote } } }, LocalPort, Note |
         Format-Table -AutoSize | Out-String -Width 220).TrimEnd()
 }
 
@@ -413,7 +418,7 @@ function Sync-PveVmAcl {
         $absent = @($desired | Where-Object { -not $afterSlots.ContainsKey(('{0}|{1}' -f $_.Weight, $_.Action)) })
         $leftover = @($after | Where-Object { -not $wantSlots.ContainsKey(('{0}|{1}' -f $_.Weight, $_.Action)) })
         if ($absent.Count -gt 0 -or $leftover.Count -gt 0) {
-            Write-HomelabLog -Level Fail -Message ("ACL read-back mismatch. Read back:`n" + (Format-PveAclTable -Rule $after -Config $Config))
+            Write-HomelabLog -Level Fail -Message ("ACL read-back mismatch. Read back:`n" + $(if ($after.Count -gt 0) { Format-PveAclTable -Rule $after -Config $Config } else { '(no rules read back)' }))
             throw "Port ACL verification failed: $($absent.Count) rule(s) missing, $($leftover.Count) unexpected."
         }
         [pscustomobject]@{ Desired = $desired; Applied = $after; Added = $missing.Count; Removed = $stale.Count }
@@ -641,7 +646,7 @@ function Initialize-PveRootAcl {
 function Get-PveVmAccountName {
     param([Parameter(Mandatory)][guid]$VmId)
     $group = (New-Object Security.Principal.SecurityIdentifier 'S-1-5-83-0').Translate([Security.Principal.NTAccount]).Value
-    '{0}\{1}' -f $group.Substring(0, $group.IndexOf('\')), $VmId.ToString().ToUpperInvariant()
+    '{0}\{1}' -f $group.Substring(0, $group.IndexOf('\', [StringComparison]::Ordinal)), $VmId.ToString().ToUpperInvariant()
 }
 
 function Confirm-PveVmFileAccess {
