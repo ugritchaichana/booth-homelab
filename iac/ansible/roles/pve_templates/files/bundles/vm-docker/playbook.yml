@@ -8,7 +8,7 @@
   vars:
     manifest_path: /var/lib/homelab-build/manifest.json
     runner_dir: /opt/actions-runner
-    runner_download: "{{ downloads | selectattr('name', 'equalto', 'actions-runner') | first }}"
+    runner_download: "{{ artifacts.actions_runner }}"
   tasks:
     - name: Install the pinned apt packages
       ansible.builtin.apt:
