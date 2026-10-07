@@ -18,6 +18,30 @@
       register: r15_public_key
       changed_when: false
 
+    - name: Create the snippet directory on storage local
+      ansible.builtin.file:
+        path: "{{ r15_snippet_dir }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Write the vendor data that opens the control channel on the probe VM clone
+      ansible.builtin.copy:
+        content: |
+          #cloud-config
+          runcmd:
+            - install -d -m 0700 -o {{ r15_guests.vm.login_user }} -g {{ r15_guests.vm.login_user }} /home/{{ r15_guests.vm.login_user }}/.ssh
+            - echo '{{ r15_public_key.stdout }}' > /home/{{ r15_guests.vm.login_user }}/.ssh/authorized_keys
+            - chown {{ r15_guests.vm.login_user }}:{{ r15_guests.vm.login_user }} /home/{{ r15_guests.vm.login_user }}/.ssh/authorized_keys
+            - chmod 0600 /home/{{ r15_guests.vm.login_user }}/.ssh/authorized_keys
+            - ssh-keygen -A
+            - systemctl enable --now ssh.service
+        dest: "{{ r15_snippet_dir }}/{{ r15_vendor_snippet }}"
+        mode: "0644"
+        owner: root
+        group: root
+
     - name: Show the public key to pass to the r15-probe stack
       ansible.builtin.debug:
         msg: "TF_VAR_probe_ssh_public_key='{{ r15_public_key.stdout }}'"
@@ -250,6 +274,32 @@
         loop_var: r15_status_item
         label: "{{ r15_status_item.r15_guest.key }}"
       when: (r15_status_item.stdout | from_json).status == 'stopped'
+      changed_when: true
+
+    - name: Read the public key to install in the container
+      ansible.builtin.command:
+        argv: [cat, "{{ r15_control_key }}.pub"]
+      register: r15_lxc_public_key
+      changed_when: false
+
+    - name: Open the control channel in each container clone through pct exec
+      ansible.builtin.command:
+        argv:
+          - pct
+          - exec
+          - "{{ r15_guest.value.vm_id }}"
+          - --
+          - sh
+          - -c
+          - >-
+            install -d -m 0700 /root/.ssh && echo "$1" > /root/.ssh/authorized_keys
+            && chmod 0600 /root/.ssh/authorized_keys && ssh-keygen -A && systemctl enable --now ssh.service
+          - r15-channel
+          - "{{ r15_lxc_public_key.stdout }}"
+      loop: "{{ r15_guests | dict2items | selectattr('value.kind', 'eq', 'lxc') | list }}"
+      loop_control:
+        loop_var: r15_guest
+        label: "{{ r15_guest.key }}"
       changed_when: true
 
     - name: Wait until each guest accepts the control channel

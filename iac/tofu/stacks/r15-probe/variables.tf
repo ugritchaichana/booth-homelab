@@ -58,53 +58,25 @@ variable "vm_datastore_id" {
   default     = "local-lvm"
 }
 
-variable "import_datastore_id" {
-  description = "Datastore with the import and vztmpl content types: receives the cloud image and the container template."
-  type        = string
-  default     = "local"
-}
-
-variable "lxc_template_name" {
-  description = "Container template downloaded from the official Proxmox template mirror."
-  type        = string
-  default     = "debian-13-standard_13.6-1_amd64.tar.zst"
-}
-
-variable "lxc_template_sha512" {
-  description = "SHA512 of the template, from the mirror's aplinfo index and confirmed by hashing the file."
-  type        = string
-  default     = "4c0c27ca6ceab5ef0b84db57825a00f26157ef1854bafe97297813e1cbe8ecb8cc9c453cab6b3b0efe1ba193a50c47ece1e41d950e411b8730b835b71e9e754b"
-
-  validation {
-    condition     = can(regex("^[0-9a-f]{128}$", var.lxc_template_sha512))
-    error_message = "lxc_template_sha512 must be 128 lowercase hexadecimal characters."
-  }
-}
-
 variable "dns_server" {
   description = "Resolver written into both guests."
   type        = string
   default     = "1.1.1.1"
 }
 
-variable "image_directory" {
-  description = "Dated directory of the Debian cloud image, never `latest`, which is rebuilt in place."
+variable "template_pool_id" {
+  description = "Pool the golden templates must be members of (ADR 0036)."
   type        = string
-  default     = "20261001-2618"
-
-  validation {
-    condition     = can(regex("^[0-9]{8}-[0-9]+$", var.image_directory))
-    error_message = "image_directory must be a dated directory such as 20261001-2618."
-  }
+  default     = "templates"
 }
 
-variable "image_sha512" {
-  description = "SHA512 of the image in image_directory, from the SHA512SUMS file next to it."
-  type        = string
-  default     = "f46f0671a6e5bdec5291ab8972bae2f10e5408c2f64a74078f11efc2f06a436a9d0313ed50e0472542eeabf780e9f7c792ac0a314c6c20507fcd9fd81b468c3d"
+variable "template_pins" {
+  description = "Template class to version N. A class listed here clones v<N> instead of the guest tagged current (ADR 0044)."
+  type        = map(number)
+  default     = {}
 
   validation {
-    condition     = can(regex("^[0-9a-f]{128}$", var.image_sha512))
-    error_message = "image_sha512 must be 128 lowercase hexadecimal characters."
+    condition     = alltrue([for n in values(var.template_pins) : n >= 1 && floor(n) == n])
+    error_message = "Each pin must be a whole number of at least 1."
   }
 }
