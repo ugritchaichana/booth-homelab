@@ -20,7 +20,7 @@ fi
 
 if [ ! -d "node_modules" ]; then
     echo "==> Installing dependencies from the lockfile..."
-    npm ci --ignore-scripts=false --no-audit --no-fund
+    npm ci --ignore-scripts --no-audit --no-fund
 fi
 
 echo "==> Running Jest Unit Tests for Angular..."
