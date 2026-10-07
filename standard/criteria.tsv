@@ -18,7 +18,7 @@
 4.3	4	Conventional layout and templates	ci	.github/ISSUE_TEMPLATE .github/pull_request_template.md .github/CODEOWNERS	4.3.sh
 4.4	4	Independent review is enforced	ci	-	-
 4.5	4	Changes carry evidence	ci	-	-
-5.1	5	Test selection is fail-closed and verified	ci	scripts/apps/dotnet-affected-test.sh scripts/apps/dotnet-affected-test.ps1 tests .github/workflows/affected-selector-ci.yml .github/workflows/sdet-ci.yml .github/actions/run-affected-tests	5.1.sh
+5.1	5	Test selection is fail-closed and verified	ci	scripts/apps/dotnet-affected-test.sh tests .github/workflows/affected-selector-ci.yml .github/workflows/sdet-ci.yml .github/actions/run-affected-tests	5.1.sh
 5.2	5	Every advertised path has actually run	drill	.github/workflows/sdet-ci.yml .github/workflows/reusable-sdet-pipeline.yml	-
 5.3	5	Pipeline telemetry is correct	ci	.github/workflows/reusable-sdet-pipeline.yml scripts/ci .github/actions/build-cache	5.3.sh
 5.4	5	Test oracles pin behaviour at the boundaries	ci	apps/fixtures apps/backend/src apps/backend/tests apps/frontend/src	-
