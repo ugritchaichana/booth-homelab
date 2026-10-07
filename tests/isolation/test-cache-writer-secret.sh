@@ -37,6 +37,7 @@ esac
 SH
 chmod +x "$work/bin/sops" "$work/bin/gh"
 
+unset GITHUB_REPOSITORY GH_REPO GH_TOKEN GITHUB_TOKEN
 export STUB_DIR="$work" PATH="$work/bin:$PATH" SOPS_AGE_KEY_FILE=/nonexistent-age-key
 export CACHE_WRITER_SECRET_FILE="$work/secrets/pve01-cache.sops.yaml"
 
