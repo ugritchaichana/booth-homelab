@@ -21,13 +21,6 @@ fi
 if [ ! -d "node_modules" ]; then
     echo "==> Installing dependencies from the lockfile..."
     npm ci --ignore-scripts=false --no-audit --no-fund
-    if [ -n "${CACHE_WRITER_PASSWORD:-}" ]; then
-        python3 -m build_cache save --kind node_modules --root "$REPO_ROOT" --default-branch "${DEFAULT_BRANCH:-master}"
-    fi
-fi
-
-if [ -n "${ANGULAR_INSTALL_ONLY:-}" ]; then
-    exit 0
 fi
 
 echo "==> Running Jest Unit Tests for Angular..."
