@@ -67,6 +67,7 @@
     r15_cache_enabled: "{{ r15_cache_endpoint.address is defined }}"
     r15_cache_env: >-
       {{ ('env CACHE_ADDR=' ~ r15_cache_endpoint.address ~ ' CACHE_PORT=' ~ r15_cache_endpoint.port ~ ' ') if r15_cache_enabled else '' }}
+    r15_red_first_allowed_vmids: "{{ [r15_cache_vmid | int] if r15_cache_enabled | bool else [] }}"
     r15_cache_stage_dir: "{{ r15_work_dir }}/cache-stage"
     r15_cache_guest_dir: /tmp/r15
     r15_ssh_base:
@@ -437,8 +438,17 @@
         that:
           - >-
             (r15_resources.stdout | from_json) | selectattr('status', 'eq', 'running') | map(attribute='vmid') | map('int')
-            | difference(r15_guests.values() | map(attribute='vm_id') | map('int') | list) | list | length == 0
-        fail_msg: Stopping the node firewall would expose a guest that is not a probe; stop it first
+            | difference((r15_guests.values() | map(attribute='vm_id') | map('int') | list) + (r15_red_first_allowed_vmids | map('int') | list))
+            | list | length == 0
+        fail_msg: Stopping the node firewall would expose a guest that is neither a probe nor in r15_red_first_allowed_vmids; stop it first
+      when: r15_phase == 'red-first'
+
+    - name: Show which allowed guest stays up during the red-first run
+      ansible.builtin.debug:
+        msg: >-
+          guests left running with the node firewall stopped:
+          {{ (r15_resources.stdout | from_json) | selectattr('status', 'eq', 'running') | map(attribute='vmid') | map('int')
+          | select('in', r15_red_first_allowed_vmids | map('int') | list) | list }}
       when: r15_phase == 'red-first'
 
     - name: Clear a failed guard unit from an earlier red-first run

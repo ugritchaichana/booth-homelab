@@ -15,6 +15,7 @@ ANSIBLE_CONFIG="$repo/iac/ansible/ansible.cfg" ansible-playbook --syntax-check "
 
 "$py" -I - "$playbook" << 'PY'
 import ast
+import json
 import sys
 
 import jinja2
@@ -45,6 +46,9 @@ by_name = {t["name"]: (t, section) for t, section in tasks}
 env = jinja2.Environment()
 env.filters["dict2items"] = lambda d: [{"key": k, "value": v} for k, v in d.items()]
 env.filters["string"] = str
+env.filters["from_json"] = json.loads
+env.filters["bool"] = lambda v: str(v).lower() in ("true", "1", "yes")
+env.filters["difference"] = lambda a, b: [x for x in a if x not in b]
 
 
 def walk(value, ctx):
@@ -62,6 +66,10 @@ def walk(value, ctx):
 def context_for(cache, **extra):
     ctx = dict(play["vars"])
     ctx.update({"r15_phase": "baseline", "r15_control_key": "/key", "pve_node_name": "n1"})
+    ctx["r15_guests"] = {
+        "lxc": {"login_user": "root", "address": "10.99.16.21", "vm_id": 9101},
+        "vm": {"login_user": "debian", "address": "10.99.16.22", "vm_id": 9102},
+    }
     if cache:
         ctx["cache_endpoint"] = {"address": "10.99.17.10", "port": 8080}
     ctx.update(extra)
@@ -115,6 +123,35 @@ if argv("Remove the probe and the targets from the cache container", with_cache)
 stage_cleanup, section = by_name["Remove the staged copies from the host"]
 if section != "always" or stage_cleanup["ansible.builtin.file"]["state"] != "absent":
     fail("the host staging directory must be removed in an always section")
+
+def running(*vmids):
+    return json.dumps([{"vmid": v, "status": "running"} for v in vmids] + [{"vmid": 1, "status": "stopped"}])
+
+
+def refusal_holds(ctx, *vmids):
+    task, _ = by_name["Refuse the red-first run while any other guest is running"]
+    local = dict(ctx, r15_phase="red-first", r15_resources={"stdout": running(*vmids)})
+    return all(env.compile_expression(c.strip())(**local) for c in task["ansible.builtin.assert"]["that"])
+
+
+red_cache = context_for(True)
+if red_cache["r15_red_first_allowed_vmids"] != [9050]:
+    fail("the red-first allowed list must hold the cache vmid when the host has a cache endpoint: %r" % red_cache["r15_red_first_allowed_vmids"])
+if context_for(False)["r15_red_first_allowed_vmids"] != []:
+    fail("a host with no cache endpoint must allow no extra guest in the red-first run")
+if not refusal_holds(red_cache, 9101, 9102, 9050):
+    fail("the red-first run must accept the cache container running next to the probes")
+if refusal_holds(red_cache, 9101, 9102, 9050, 9999):
+    fail("the red-first run must still refuse any other running guest")
+if refusal_holds(context_for(False), 9101, 9102, 9050):
+    fail("without a cache endpoint the cache vmid is not allowed to run in the red-first run")
+if not refusal_holds(red_cache, 9101, 9102):
+    fail("the red-first run must accept probes alone")
+shown = env.from_string(by_name["Show which allowed guest stays up during the red-first run"][0]["ansible.builtin.debug"]["msg"]).render(
+    **dict(red_cache, r15_resources={"stdout": running(9101, 9050)})
+)
+if "[9050]" not in shown:
+    fail("the red-first run must print which allowed guest stayed up: %r" % shown)
 
 fetch, _ = by_name["Fetch every output to this machine"]
 if "'cache'" not in fetch["loop"] or "r15_cache_enabled" not in fetch["loop"]:
