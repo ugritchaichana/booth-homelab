@@ -1,0 +1,4 @@
+# sha256 and path of the npm config definitions file, which names a placeholder private key
+83b2068320f1a131c96658940e80522ec1f29150b338ce40eccf486e0ee05900  /usr/local/lib/nodejs/node-v22.23.3/lib/node_modules/npm/node_modules/@npmcli/config/lib/definitions/definitions.js
+83b2068320f1a131c96658940e80522ec1f29150b338ce40eccf486e0ee05900  /opt/actions-runner/externals/node20/lib/node_modules/npm/node_modules/@npmcli/config/lib/definitions/definitions.js
+f9cffb281460dfc5aa98f4f2e91a47052b814faece72fc9a80eaf3fff2ceb8eb  /opt/actions-runner/externals/node24/lib/node_modules/npm/node_modules/@npmcli/config/lib/definitions/definitions.js

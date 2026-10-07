@@ -1,0 +1,210 @@
+---
+- name: Install the lxc-runner toolchains and describe the build guest
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - versions.yml
+  vars:
+    manifest_path: /var/lib/homelab-build/manifest.json
+    dl_dir: /var/tmp/homelab-dl
+    dotnet_dir: /usr/local/lib/dotnet
+    node_dir: /usr/local/lib/nodejs/node-v{{ artifacts.nodejs.version }}
+    runner_dir: /opt/actions-runner
+    junk_paths:
+      - "{{ node_dir }}/lib/node_modules/npm/docs"
+      - "{{ node_dir }}/lib/node_modules/npm/man"
+      - "{{ node_dir }}/lib/node_modules/npm/.npmrc"
+      - "{{ runner_dir }}/externals/node20/lib/node_modules/npm/docs"
+      - "{{ runner_dir }}/externals/node20/lib/node_modules/npm/man"
+      - "{{ runner_dir }}/externals/node20/lib/node_modules/npm/.npmrc"
+      - "{{ runner_dir }}/externals/node24/lib/node_modules/npm/docs"
+      - "{{ runner_dir }}/externals/node24/lib/node_modules/npm/man"
+      - "{{ runner_dir }}/externals/node24/lib/node_modules/npm/.npmrc"
+  tasks:
+    - name: Install the base tools and runner libraries by package name
+      ansible.builtin.command:
+        argv: "{{ ['apt-get', 'install', '-y', '-qq', '--no-install-recommends'] + apt_packages }}"
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      changed_when: true
+
+    - name: Create the unprivileged runner user with a locked password
+      ansible.builtin.user:
+        name: runner
+        shell: /bin/bash
+        create_home: true
+        password_lock: true
+
+    - name: Refuse any sudo grant that names the runner user
+      ansible.builtin.command: grep -rlw runner /etc/sudoers /etc/sudoers.d
+      register: pve_templates_lxc_runner_sudo_grant
+      changed_when: false
+      failed_when: pve_templates_lxc_runner_sudo_grant.rc == 0
+
+    - name: Create the download directory
+      ansible.builtin.file:
+        path: "{{ dl_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Download each artifact and verify its pinned hash
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ dl_dir }}/{{ item.url | basename }}"
+        checksum: "{{ 'sha512:' ~ item.sha512 if item.sha512 is defined else 'sha256:' ~ item.sha256 }}"
+        mode: "0600"
+      loop: "{{ artifacts.values() | list }}"
+      loop_control:
+        label: "{{ item.url | basename }}"
+
+    - name: Create the install directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.owner }}"
+        mode: "0755"
+      loop:
+        - { path: "{{ dotnet_dir }}", owner: root }
+        - { path: "{{ node_dir }}", owner: root }
+        - { path: "{{ runner_dir }}", owner: runner }
+
+    - name: Unpack both .NET SDKs into one root, the newer last so its host wins
+      ansible.builtin.unarchive:
+        src: "{{ dl_dir }}/{{ item.url | basename }}"
+        dest: "{{ dotnet_dir }}"
+        remote_src: true
+        owner: root
+        group: root
+      loop:
+        - "{{ artifacts.dotnet_sdk_8 }}"
+        - "{{ artifacts.dotnet_sdk_10 }}"
+      loop_control:
+        label: "{{ item.url | basename }}"
+
+    - name: Unpack Node
+      ansible.builtin.unarchive:
+        src: "{{ dl_dir }}/{{ artifacts.nodejs.url | basename }}"
+        dest: "{{ node_dir }}"
+        remote_src: true
+        extra_opts: ["--strip-components=1"]
+        owner: root
+        group: root
+
+    - name: Unpack the runner, owned by the runner user and never configured
+      ansible.builtin.unarchive:
+        src: "{{ dl_dir }}/{{ artifacts.actions_runner.url | basename }}"
+        dest: "{{ runner_dir }}"
+        remote_src: true
+        owner: runner
+        group: runner
+
+    - name: Drop the npm docs and the empty npm builtin config, the build scan forbids .npmrc
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ junk_paths }}"
+
+    - name: Link the toolchains into the default path
+      ansible.builtin.file:
+        src: "{{ item.src }}"
+        dest: "/usr/local/bin/{{ item.name }}"
+        state: link
+      loop:
+        - { name: dotnet, src: "{{ dotnet_dir }}/dotnet" }
+        - { name: node, src: "{{ node_dir }}/bin/node" }
+        - { name: npm, src: "{{ node_dir }}/bin/npm" }
+        - { name: npx, src: "{{ node_dir }}/bin/npx" }
+
+    - name: Switch .NET telemetry off for every login
+      ansible.builtin.lineinfile:
+        path: /etc/environment
+        line: "{{ item }}"
+        create: true
+        mode: "0644"
+      loop:
+        - DOTNET_CLI_TELEMETRY_OPTOUT=1
+        - DOTNET_NOLOGO=1
+
+    - name: Remove the downloads
+      ansible.builtin.file:
+        path: "{{ dl_dir }}"
+        state: absent
+
+    - name: Read the installed .NET SDKs
+      ansible.builtin.command: /usr/local/bin/dotnet --list-sdks
+      register: pve_templates_lxc_runner_sdks
+      changed_when: false
+
+    - name: Read the Node and npm versions
+      ansible.builtin.command: "/usr/local/bin/{{ item }} --version"
+      register: pve_templates_lxc_runner_node_versions
+      changed_when: false
+      loop: [node, npm]
+
+    - name: Read the runner version as the runner user
+      ansible.builtin.command: "runuser -u runner -- {{ runner_dir }}/bin/Runner.Listener --version"
+      register: pve_templates_lxc_runner_listener
+      changed_when: false
+
+    - name: Read the base tool versions
+      ansible.builtin.command: "{{ item }} --version"
+      register: pve_templates_lxc_runner_tools
+      changed_when: false
+      loop: [git, jq, curl, zstd]
+
+    - name: Find credential files in the runner directory
+      ansible.builtin.find:
+        paths: "{{ runner_dir }}"
+        patterns: [".runner", ".credentials", ".credentials_rsaparams"]
+        hidden: true
+        recurse: true
+      register: pve_templates_lxc_runner_creds
+
+    - name: Hash the pinned versions file
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/versions.yml"
+        checksum_algorithm: sha256
+      register: pve_templates_lxc_runner_versions_file
+
+    - name: Fail the build unless the installed versions equal the pinned versions
+      ansible.builtin.assert:
+        that:
+          - >-
+            pve_templates_lxc_runner_sdks.stdout_lines | map('split', ' ') | map('first') | sort
+            == [artifacts.dotnet_sdk_8.version, artifacts.dotnet_sdk_10.version] | sort
+          - pve_templates_lxc_runner_node_versions.results[0].stdout == 'v' ~ artifacts.nodejs.version
+          - pve_templates_lxc_runner_listener.stdout | trim == artifacts.actions_runner.version
+          - pve_templates_lxc_runner_creds.matched == 0
+        fail_msg: installed toolchains differ from versions.yml, or the runner holds credentials
+
+    - name: Read the installed package versions
+      ansible.builtin.command: dpkg-query -W -f '${Package} ${Version}\n'
+      register: pve_templates_package_list
+      changed_when: false
+
+    - name: Write the manifest
+      ansible.builtin.copy:
+        content: "{{ manifest | to_nice_json }}\n"
+        dest: "{{ manifest_path }}"
+        mode: "0600"
+      vars:
+        manifest:
+          build_id: "{{ build_id }}"
+          os_release: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+          kernel: "{{ ansible_facts['kernel'] }}"
+          versions_sha256: "{{ pve_templates_lxc_runner_versions_file.stat.checksum }}"
+          toolchains:
+            dotnet_sdks: "{{ pve_templates_lxc_runner_sdks.stdout_lines | map('split', ' ') | map('first') | sort }}"
+            dotnet_sdk_8_end_of_support: "{{ end_of_support.dotnet_sdk_8 }}"
+            node: "{{ pve_templates_lxc_runner_node_versions.results[0].stdout }}"
+            npm: "{{ pve_templates_lxc_runner_node_versions.results[1].stdout }}"
+            actions_runner: "{{ pve_templates_lxc_runner_listener.stdout | trim }}"
+            git: "{{ pve_templates_lxc_runner_tools.results[0].stdout_lines[0] }}"
+            jq: "{{ pve_templates_lxc_runner_tools.results[1].stdout_lines[0] }}"
+            curl: "{{ pve_templates_lxc_runner_tools.results[2].stdout_lines[0] }}"
+            zstd: "{{ pve_templates_lxc_runner_tools.results[3].stdout_lines[0] }}"
+          packages: >-
+            {{ dict(pve_templates_package_list.stdout_lines | map('split', ' ') | map('first')
+            | zip(pve_templates_package_list.stdout_lines | map('split', ' ') | map('last'))) }}
