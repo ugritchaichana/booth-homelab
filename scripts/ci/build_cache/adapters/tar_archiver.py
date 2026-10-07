@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tarfile
 import threading
+import time
 import zlib
 from pathlib import Path, PurePosixPath
 from typing import Sequence
@@ -143,3 +144,16 @@ class TarArchiver:
         if returncode != 0:
             raise ArchiveRejected("zstd stream unreadable")
         return out
+
+
+def stamp_extracted(dest: Path, names: list[str], timestamp_ns: int | None = None) -> None:
+    stamp = time.time_ns() if timestamp_ns is None else timestamp_ns
+    nofollow = os.utime in os.supports_follow_symlinks
+    for name in names:
+        path = dest / name
+        if path.is_symlink() and not nofollow:
+            continue
+        try:
+            os.utime(path, ns=(stamp, stamp), **({"follow_symlinks": False} if nofollow else {}))
+        except OSError:
+            continue

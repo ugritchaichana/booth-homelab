@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Callable
@@ -69,15 +68,3 @@ def restore(
         on_extracted(names)
     return outcome("hit", len(blob))
 
-
-def stamp_extracted(dest: Path, names: list[str], timestamp_ns: int | None = None) -> None:
-    stamp = time.time_ns() if timestamp_ns is None else timestamp_ns
-    nofollow = os.utime in os.supports_follow_symlinks
-    for name in names:
-        path = dest / name
-        if path.is_symlink() and not nofollow:
-            continue
-        try:
-            os.utime(path, ns=(stamp, stamp), **({"follow_symlinks": False} if nofollow else {}))
-        except OSError:
-            continue

@@ -73,5 +73,20 @@ class OutputsKeyTests(unittest.TestCase):
             out(trees={})
 
 
+class ShortKeyTests(unittest.TestCase):
+    def test_is_the_first_twelve_hex_of_the_digest_after_the_kind_prefix(self):
+        for key in (dep(), out()):
+            self.assertEqual(keys.short_key(key), key.rsplit("-", 1)[1][:12])
+
+    def test_uses_only_the_last_sixty_four_characters(self):
+        self.assertEqual(keys.short_key("x" * 30 + "ab" * 32), "ab" * 6)
+
+    def test_outcome_records_carry_the_same_short_key(self):
+        from build_cache.application.ports import Outcome
+
+        key = dep()
+        self.assertEqual(Outcome("restore", "nuget", key, "hit", 0, 0).as_record()["key"], keys.short_key(key))
+
+
 if __name__ == "__main__":
     unittest.main()
