@@ -1,0 +1,355 @@
+---
+- name: Assert the firewall inputs
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_management_sources | length > 0
+      - pve_firewall_management_sources | reject('match', pve_firewall_address_pattern) | list | length == 0
+      - pve_firewall_management_sources | select('match', '.*/0$') | list | length == 0
+      - pve_firewall_host_routed_prefixes is sequence
+      - pve_firewall_host_routed_prefixes | reject('match', pve_firewall_address_pattern) | list | length == 0
+      - pve_firewall_host_routed_prefixes | select('match', '.*/0$') | list | length == 0
+      - pve_firewall_deadman_minutes | int > 0
+    fail_msg: >-
+      Set pve_firewall_management_sources to IPv4 addresses without a zero prefix and
+      pve_firewall_host_routed_prefixes to a list of IPv4 prefixes without a zero prefix
+  no_log: true
+
+- name: Read the dead-man timer state
+  ansible.builtin.systemd_service:
+    name: "{{ pve_firewall_deadman_unit }}.timer"
+  register: pve_firewall_deadman_timer
+
+- name: Refuse to run while a firewall dead-man timer is armed
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_deadman_timer.status.ActiveState | default('inactive') not in ['active', 'activating']
+    fail_msg: A homelab-deadman-firewall timer is armed from an earlier run; check the host, then stop the timer
+
+- name: Look for a stale dead-man marker
+  ansible.builtin.stat:
+    path: "{{ pve_firewall_deadman_dir }}/armed"
+  register: pve_firewall_deadman_armed
+
+- name: Refuse to run with a stale dead-man marker and no timer
+  ansible.builtin.assert:
+    that:
+      - not pve_firewall_deadman_armed.stat.exists
+    fail_msg: >-
+      {{ pve_firewall_deadman_dir }}/armed exists but no timer is active, so the next boot would roll back the firewall.
+      Check the host and journalctl -t homelab-deadman-firewall, then delete {{ pve_firewall_deadman_dir }}/armed.
+
+- name: Render the firewall files
+  ansible.builtin.set_fact:
+    pve_firewall_cluster_rendered: "{{ lookup('ansible.builtin.template', 'cluster.fw.j2') | trim }}"
+    pve_firewall_host_rendered: "[OPTIONS]\n{% for key, value in pve_firewall_host_options.items() %}{{ key }}: {{ value }}\n{% endfor %}"
+  no_log: true
+
+- name: Look for the current cluster firewall file
+  ansible.builtin.stat:
+    path: "{{ pve_firewall_cluster_file }}"
+  register: pve_firewall_cluster_stat
+
+- name: Look for the current host firewall file
+  ansible.builtin.stat:
+    path: "{{ pve_firewall_host_file }}"
+  register: pve_firewall_host_stat
+
+- name: Read the current cluster firewall file
+  ansible.builtin.slurp:
+    src: "{{ pve_firewall_cluster_file }}"
+  register: pve_firewall_cluster_current
+  when: pve_firewall_cluster_stat.stat.exists
+  no_log: true
+
+- name: Read the current host firewall file
+  ansible.builtin.slurp:
+    src: "{{ pve_firewall_host_file }}"
+  register: pve_firewall_host_current
+  when: pve_firewall_host_stat.stat.exists
+  no_log: true
+
+- name: Record which firewall files need a change
+  ansible.builtin.set_fact:
+    pve_firewall_cluster_pending: >-
+      {{ not pve_firewall_cluster_stat.stat.exists
+      or (pve_firewall_cluster_current.content | b64decode | trim) != pve_firewall_cluster_rendered }}
+    pve_firewall_host_pending: >-
+      {{ not pve_firewall_host_stat.stat.exists
+      or (pve_firewall_host_current.content | b64decode | trim) != (pve_firewall_host_rendered | trim) }}
+  no_log: true
+
+- name: Apply the firewall change behind the dead-man
+  when: pve_firewall_cluster_pending | bool or pve_firewall_host_pending | bool
+  block:
+    - name: Require a fresh automation session with sudo before any change
+      become: false
+      vars:
+        ansible_user: "{{ pve_firewall_automation_user }}"
+        ansible_ssh_extra_args: "{{ pve_firewall_fresh_session_ssh_extra_args }}"
+      block:
+        - name: Log in as the automation user and run sudo
+          ansible.builtin.shell: printf '%s %s' "$(id -un)" "$(sudo -n id -un)"
+          register: pve_firewall_precheck_session
+          changed_when: false
+          failed_when: pve_firewall_precheck_session.stdout != (pve_firewall_automation_user ~ ' root')
+
+    - name: Install the boot-time dead-man unit
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ pve_firewall_deadman_boot_unit }}.service"
+        content: |
+          [Unit]
+          Description=Restore the previous firewall files when an interrupted change left the dead-man armed
+          After=pve-cluster.service pve-firewall.service
+          ConditionPathExists={{ pve_firewall_deadman_dir }}/armed
+
+          [Service]
+          Type=oneshot
+          ExecStart={{ pve_firewall_deadman_dir }}/restore.sh
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: "0644"
+      register: pve_firewall_boot_unit_file
+
+    - name: Enable the boot-time dead-man unit
+      ansible.builtin.systemd_service:
+        name: "{{ pve_firewall_deadman_boot_unit }}.service"
+        enabled: true
+        daemon_reload: "{{ pve_firewall_boot_unit_file.changed }}"
+
+    - name: Recreate the dead-man state directory
+      ansible.builtin.file:
+        path: "{{ pve_firewall_deadman_dir }}"
+        state: "{{ item }}"
+        owner: root
+        group: root
+        mode: "0700"
+      loop:
+        - absent
+        - directory
+
+    - name: Back up the current cluster firewall file
+      ansible.builtin.copy:
+        src: "{{ pve_firewall_cluster_file }}"
+        dest: "{{ pve_firewall_deadman_dir }}/cluster.fw.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: pve_firewall_cluster_stat.stat.exists
+      diff: false
+
+    - name: Back up the current host firewall file
+      ansible.builtin.copy:
+        src: "{{ pve_firewall_host_file }}"
+        dest: "{{ pve_firewall_deadman_dir }}/host.fw.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: pve_firewall_host_stat.stat.exists
+      diff: false
+
+    - name: Write the dead-man restore script
+      ansible.builtin.template:
+        src: deadman-restore.sh.j2
+        dest: "{{ pve_firewall_deadman_dir }}/restore.sh"
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Mark the dead-man as armed for the next boot
+      ansible.builtin.file:
+        path: "{{ pve_firewall_deadman_dir }}/armed"
+        state: touch
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Clear any failed dead-man unit
+      ansible.builtin.command: systemctl reset-failed {{ pve_firewall_deadman_unit }}.service
+      changed_when: false
+      failed_when: false
+
+    - name: Arm the dead-man
+      ansible.builtin.command: >-
+        systemd-run --on-active={{ pve_firewall_deadman_minutes }}min
+        --unit={{ pve_firewall_deadman_unit }} {{ pve_firewall_deadman_dir }}/restore.sh
+      changed_when: true
+
+    - name: Create the cluster firewall directory
+      ansible.builtin.command:
+        argv:
+          - mkdir
+          - -p
+          - "{{ pve_firewall_cluster_file | dirname }}"
+        creates: "{{ pve_firewall_cluster_file | dirname }}"
+
+    - name: Write the host firewall file
+      ansible.builtin.shell:
+        cmd: cat > {{ pve_firewall_host_file | quote }}
+        stdin: "{{ pve_firewall_host_rendered | trim }}"
+      when: pve_firewall_host_pending | bool
+      changed_when: true
+      no_log: true
+
+    - name: Write the cluster firewall file that enables the firewall
+      ansible.builtin.shell:
+        cmd: cat > {{ pve_firewall_cluster_file | quote }}
+        stdin: "{{ pve_firewall_cluster_rendered }}"
+      when: pve_firewall_cluster_pending | bool
+      changed_when: true
+      no_log: true
+
+    - name: Verify the applied firewall
+      ansible.builtin.import_tasks: verify.yml
+
+    - name: Verify the change from fresh automation sessions
+      become: false
+      vars:
+        ansible_user: "{{ pve_firewall_automation_user }}"
+        ansible_ssh_extra_args: "{{ pve_firewall_fresh_session_ssh_extra_args }}"
+      block:
+        - name: Log in again as the automation user and run sudo
+          ansible.builtin.shell: printf '%s %s' "$(id -un)" "$(sudo -n id -un)"
+          register: pve_firewall_postcheck_session
+          changed_when: false
+          failed_when: pve_firewall_postcheck_session.stdout != (pve_firewall_automation_user ~ ' root')
+
+        - name: Read the dead-man timer
+          ansible.builtin.systemd_service:
+            name: "{{ pve_firewall_deadman_unit }}.timer"
+          become: true
+          register: pve_firewall_deadman_before_cancel
+
+        - name: Look for the dead-man fired marker
+          ansible.builtin.stat:
+            path: "{{ pve_firewall_deadman_dir }}/fired"
+          become: true
+          register: pve_firewall_deadman_fired
+
+        - name: Assert the dead-man did not fire
+          ansible.builtin.assert:
+            that:
+              - pve_firewall_deadman_before_cancel.status.ActiveState == 'active'
+              - not pve_firewall_deadman_fired.stat.exists
+            fail_msg: The dead-man fired or is gone, so the previous firewall files were restored
+
+        - name: Remove the armed marker before cancelling the timer
+          ansible.builtin.file:
+            path: "{{ pve_firewall_deadman_dir }}/armed"
+            state: absent
+          become: true
+
+        - name: Cancel the dead-man
+          ansible.builtin.systemd_service:
+            name: "{{ pve_firewall_deadman_unit }}.timer"
+            state: stopped
+          become: true
+
+        - name: Remove the dead-man state
+          ansible.builtin.file:
+            path: "{{ pve_firewall_deadman_dir }}"
+            state: absent
+          become: true
+
+- name: Verify the firewall when nothing changed
+  ansible.builtin.import_tasks: verify.yml
+  when: not (pve_firewall_cluster_pending | bool or pve_firewall_host_pending | bool)
+
+- name: Install the guest firewall guard
+  ansible.builtin.copy:
+    src: guest-firewall-guard.py
+    dest: "{{ pve_firewall_guard_script }}"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install the guest firewall guard service
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ pve_firewall_guard_unit }}.service"
+    content: |
+      [Unit]
+      Description=Stop guests on the guest network whose firewall settings are not the required policy
+      After=pve-cluster.service pve-firewall.service
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ pve_firewall_guard_script }} {{ pve_firewall_guard_args }}
+      NoNewPrivileges=yes
+      PrivateTmp=yes
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_firewall_guard_service_file
+
+- name: Install the guest firewall guard timer
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ pve_firewall_guard_unit }}.timer"
+    content: |
+      [Unit]
+      Description=Check guest firewall settings every minute
+
+      [Timer]
+      OnBootSec=1min
+      OnUnitActiveSec=1min
+      AccuracySec=5s
+
+      [Install]
+      WantedBy=timers.target
+    owner: root
+    group: root
+    mode: "0644"
+  register: pve_firewall_guard_timer_file
+
+- name: Enable the guest firewall guard timer
+  ansible.builtin.systemd_service:
+    name: "{{ pve_firewall_guard_unit }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: "{{ pve_firewall_guard_service_file.changed or pve_firewall_guard_timer_file.changed }}"
+
+- name: Run the guest firewall guard once and require a clean result
+  ansible.builtin.systemd_service:
+    name: "{{ pve_firewall_guard_unit }}.service"
+    state: started
+  changed_when: false
+
+- name: Keep the host from learning IPv6 routes from guests
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: "{{ pve_firewall_ipv6_sysctl_file }}"
+    sysctl_set: true
+    reload: true
+    state: present
+  loop: "{{ pve_firewall_ipv6_sysctls | dict2items }}"
+
+- name: Read the IPv6 settings the kernel holds
+  ansible.builtin.command: sysctl -n {{ item.key }}
+  loop: "{{ pve_firewall_ipv6_sysctls | dict2items }}"
+  register: pve_firewall_ipv6_live
+  changed_when: false
+
+- name: Look for the guest bridge
+  ansible.builtin.stat:
+    path: "/proc/sys/net/ipv6/conf/{{ pve_firewall_guest_vnet }}"
+  register: pve_firewall_guest_bridge
+
+- name: Read the IPv6 settings of the guest bridge
+  ansible.builtin.command: sysctl -n net.ipv6.conf.{{ pve_firewall_guest_vnet }}.{{ item }}
+  loop:
+    - accept_ra
+    - autoconf
+  register: pve_firewall_ipv6_bridge
+  changed_when: false
+  when: pve_firewall_guest_bridge.stat.exists
+
+- name: Assert the host ignores router advertisements and does not route IPv6
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_ipv6_live.results | map(attribute='stdout') | unique | list == ['0']
+      - not pve_firewall_guest_bridge.stat.exists or (pve_firewall_ipv6_bridge.results | map(attribute='stdout') | unique | list == ['0'])
+    fail_msg: The host still accepts IPv6 router advertisements on the guest bridge or forwards IPv6 between interfaces

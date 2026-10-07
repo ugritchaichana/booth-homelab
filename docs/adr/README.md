@@ -65,3 +65,7 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0022 | [Render the SSH config with the host key pinned from SOPS](0022-render-the-ssh-config-with-the-host-key-pinned-from-sops.md) | Accepted |
 | 0023 | [Run Ansible as a key-only automation user and harden sshd behind a dead-man](0023-run-ansible-as-a-key-only-automation-user-and-harden-sshd-behind-a-dead-man.md) | Accepted |
 | 0024 | [Test roles with Molecule on hosted runners and prove host changes locally](0024-test-roles-with-molecule-on-hosted-runners-and-prove-host-changes-locally.md) | Accepted |
+| 0025 | [Keep one owner per object and let Ansible own the Proxmox firewall files](0025-keep-one-owner-per-object-and-let-ansible-own-the-proxmox-firewall-files.md) | Accepted |
+| 0026 | [Bootstrap the OpenTofu API identity with Ansible and keep its token in SOPS](0026-bootstrap-the-opentofu-api-identity-with-ansible-and-keep-its-token-in-sops.md) | Accepted |
+| 0027 | [Use the classic Proxmox firewall with a security group for guest egress](0027-use-the-classic-proxmox-firewall-with-a-security-group-for-guest-egress.md) | Accepted |
+| 0028 | [Block the Hyper-V socket transport in the PVE guest](0028-block-the-hyper-v-socket-transport-in-the-pve-guest.md) | Accepted |

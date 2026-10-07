@@ -18,3 +18,39 @@
     - name: Apply the base role
       ansible.builtin.include_role:
         name: base
+
+- name: Configure the Proxmox hosts
+  hosts: pve_hosts
+  become: true
+  pre_tasks:
+    - name: Measure the connection user
+      ansible.builtin.command: id -un
+      become: false
+      register: site_connection_user
+      changed_when: false
+
+    - name: Require the automation user as the connection user
+      ansible.builtin.assert:
+        that:
+          - site_connection_user.stdout == (automation_user | default('automation'))
+        fail_msg: site.yml must connect as the automation user; bootstrap.yml is the only play that connects as root
+  tasks:
+    - name: Apply the Hyper-V guest role
+      ansible.builtin.include_role:
+        name: hyperv_guest
+
+    - name: Apply the Proxmox host role
+      ansible.builtin.include_role:
+        name: pve_host
+
+    - name: Check the Hyper-V guest block again after the possible reboot
+      ansible.builtin.include_role:
+        name: hyperv_guest
+
+    - name: Apply the OpenTofu API identity role
+      ansible.builtin.include_role:
+        name: pve_api_identity
+
+    - name: Apply the Proxmox firewall role
+      ansible.builtin.include_role:
+        name: pve_firewall

@@ -1,0 +1,66 @@
+---
+pve_api_identity_user: tofu@pve
+pve_api_identity_comment: OpenTofu provisioning identity
+pve_api_identity_pool: homelab
+pve_api_identity_token: provisioner
+pve_api_identity_rotate: false
+
+pve_api_identity_node: "{{ pve_node_name | default(inventory_hostname) }}"
+pve_api_identity_images_storage: local-lvm
+pve_api_identity_templates_storage: local
+pve_api_identity_guest_zone: "{{ (guest_network | default({})).zone | default('hlab') }}"
+pve_api_identity_guest_vnet: "{{ (guest_network | default({})).vnet | default('guests') }}"
+
+pve_api_identity_roles:
+  HomelabGuests:
+    - VM.Allocate
+    - VM.Audit
+    - VM.Config.CPU
+    - VM.Config.Cloudinit
+    - VM.Config.Disk
+    - VM.Config.HWType
+    - VM.Config.Memory
+    - VM.Config.Network
+    - VM.Config.Options
+    - VM.PowerMgmt
+  HomelabDisks:
+    - Datastore.AllocateSpace
+    - Datastore.Audit
+  HomelabTemplates:
+    - Datastore.AllocateTemplate
+    - Datastore.Audit
+  HomelabNodeDownload:
+    - Sys.AccessNetwork
+  HomelabGuestNetwork:
+    - SDN.Allocate
+    - SDN.Audit
+    - SDN.Use
+  HomelabNetworkAdmin:
+    - SDN.Allocate
+    - SDN.Audit
+pve_api_identity_grants:
+  - path: "/pool/{{ pve_api_identity_pool }}"
+    role: HomelabGuests
+  - path: "/storage/{{ pve_api_identity_images_storage }}"
+    role: HomelabDisks
+  - path: "/storage/{{ pve_api_identity_templates_storage }}"
+    role: HomelabTemplates
+  - path: "/nodes/{{ pve_api_identity_node }}"
+    role: HomelabNodeDownload
+  - path: "/sdn/zones/{{ pve_api_identity_guest_zone }}/{{ pve_api_identity_guest_vnet }}"
+    role: HomelabGuestNetwork
+  - path: /sdn
+    role: HomelabNetworkAdmin
+  - path: /sdn/zones/localnetwork
+    role: NoAccess
+pve_api_identity_forbidden_privileges:
+  - Permissions.Modify
+  - Sys.Modify
+  - User.Modify
+pve_api_identity_retired_roles:
+  - HomelabProvisioner
+
+pve_api_identity_token_id: "{{ pve_api_identity_user }}!{{ pve_api_identity_token }}"
+pve_api_identity_secret_min_length: 36
+pve_api_identity_repo_root: "{{ (inventory_dir ~ '/../..') | realpath }}"
+pve_api_identity_secret_path: "iac/secrets/tofu/{{ inventory_hostname }}-api.sops.yaml"

@@ -2,6 +2,12 @@
 - name: Create the automation identity on first contact
   hosts: all
   tasks:
+    - name: Switch the Proxmox package repositories before any package install
+      ansible.builtin.include_role:
+        name: pve_host
+        tasks_from: repos
+      when: "'pve_hosts' in group_names"
+
     - name: Create the automation user with key-only login and sudo
       ansible.builtin.include_role:
         name: base
