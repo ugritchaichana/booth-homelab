@@ -11,6 +11,7 @@ Recipient (public): `age1n0vn2cctfh4acum3pygfgc2qn5889es6pnllc6q9m0a52e6gc90q7mr
 | `hosts/pve01-access.sops.yaml` | `root_authorized_keys`, `root_authorized_keys_revoked`, `automation_authorized_keys`: operator public keys for the base role, read by `iac/inventory/host_vars/pve01.yml` | operator |
 | `hosts/pve01-network.sops.yaml` | `host_routed_prefixes`: prefixes the workstation routes elsewhere, denied to guests by the `pve_firewall` role | operator, seeded once from the local Hyper-V override |
 | `tofu/pve01-api.sops.yaml` | `token_id`, `token_secret` of the OpenTofu API token | the `pve_api_identity` role |
+| `tofu/pve01-state.sops.yaml` | `state_passphrase`: 48 random bytes, base64, the key material for OpenTofu state and plan encryption | `scripts/iac/tofu.sh <stack> pve01 init-passphrase` |
 
 Each file has one writer. A host named `<name>` in `iac/inventory/hosts.yml` needs `hosts/<name>-ssh.sops.yaml` before the SSH config can be rendered.
 
