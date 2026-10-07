@@ -1,0 +1,56 @@
+name: Hyper-V host layer CI
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/hyperv/**'
+      - 'tests/hyperv/**'
+      - '.github/workflows/hyperv-ci.yml'
+  push:
+    paths:
+      - 'scripts/hyperv/**'
+      - 'tests/hyperv/**'
+      - '.github/workflows/hyperv-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hyperv-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pester:
+    name: Pester tests and coverage (${{ matrix.shell }})
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+
+      - name: Install Pester 5.7.1
+        shell: ${{ matrix.shell }}
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Run tests with code coverage
+        shell: ${{ matrix.shell }}
+        run: >
+          & tests/hyperv/Invoke-HyperVTests.ps1 -PesterVersion 5.7.1
+          -CoveragePath "$env:RUNNER_TEMP/hyperv-coverage-${{ matrix.shell }}.xml"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: hyperv-coverage-${{ matrix.shell }}
+          path: ${{ runner.temp }}/hyperv-coverage-${{ matrix.shell }}.xml
+          retention-days: 14
