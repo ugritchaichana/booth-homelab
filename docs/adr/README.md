@@ -81,7 +81,16 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0038 | [Build golden templates with a root orchestrator, a sandboxed guest-facing step and in-guest Ansible](0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) | Accepted |
 | 0039 | [Keep templates as Proxmox templates on local-lvm, clone them linked and check clone origins before deleting one](0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) | Accepted |
 | 0040 | [Version templates with a monotonic number, a root-only current tag and automatic promotion](0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) | Accepted |
-| 0041 | [Let the template role own base images, snippets content and the weekly rebuild](adr\0041-let-the-template-role-own-base-images-snippets-content-and-the-weekly-rebuild.md) | Accepted |
-| 0042 | [Install runner template toolchains from release tarballs with pinned hashes](adr\0042-pin-runner-template-toolchains-by-hash.md) | Accepted |
-| 0043 | [Use Debian's docker.io in the VM class with a socket-only daemon](adr\0043-use-debians-docker-io-in-the-vm-class-with-a-socket-only-daemon.md) | Accepted |
-| 0044 | [Select golden templates fail closed and clone the R15 probe from them](adr\0044-select-golden-templates-fail-closed-and-clone-the-r15-probe-from-them.md) | Accepted |
+| 0041 | [Let the template role own base images, snippets content and the weekly rebuild](0041-let-the-template-role-own-base-images-snippets-content-and-the-weekly-rebuild.md) | Accepted |
+| 0042 | [Install runner template toolchains from release tarballs with pinned hashes](0042-pin-runner-template-toolchains-by-hash.md) | Accepted |
+| 0043 | [Use Debian's docker.io in the VM class with a socket-only daemon](0043-use-debians-docker-io-in-the-vm-class-with-a-socket-only-daemon.md) | Accepted |
+| 0044 | [Select golden templates fail closed and clone the R15 probe from them](0044-select-golden-templates-fail-closed-and-clone-the-r15-probe-from-them.md) | Accepted |
+| 0045 | [Place the cache on its own routed vnet](0045-place-the-cache-on-its-own-routed-vnet.md) | Accepted |
+| 0046 | [Open one group-level path from runners to the cache](0046-open-one-group-level-path-from-runners-to-the-cache.md) | Accepted |
+| 0047 | [Give the guest firewall guard a per-vnet policy](0047-give-the-guest-firewall-guard-a-per-vnet-policy.md) | Accepted |
+| 0048 | [Serve the build cache with bazel-remote](0048-serve-the-build-cache-with-bazel-remote.md) | Accepted |
+| 0049 | [Key caches by content and restore outputs only on an exact match](0049-key-caches-by-content-and-restore-outputs-only-on-an-exact-match.md) | Accepted |
+| 0050 | [Allow anonymous cache reads and gate writes with one writer credential](0050-allow-anonymous-cache-reads-and-gate-writes-with-one-writer-credential.md) | Accepted |
+| 0051 | [Keep OpenTofu state local instead of moving it to the cache](0051-keep-opentofu-state-local-instead-of-moving-it-to-the-cache.md) | Accepted |
+| 0052 | [Publish sanitized evidence and knowledge in the repository](0052-publish-sanitized-evidence-and-knowledge-in-the-repository.md) | Accepted |
+| 0053 | [Prove Phase 4 on a runner-template clone before runners exist](0053-prove-phase-4-on-a-runner-template-clone-before-runners-exist.md) | Accepted |

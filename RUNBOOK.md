@@ -312,6 +312,8 @@ pct exec 103 -- su - runner -c "
 
 ## 5. MinIO S3 Remote Cache Administration & Disaster Recovery (CT 104)
 
+> Retired: this MinIO cache belonged to the previous host and no workflow uses it any more. The build cache is section 12 (ADRs 0045–0051). This section is removed in the documentation pass.
+
 ### 5.1 Bucket Hierarchy & TTL Policies
 
 ```
@@ -850,7 +852,7 @@ Decision record: ADR 0044 addendum. Templates stay sealed (ADR 0038); only the t
 | 4 | Create the clones | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 init`, then `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
 | 5 | Prove the clone source on the host | operator, WSL | `$pve sudo pct config 9101` and `$pve sudo qm config 9102` list no `template:`; `$pve sudo lvs -o lv_name,origin pve` shows the clone volumes with an `origin` of `base-<template vmid>-disk-N` |
 | 6 | Run the baseline | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>`; every `PROBE` row holds and `SUMMARY` exits 0 |
-| 7 | Tear down | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then delete the private key on the host (`$pve sudo rm /root/.ssh/r15_probe_ed25519`). No `pvesm free` is needed any more: no downloaded volume exists |
+| 7 | Tear down | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then delete the probe key, the probe snippet and the probe host keys on the host (`$pve sudo rm -f /root/.ssh/r15_probe_ed25519 /root/.ssh/r15_probe_ed25519.pub /var/lib/vz/snippets/r15-probe-vendor.yaml /var/lib/homelab/r15/known_hosts`); the next key generation also forgets the previous probes' host keys, which change with every new probe generation. No `pvesm free` is needed any more: no downloaded volume exists |
 
 Pin the probe to a version (to test the previous template): section 10.2 with the probe stack. A promoted new version replaces both probe guests on the next apply (the provider forces a new guest on a changed clone source); that is expected for this throwaway stack.
 
@@ -869,3 +871,63 @@ tofu -chdir=iac/tofu/stacks/r15-probe test
 ---
 
 *This RunBook is verified and maintained for deterministic operations across automated and manual workflows.*
+
+## 12. Build cache (Phase 4)
+
+A bazel-remote 2.6.2 container (`cache01`, VMID 9050) on its own SDN vnet `cache` (10.99.17.0/24) serves content-addressed caches to the runners on vnet `guests` through one firewall path, tcp 10.99.17.10:8080. Reads are anonymous; writes need the one writer credential, which only default-branch push jobs in environment `cache-writer` receive. Decisions: ADRs 0045–0051. Measured results: `docs/evidence/phase4/INDEX.md`.
+
+### 12.1 Network, firewall and guard (role: operator, WSL, repository root)
+
+1. Offline gate: `bash tests/isolation/test-cluster-fw-render.sh`, `bash tests/isolation/test-guest-fw-guard.sh`, `bash tests/isolation/test-r15-probe.sh`, `bash tests/isolation/test-r15-verify-cache.sh`, `ansible-lint --profile production iac/ansible`.
+2. List guests on any bridge other than `guests` and `cache`; the guard stops them once its per-vnet policy is in place (ADR 0047). Host: `sudo grep -l 'bridge=vmbr0' /etc/pve/qemu-server/*.conf /etc/pve/lxc/*.conf`.
+3. Converge the host: `bash scripts/iac/ansible.sh iac/ansible/playbooks/site.yml`. It renders `guest-egress` with the cache accept first, the group `cache-ingress`, the guard policy `/etc/homelab/guest-firewall-guard-policy.json`, and grants the provisioner `SDN.Use` on `/sdn/zones/hlab/cache`. A second run ends `changed=0` unless upstream packages changed in between (see 12.7).
+4. Add the vnet: `bash scripts/iac/tofu.sh proxmox-host pve01 plan` must show only the `cache` vnet and subnet added and the SDN applier replaced; then `apply`, then `plan -detailed-exitcode` returns 0.
+5. Verify on the host: `cat /proc/sys/net/ipv4/conf/cache/forwarding` prints 1; `sudo iptables -t nat -S POSTROUTING | grep 10.99.17.0/24` shows SNAT out of `vmbr0` only (runner-to-cache traffic keeps the runner's address); `sudo sed -n '/^\[group/,$p' /etc/pve/firewall/cluster.fw` shows both groups; `sudo journalctl -u homelab-guest-firewall-guard.service -n 3 --no-pager` ends with `ok, N guest(s) checked`.
+
+### 12.2 Cache service (role: operator, WSL, repository root)
+
+1. Writer credential, once (or `--rotate`): `bash scripts/iac/cache-writer-secret.sh --repo <owner>/<repository>`. It writes `iac/secrets/hosts/pve01-cache.sops.yaml` and sets the environment secret `CACHE_WRITER_PASSWORD` in `cache-writer` from stdin, printing names only. WSL needs a `gh` command; a wrapper that execs the Windows `gh.exe` with `WSLENV=GH_TOKEN/u` works. Commit the SOPS file.
+2. Owner step (GitHub setting): Settings → Environments → `cache-writer` → Deployment branches and tags → Selected branches → `master`. Until this is set, any branch's workflow that names the environment receives the secret (ADR 0050).
+3. Container: `export TF_VAR_ssh_public_keys='["<automation public key>"]'`, then `bash scripts/iac/tofu.sh cache-service pve01 init`, `plan`, `apply`. The container is created stopped; it is started only through the firewall read-back gate below.
+4. Start it through the gate, then pin its host key through the root path on pve01 and render the SSH config:
+   `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml -l pve01` (runs only the gate play)
+   `ssh pve01 sudo pct exec 9050 -- cat /etc/ssh/ssh_host_ed25519_key.pub | awk '{print "ssh_host_ed25519_public: " $1 " " $2}' | sops encrypt --filename-override iac/secrets/hosts/cache01-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/cache01-ssh.sops.yaml /dev/stdin`
+   `bash scripts/iac/render-ssh-config.sh`, then `ssh cache01 true` (ProxyJump pve01, `StrictHostKeyChecking yes`).
+5. Converge everything: `bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml`. Its first play reads back the container's firewall (enable 1, DROP/DROP, ipfilter, exactly the groups `guest-egress` and `cache-ingress`, NIC on `cache` with `firewall=1`) and starts the container only if all hold. A second run ends `changed=0`.
+6. Verify from a guest on the runner subnet (the workstation is not admitted on 8080): anonymous `GET /cas/<sha256>` 404 then 200 after a write, anonymous `PUT` 401, writer `PUT` 200, a `PUT` whose body does not match its digest 500 and nothing stored, `GET /metrics` shows `bazel_remote_disk_cache_size_bytes_limit 8.589934592e+09`. The block is in `docs/evidence/phase4/cache-api.txt`.
+
+### 12.3 Client and CI wiring
+
+| Job | Restores | Saves |
+|---|---|---|
+| dotnet-build | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs`; build `--no-restore` | — |
+| dotnet-cache-save | — | `nuget`, `dotnet-outputs`; push to the default branch, environment `cache-writer` |
+| angular-jest | `node_modules` (`scripts/apps/run-angular-jest.sh`), `npm ci` on a miss | — |
+| angular-cache-save | `node_modules` | `node_modules`; push to the default branch, environment `cache-writer` |
+
+- Keys: dependency caches = sha256 over runner class, OS, arch, toolchain version and every lockfile's sha256; outputs = the same plus the git tree ids of the inputs, the configuration and the workspace root, restored only on an exact match (ADR 0049).
+- Statuses in the job summary: `hit`; `miss` (no pointer, no store configured, store unreachable); `rejected` (digest/size mismatch, dangling pointer, unsafe archive; the build runs cold); `error` (HTTP 400, a client bug); save `saved`, `skipped` (policy), `refused` (401/403, found by an empty-blob credential probe before any upload), `failed` (5xx). No status fails a job.
+- Disable: unset `CACHE_URL` in `reusable-sdet-pipeline.yml`; every restore answers "miss: no store configured" at once and builds run cold. The hosted fallback already runs with it empty.
+- Local checks: `PYTHONPATH=scripts/ci python -m unittest discover -s tests/cache -p "test_*.py"`; the stale-binary test `bash tests/cache/test_stale_binaries.sh` needs Linux and .NET SDK 8.
+
+### 12.4 Operating the service (role: operator; `ssh cache01` as root)
+
+- Status and sweep: `systemctl status bazel-remote`; `journalctl -u bazel-remote -b | grep -E 'wait-for-address|verify-cas|Loaded'`.
+- Every start runs two `ExecStartPre` steps: `wait-for-address` (reads `/proc/net/fib_trie`; the unit's address-family sandbox forbids netlink, so `ip` cannot be used there) and `verify-cas`, which hashes every CAS file and moves a file whose content does not match its name to `/var/lib/bazel-remote/quarantine/` (bazel-remote 2.6.2 loads and serves a partially written file after a crash during an upload; measured).
+- Purge (cold cache): `systemctl stop bazel-remote && find /var/lib/bazel-remote/data -mindepth 1 -delete && systemctl start bazel-remote`. Builds run cold until a default-branch push saves again.
+- Rotate the writer credential: `bash scripts/iac/cache-writer-secret.sh --rotate --repo <owner>/<repository>` (WSL), then the converge in 12.2 step 5.
+- Size: budget 8 GiB (`--max_size 8`) on a 10 GiB volume, LRU eviction (measured with a 1 GiB instance: the oldest unread blobs go first, a blob read after every write stays). `bazel_remote_disk_cache_size_bytes` and `..._evicted_bytes_total` on `/metrics`.
+- Hit counting: Prometheus `bazel_remote_incoming_requests_total{kind="ac"}` does not count pointer lookups when AC validation is disabled; count from the access log (`journalctl -u bazel-remote | grep ' /ac/'`, status 200 = hit, 404 = miss) or from the client stats.
+
+### 12.5 Measured on this laptop (2026-10-07)
+
+- 20 fresh-workspace runs on a runner-template clone with an unchanged lockfile: run 1 missed and saved; runs 2–20 hit every restore (dependencies 38/38, outputs 19/19), matched by the server access log (`GET /ac` 200 ×57, 404 ×3). Per run: dependency restore 6–7.5 s, install 1.2–1.6 s, outputs restore 0.4–0.6 s, build 1.1–1.6 s with `CoreCompile` skipped.
+- R15 with the cache path, before and after a pve01 reboot: runner clones 16/16 negatives blocked, 2/2 positives (cache tcp/8080 reachable, cache tcp/22 dropped); inside the cache container 12/12, 1/1.
+- After a pve01 reboot the container runs at 45 s and the service at 49 s, the data intact.
+
+### 12.6 Known limits and owner steps
+
+- The `cache-writer` branch policy is an owner setting (12.2 step 2); until it is set, the writer credential is protected only by the workflow condition, which a pull request can edit.
+- A host converge applies pending upstream updates and reboots into a new kernel (role `pve_host`); once runners exist, drain the pool first or converge in a maintenance window.
+- PVE prints "Systemd 257 detected. You may need to enable nesting." when the Debian 13 container reboots; the service's sandbox works without nesting (measured), but other systemd sandboxing inside the container may need it.
+- The self-hosted CI path cannot run until the Phase 5 runners exist; the hosted fallback was run green with the new wiring.
