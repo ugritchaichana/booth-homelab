@@ -58,9 +58,9 @@ Every job also depends on a `select-runner` job (omitted from the diagram) that 
 
 | Job | Restores | Saves |
 |---|---|---|
-| Build (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` | none; on a default-branch push it packs the payloads as an artifact |
+| Build (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` | none; on a self-hosted default-branch push it packs the payloads as an artifact |
 | Cache save (.NET) | none | `nuget`, `dotnet-outputs`; default-branch push on self-hosted runners only, environment `cache-writer` |
-| Test (Angular) | `node_modules`, `npm ci` on a miss | none; on a default-branch push it packs `node_modules` as an artifact |
+| Test (Angular) | `node_modules`, `npm ci` on a miss | none; on a self-hosted default-branch push it packs `node_modules` as an artifact |
 | Cache save (Angular) | none | `node_modules`; same conditions as the .NET save |
 
 Composite actions: `.github/actions/build-cache` (restore and save), `run-affected-tests` (the selector), `run-angular-jest`.
