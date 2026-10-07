@@ -13,6 +13,7 @@ cache_service_quarantine_dir: "{{ cache_service_data_mount }}/quarantine"
 cache_service_quarantine_keep: 3
 cache_service_quarantine_max_file_bytes: 67108864
 cache_service_start_timeout_seconds: 900
+cache_service_address_wait_seconds: 30
 cache_service_config_dir: /etc/bazel-remote
 cache_service_htpasswd_file: "{{ cache_service_config_dir }}/htpasswd"
 cache_service_writer_user: ci-writer

@@ -77,6 +77,13 @@ for directive in (
     if directive not in lines:
         errors.append(f"unit lacks the line {directive!r}")
 
+want_wait = "ExecStartPre=/usr/local/lib/bazel-remote/wait-for-address 10.99.17.10 30"
+if want_wait not in lines:
+    errors.append(f"unit lacks the line {want_wait!r}")
+if "After=network-online.target" not in lines or "Wants=network-online.target" not in lines:
+    errors.append("unit must order after and want network-online.target")
+if lines.index(want_wait) > lines.index("ExecStartPre=/usr/local/lib/bazel-remote/verify-cas /var/lib/bazel-remote/data /var/lib/bazel-remote/quarantine 3 67108864") if want_wait in lines else False:
+    errors.append("the address wait must run before the sweep")
 want_pre = "ExecStartPre=/usr/local/lib/bazel-remote/verify-cas /var/lib/bazel-remote/data /var/lib/bazel-remote/quarantine 3 67108864"
 if want_pre not in lines:
     errors.append(f"unit lacks the line {want_pre!r}")
@@ -167,9 +174,24 @@ mutate() {
 
 mutate "drop allow_unauthenticated_reads" templates/bazel-remote.service.j2 '/--allow_unauthenticated_reads/d'
 mutate "drop htpasswd_file" templates/bazel-remote.service.j2 '/--htpasswd_file/d'
+mutate "drop the address wait from the unit" templates/bazel-remote.service.j2 '/wait-for-address/d'
 mutate "drop the sweep from the unit" templates/bazel-remote.service.j2 '/^ExecStartPre=/d'
 mutate "drop the grpc off switch" templates/bazel-remote.service.j2 '/--grpc_address none/d'
 mutate "loosen ProtectSystem" templates/bazel-remote.service.j2 's/^ProtectSystem=strict/ProtectSystem=full/'
 mutate "put the password in the unit" templates/bazel-remote.service.j2 '/^\[Install\]/i Environment=PW={{ cache_writer_password }}'
 mutate "drop no_log" tasks/main.yml '/^  no_log: true/d'
 mutate "unpin the digest" defaults/main.yml 's/^cache_service_sha256: .*/cache_service_sha256: 0000000000000000000000000000000000000000000000000000000000000000/'
+
+mkdir -p "$work/fakebin"
+cat > "$work/fakebin/ip" <<'SH'
+#!/bin/sh
+echo "2: eth0    inet ${FAKE_ADDR:-10.99.17.10}/24 brd 10.99.17.255 scope global eth0"
+SH
+chmod +x "$work/fakebin/ip"
+PATH="$work/fakebin:$PATH" bash "$role/files/wait-for-address" 10.99.17.10 3 > "$work/wait.log" 2>&1 || { cat "$work/wait.log" >&2; echo "FAIL: wait-for-address did not accept a configured address" >&2; exit 1; }
+if PATH="$work/fakebin:$PATH" FAKE_ADDR=10.99.17.11 bash "$role/files/wait-for-address" 10.99.17.10 2 > "$work/wait.log" 2>&1; then
+  echo "FAIL: wait-for-address accepted an address that is not configured" >&2
+  exit 1
+fi
+grep -q "was not configured on any interface within 2 seconds" "$work/wait.log" || { cat "$work/wait.log" >&2; echo "FAIL: no clear message on timeout" >&2; exit 1; }
+echo "ok: wait-for-address returns for a configured address and fails with a message after the limit"

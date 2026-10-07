@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+address="${1:-}"
+limit="${2:-30}"
+
+[[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "wait-for-address: '$address' is not an IPv4 address" >&2; exit 1; }
+command -v ip >/dev/null || { echo "wait-for-address: the ip command is missing" >&2; exit 1; }
+
+for ((i = 0; i < limit; i++)); do
+  if ip -4 -o addr show | awk '{split($4, a, "/"); print a[1]}' | grep -Fxq -- "$address"; then
+    echo "wait-for-address: $address is configured after $i seconds"
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "wait-for-address: $address was not configured on any interface within $limit seconds" >&2
+exit 1
