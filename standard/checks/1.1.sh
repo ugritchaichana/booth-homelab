@@ -33,8 +33,8 @@ for workflow in $(grep -l 'pull_request_target' .github/workflows/*.yml 2>/dev/n
 done
 [ "$triggered" -eq 0 ] && echo "CHECK 1.1 b PASS no workflow uses pull_request_target"
 
-ephemeral_hits=$(grep -cE -- '--ephemeral' scripts/proxmox/provision-*.py 2>/dev/null | awk -F: '{sum += $2} END {print sum + 0}')
-echo "CHECK 1.1 a INFO --ephemeral occurrences in scripts/proxmox/provision-*.py=$ephemeral_hits"
+ephemeral_hits=$(grep -rcE -- 'generate-jitconfig' scripts/proxmox/ephemeral 2>/dev/null | awk -F: '{sum += $2} END {print sum + 0}')
+echo "CHECK 1.1 a INFO generate-jitconfig occurrences in scripts/proxmox/ephemeral=$ephemeral_hits"
 
 visibility=""
 if [ -n "${GH_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ] && command -v gh > /dev/null 2>&1; then

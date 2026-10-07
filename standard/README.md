@@ -52,7 +52,7 @@
 - **Measure:**
   ```
   gh api repos/OWNER/REPO --jq .visibility
-  grep -nE -- '--ephemeral' scripts/proxmox/provision-*.py      # registration flag
+  grep -rn 'generate-jitconfig' scripts/proxmox/ephemeral        # JIT registration, one job per runner
   grep -l pull_request_target .github/workflows/*.yml | xargs grep -n 'runs-on'
   gh api repos/OWNER/REPO/actions/permissions/fork-pr-contributor-approval --jq .approval_policy
   ```
@@ -63,7 +63,7 @@
   stored on the runner — cache, registry and API credentials are injected per job (secrets or OIDC) and gone at job
   end; (c) temporary files live under `$RUNNER_TEMP` or come from `mktemp`, never at fixed shared paths.
 - **Measure:** a canary pair — job A writes `$HOME/.canary` and `/tmp/canary`; job B on the same label must find
-  neither. In a fresh job, `mc alias list` and `ls ~/.docker ~/.config` show no stored credentials.
+  neither. In a fresh job, `env | grep -iE 'cache.*(pass|token)'` and `ls ~/.docker ~/.config` show no stored credentials.
   `grep -rnE '"/tmp/[A-Za-z]|=/tmp/[A-Za-z]' scripts/ .github/` returns nothing.
 - **Score:** 2 = a, b, c · 1 = two of three · 0 = otherwise.
 
@@ -81,17 +81,17 @@
   ```
   Then restart the container and reboot the host, and run the checks again. On the host,
   `bridge -d link show | grep -c 'isolated on'` equals the number of runner ports.
-  `scripts/proxmox/verify-enterprise-firewall.py` can produce this record once its output is stored.
+  `tests/isolation/r15-probe.sh` produces the probe output; published runs are listed in section 8.
 - **Score:** 2 = a–d · 1 = a and b pass (IPv4), c or d missing · 0 = otherwise.
 
 #### 1.4 Least privilege
 - **Must:** (a) the job user cannot become root without a password; if Docker is needed, rootless Docker or a
-  scoped socket proxy, not the `docker` group; (b) cache credentials use bucket-scoped custom policies — no
-  built-in all-bucket policy on a CI user; (c) write credentials reach only jobs on trusted refs (a GitHub
+  scoped socket proxy, not the `docker` group; (b) the build cache accepts anonymous reads and one writer credential
+  (ADR 0050), and no CI credential has wider scope; (c) write credentials reach only jobs on trusted refs (a GitHub
   Environment secret whose deployment-branch policy allows only the default branch); (d) automation tokens on the
   hypervisor are privilege-separated with only the roles and paths they need.
-- **Measure:** as the runner user, `sudo -n true; echo $?` is non-zero. `mc admin policy info ALIAS POLICY` lists
-  only the intended bucket(s) under `Resource`.
+- **Measure:** as the runner user, `sudo -n true; echo $?` is non-zero. An anonymous write to the cache returns 401 and an anonymous read of a stored blob returns 200
+  ([cache API run](../docs/evidence/phase4/cache-api.txt)).
   `gh api repos/OWNER/REPO/environments/ENV --jq .deployment_branch_policy` limits the environment to the default
   branch. On the host, `pveum acl list` shows only scoped roles for the automation user.
 - **Score:** 2 = a–d · 1 = three of four · 0 = two or fewer.
@@ -119,8 +119,7 @@
   call the IaC; (c) drift detection runs on a schedule and reports differences.
 - **Measure:** `tofu plan -detailed-exitcode` exits 0 against the live system. A second
   `ansible-playbook playbooks/site.yml --check --diff` reports `changed=0`. The scheduled drift workflow is green
-  for 4 consecutive weeks. `ls scripts/proxmox/provision-*.py` shows nothing, or each remaining script is
-  documented as a wrapper.
+  for 4 consecutive weeks. `ls scripts/proxmox` lists only scripts documented as the installer or as wrappers.
 - **Score:** 2 = a, b, c · 1 = a shown (plan and check clean) but b or c missing · 0 = otherwise.
 
 #### 2.2 Remote state with proven locking
@@ -129,13 +128,12 @@
   because state holds sensitive values.
 - **Measure:**
   ```
-  tofu -chdir=iac/tofu plan -lock-timeout=0s &      # holds the lock
-  tofu -chdir=iac/tofu plan -lock-timeout=0s        # must fail with a state-lock error
-  mc version info ALIAS/tofu-state                  # versioning enabled
-  mc ls READER_ALIAS/tofu-state                     # must fail: Access Denied
+  tofu -chdir=iac/tofu/stacks/proxmox-host plan -lock-timeout=0s &   # holds the lock
+  tofu -chdir=iac/tofu/stacks/proxmox-host plan -lock-timeout=0s     # must fail with a state-lock error
+  # state bucket versioning enabled, and unreadable without the operator's credential (storage provider's own tool)
   ```
   S3-native locking (`use_lockfile = true`) needs OpenTofu ≥ 1.10; raise `required_version` in
-  `iac/tofu/versions.tf`.
+  `iac/tofu/stacks/*/versions.tf`. ADR 0051 keeps state local, so this criterion stays at 0 until that decision changes.
 - **Score:** 2 = a, b, c · 1 = a shown, b or c missing · 0 = otherwise.
 
 #### 2.3 Idempotency is proven by recorded runs
@@ -225,7 +223,7 @@
 - **Measure:**
   ```
   grep -rnE '[0-9]+(\.[0-9]+)? ?(MiB/s|GB/s|ms|min|%)|v[0-9]+\.[0-9]+\.[0-9]+|Zero-Trust|Enterprise|SOC ?2|ISO.?27001' \
-    README.md wiki/ AGENTS.md AI_CONTEXT.md
+    README.md wiki/ AGENTS.md
   ```
   Every hit links to evidence or is removed.
 - **Score:** 2 = no unbacked claim and the CI check in place · 1 = no unbacked claim, no CI check · 0 = any
@@ -309,6 +307,7 @@
 standard/README.md                    this document
 standard/evidence/<criterion>/<date>.md   one record per measurement
 standard/checks/<criterion>.sh        automated checks
+docs/evidence/phase<N>/               sanitized runs of the platform, cited from records (section 8)
 .github/workflows/standard-scorecard.yml  weekly + on pull requests: runs the checks, reads the ledger,
                                       applies freshness and the ratchet, writes the scorecard to the job summary
 ```
@@ -332,10 +331,9 @@ standard/checks/<criterion>.sh        automated checks
 | Scheduled job on the host | 1.3, 1.5, 2.1, 2.2, 2.3, 3.1 (backup age), 3.2 (alert test) |
 | Drill or one-off, logged by hand | 1.2 (canary pair), 2.4 (rotation), 3.1 (restore), 3.3, 3.4, 3.5, 4.1, 5.2, 5.5 (repeat runs) |
 
-**Tools already in the repo that can produce evidence:** `scripts/proxmox/verify-enterprise-firewall.py` (1.3),
-`scripts/proxmox/check_runner.py` (1.5 status sampling), `scripts/proxmox/verify-pve-health.py` (3.2 starting
-point), `sandbox/verify-sandbox.ps1` (1.4 policy model, sandbox only), `tests/verify-affected-graph.ps1` (5.1 —
-port it to the `.sh` that CI runs first).
+**Tools already in the repo that can produce evidence:** `tests/isolation/r15-probe.sh` and
+`scripts/hyperv/Test-R15Controls.ps1` (1.3), `scripts/evidence/publish.py` (stores sanitized runs under
+`docs/evidence/`), `tests/verify-affected-graph.sh` and `tests/verify-affected-graph.ps1` (5.1).
 
 ---
 
@@ -364,7 +362,9 @@ A line hit by the 4.2 grep is backed when the same line holds a Markdown link to
 2. a file under `standard/evidence/` (a relative path, or a repository blob or tree URL that ends in such a path);
    the file must exist;
 3. `https://github.com/ugritchaichana/booth-homelab/blob/<40-hex sha>/<path>#L<n>`; where a git history is
-   available, the commit and the path must exist.
+   available, the commit and the path must exist;
+4. a file under `docs/evidence/phase<N>/` (a relative path, or a repository blob or tree URL that ends in such a
+   path); the file must exist.
 
 Anything else is unbacked, including badge images and release links. `standard/checks/4.2.sh` enforces this and
 fails the `doc-claims` job while any hit is unbacked; that failing check is criterion 4.2 requirement (b).
@@ -379,7 +379,7 @@ table to the job summary. Job `doc-claims` runs `standard/checks/4.2.sh` alone.
 
 **Inputs.** `standard/criteria.tsv` has one tab-separated row per criterion: `id`, `axis`, `name`, `measured_by`
 (`ci`, `host` or `drill`, following the table in section 5; 1.4 and 5.4 are not in that table and are placed by where
-their evidence comes from), `covered_paths` (space-separated repository-relative pathspecs whose change expires the
+their evidence comes from; `retired` marks a criterion whose evidence design was removed, see below), `covered_paths` (space-separated repository-relative pathspecs whose change expires the
 evidence, or `-`) and `check` (a script in `standard/checks/`, or `-`).
 
 **Per criterion.** The newest record by date gives the recorded score. The current score is 0 when any of these holds,
@@ -398,6 +398,13 @@ property that any positive score depends on is broken, 0 otherwise. An exit code
 A check that fails for a criterion with no record changes no score. Scripts print counts, or `file:line` plus the
 matched token, never whole lines.
 
+**Retired evidence.** A row with `measured_by` `retired` shows state `retired evidence (ADR 0020)`, current score 0 and
+no ratchet check, whatever records exist. It claims nothing; the criterion text stays until the owner rewrites or drops
+it. Row 1.5 is the only one today: its domain-fed egress allowlist was removed with the previous host's firewall role.
+
+**Published evidence.** The summary ends its table with one line counting the phases and files under
+`docs/evidence/`. It is a pointer count, not a score input (section 8).
+
 **Ratchet.** If the current score is below the newest recorded score and there is no
 `standard/evidence/<id>/<date>-ack.md` dated on or after that record, the run exits 1. This is by design on
 2027-01-04: every record seeded on 2026-10-06 expires that day, and the scorecard turns red until each criterion is
@@ -409,3 +416,25 @@ lists the open blocking conditions and, per failing check, its first failing lin
 
 **Exit code.** 1 only on a ratchet violation or an unreadable record. `SCORECARD_TODAY=YYYY-MM-DD` overrides today's
 date, for tests. The scorer is standard-library Python 3; its tests are `python3 standard/tests/test_scorecard.py`.
+
+---
+
+## 8. Published phase evidence (`docs/evidence/`)
+
+The platform repository holds sanitized runs of the real host under `docs/evidence/phase<N>/`, each phase with an
+`INDEX.md` that names the claim every file backs (ADR 0052, release requirement R20). They are the raw material for
+records: a record under `standard/evidence/<criterion>/` cites them and states which requirement each file shows.
+**A pointer below is not a record and scores nothing.** A criterion stays at 0 until a dated record exists.
+
+| criterion | current published evidence | what it does not show |
+|---|---|---|
+| 1.1 | none yet; `scripts/proxmox/ephemeral/` is code only, no runner is registered | every part |
+| 1.2 | [golden-template build run](../docs/evidence/phase3/build-weekly-3.txt), [clone of the Docker template](../docs/evidence/phase3/evidence-vm-clone.txt) | a fresh instance per job, injected credentials, the canary pair |
+| 1.3 | [R15 red first](../docs/evidence/phase2/r15-red-first-lxc.txt), [R15 baseline](../docs/evidence/phase2/r15-baseline-lxc.txt), [R15 after a host reboot](../docs/evidence/phase2/r15-after-pve-reboot-lxc.txt), [R15 from the cache container](../docs/evidence/phase4/r15-after-pve-reboot-cache.txt), [port ACL acceptance](../docs/evidence/phase1/acl-probe-20261006-152843.log) | the mapping of each requirement to a file, which a record must make |
+| 1.4 | [provisioner token boundary](../docs/evidence/phase3/evidence-token-more.txt), [rollback and token proof](../docs/evidence/phase3/proof-rollback-token.txt) | the job user's root access, the writer environment branch policy |
+| 1.5 | retired evidence (ADR 0020); ADR 0027 describes the current public-IPv4-only guest egress, a different requirement | all of the criterion as written |
+| 2.1, 2.3 | [second probe apply without drift](../docs/evidence/phase2/probe-tofu-apply2.txt), [host stack plan without changes](../docs/evidence/phase4/tofu-proxmox-host-final-plan.txt) | a scheduled drift job, two consecutive playbook runs recorded by CI |
+| 3.2 | [guest firewall guard journal](../docs/evidence/phase4/guard-after-ct-2.txt), [cache counters after the loop](../docs/evidence/phase4/metrics-after-loop.txt) | alerts and measured time to detect |
+| 5.2 | [twenty-iteration cache loop](../docs/evidence/phase4/cache-loop20-results.txt), hosted full-suite run [37355482969](https://github.com/ugritchaichana/booth-homelab/actions/runs/37355482969) | a scheduled job that exercises each path |
+
+Rows not listed have no published evidence.

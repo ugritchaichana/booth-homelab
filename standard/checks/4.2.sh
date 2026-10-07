@@ -6,6 +6,7 @@ claim_pattern='[0-9]+(\.[0-9]+)? ?(MiB/s|GB/s|ms|min|%)|v[0-9]+\.[0-9]+\.[0-9]+|
 repo_url='https://github\.com/ugritchaichana/booth-homelab'
 run_link="^${repo_url}/actions/runs/[0-9]+(/job/[0-9]+|/attempts/[0-9]+)?\$"
 evidence_link="^((\\.{1,2}/)*|${repo_url}/(blob|tree)/[A-Za-z0-9._-]+/)standard/evidence/[0-9]+\\.[0-9]+/[0-9]{4}-[0-9]{2}-[0-9]{2}(-ack)?\\.md(#[A-Za-z0-9_-]+)?\$"
+published_link="^((\.{1,2}/)*|${repo_url}/(blob|tree)/[A-Za-z0-9._-]+/)docs/evidence/phase[0-9]+/[A-Za-z0-9._-]+(#[A-Za-z0-9_-]+)?\$"
 blob_link="^${repo_url}/blob/([0-9a-f]{40})/([^#[:space:]]+)#L[0-9]+(-L[0-9]+)?\$"
 
 is_backing_link() {
@@ -18,6 +19,11 @@ is_backing_link() {
     [ -f "${evidence_path%%#*}" ]
     return
   fi
+  if [[ "$target" =~ $published_link ]]; then
+    evidence_path="docs/evidence/${target#*docs/evidence/}"
+    [ -f "${evidence_path%%#*}" ]
+    return
+  fi
   if [[ "$target" =~ $blob_link ]]; then
     [ -e .git ] || return 0
     git cat-file -e "${BASH_REMATCH[1]}:${BASH_REMATCH[2]}" 2> /dev/null
@@ -26,7 +32,7 @@ is_backing_link() {
   return 1
 }
 
-hits=$(grep -rnE "$claim_pattern" README.md wiki/ AGENTS.md AI_CONTEXT.md 2>/dev/null | tr -d '\r' | LC_ALL=C sort -t: -k1,1 -k2,2n)
+hits=$(grep -rnE "$claim_pattern" README.md wiki/ AGENTS.md 2>/dev/null | tr -d '\r' | LC_ALL=C sort -t: -k1,1 -k2,2n)
 total=0
 unbacked=0
 while IFS= read -r hit; do

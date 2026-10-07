@@ -1,25 +1,25 @@
-1.1	1	Untrusted code cannot reach persistent infrastructure	ci	scripts/proxmox/provision-*.py .github/workflows/pr-labeler.yml .github/workflows/pr-reviewer-guard.yml	1.1.sh
-1.2	1	Every job starts clean	ci	scripts/ci scripts/apps .github/actions iac/ansible/roles/runner_dotnet iac/ansible/roles/runner_angular scripts/proxmox/provision-runner.py scripts/proxmox/provision-angular-runner.py	1.2.sh
-1.3	1	Host and neighbouring runners are unreachable from jobs, and stay that way	host	iac/ansible/roles/enterprise_firewall scripts/proxmox/apply-enterprise-firewall.py scripts/proxmox/verify-enterprise-firewall.py	-
-1.4	1	Least privilege	host	iac/ansible/roles/common scripts/proxmox/configure_iam_cache_accounts.py	-
-1.5	1	Egress control that works	host	iac/ansible/roles/enterprise_firewall	-
+1.1	1	Untrusted code cannot reach persistent infrastructure	ci	scripts/proxmox/ephemeral .github/workflows/pr-labeler.yml .github/workflows/pr-reviewer-guard.yml	1.1.sh
+1.2	1	Every job starts clean	ci	scripts/ci scripts/apps .github/actions iac/ansible/roles/pve_templates scripts/proxmox/ephemeral	1.2.sh
+1.3	1	Host and neighbouring runners are unreachable from jobs, and stay that way	host	iac/ansible/roles/pve_firewall iac/ansible/roles/hyperv_guest scripts/hyperv tests/isolation	-
+1.4	1	Least privilege	host	iac/ansible/roles/base iac/ansible/roles/pve_api_identity iac/ansible/roles/cache_service	-
+1.5	1	Egress control that works	retired	-	-
 2.1	2	IaC is the single source of truth	host	iac scripts/proxmox	-
 2.2	2	Remote state with proven locking	host	iac/tofu	-
 2.3	2	Idempotency is proven by recorded runs	host	iac/ansible iac/tofu	-
 2.4	2	Secrets lifecycle	ci	.github/workflows/secret-scan.yml .pre-commit-config.yaml scripts	2.4.sh
 2.5	2	IaC CI goes beyond syntax	ci	.github/workflows/iac-ci.yml	2.5.sh
 3.1	3	Backups with a timed restore	host	iac scripts/proxmox	-
-3.2	3	Observability and alerting	host	iac scripts/proxmox/verify-pve-health.py	-
+3.2	3	Observability and alerting	host	iac	-
 3.3	3	CI survives losing the host	drill	.github/workflows/sdet-ci.yml .github/workflows/reusable-sdet-pipeline.yml	-
 3.4	3	One-command rebuild, timed	drill	iac scripts/proxmox	-
 3.5	3	Disaster-recovery drills on record	drill	-	-
 4.1	4	A new engineer brings it up from the README	drill	README.md	-
-4.2	4	Documentation is accurate	ci	README.md wiki AGENTS.md AI_CONTEXT.md	4.2.sh
+4.2	4	Documentation is accurate	ci	README.md wiki AGENTS.md	4.2.sh
 4.3	4	Conventional layout and templates	ci	.github/ISSUE_TEMPLATE .github/pull_request_template.md .github/CODEOWNERS	4.3.sh
 4.4	4	Independent review is enforced	ci	-	-
 4.5	4	Changes carry evidence	ci	-	-
 5.1	5	Test selection is fail-closed and verified	ci	scripts/apps/dotnet-affected-test.sh scripts/apps/dotnet-affected-test.ps1 tests .github/workflows/affected-selector-ci.yml .github/workflows/sdet-ci.yml .github/actions/run-affected-tests	5.1.sh
 5.2	5	Every advertised path has actually run	drill	.github/workflows/sdet-ci.yml .github/workflows/reusable-sdet-pipeline.yml	-
-5.3	5	Pipeline telemetry is correct	ci	.github/workflows/reusable-sdet-pipeline.yml scripts/ci .github/actions/minio-cache	5.3.sh
+5.3	5	Pipeline telemetry is correct	ci	.github/workflows/reusable-sdet-pipeline.yml scripts/ci .github/actions/build-cache	5.3.sh
 5.4	5	Test oracles pin behaviour at the boundaries	ci	apps/fixtures apps/backend/src apps/backend/tests apps/frontend/src	-
 5.5	5	Flakiness measured, test resources bounded	ci	apps/frontend/jest.config.js apps/backend/tests/Billing.Api.UnitTests/xunit.runner.json apps/backend/tests/Order.Api.UnitTests/xunit.runner.json apps/backend/tests/Order.Api.IntegrationTests/xunit.runner.json apps/README.md	5.5.sh
