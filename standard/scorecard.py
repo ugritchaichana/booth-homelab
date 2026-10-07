@@ -15,6 +15,7 @@ ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 RECORD_HEADER = re.compile(r"^- Date / Commit:\s*(\d{4}-\d{2}-\d{2})\s*/\s*([0-9a-fA-F]{7,40})\b", re.M)
 RECORD_RESULT = re.compile(r"^- Result:\s*score\s*([012])\b", re.M)
 RECORD_EXPIRES = re.compile(r"^- Expires:\s*(.*)$", re.M)
+RETIRED_STATE = "retired evidence (ADR 0020)"
 CHECK_LINE = re.compile(r"^CHECK \S+ \S+ (PASS|FAIL|INFO)\b")
 
 
@@ -124,6 +125,8 @@ def summarize_check(outcome):
 def evaluate(root, criterion, now):
     records, acks = evidence_files(root, criterion["id"])
     outcome = run_check(root, criterion["check"])
+    if criterion["measured_by"] == "retired":
+        return {"criterion": criterion, "recorded": None, "current": 0, "state": RETIRED_STATE, "check": summarize_check(outcome), "violation": None, "check_lines": []}
     row = {"criterion": criterion, "recorded": None, "current": 0, "state": "none", "check": summarize_check(outcome), "violation": None, "check_lines": outcome["lines"] if outcome and outcome["rc"] != 0 else []}
     if not records:
         return row
@@ -155,11 +158,20 @@ def evaluate(root, criterion, now):
     return row
 
 
+def published_evidence(root):
+    base = os.path.join(root, "docs", "evidence")
+    if not os.path.isdir(base):
+        return "Published evidence (docs/evidence/): not present."
+    phases = [name for name in sorted(os.listdir(base)) if os.path.isdir(os.path.join(base, name))]
+    files = sum(len(names) for _, _, names in os.walk(base))
+    return f"Published evidence (docs/evidence/): {len(phases)} phases, {files} files. These are pointers; a score needs a record under standard/evidence/."
+
+
 def band(composite):
     return "REJECTED" if composite < 50 else "APPROVED WITH CONDITIONS" if composite < 80 else "APPROVED"
 
 
-def render(rows, blocking, violations, now):
+def render(rows, blocking, violations, now, evidence_note):
     points = sum(row["current"] for row in rows)
     raw = 2 * points
     composite = min(raw, BLOCKING_CAP) if blocking else raw
@@ -170,6 +182,7 @@ def render(rows, blocking, violations, now):
         out.append(f"| {criterion['id']} | {criterion['name']} | {recorded} | {row['current']} | {row['state']} | {row['check']} |")
     cap_note = f"cap {BLOCKING_CAP} applied ({len(blocking)} open)" if blocking else "no cap (no open blocking condition)"
     out += ["", f"**Composite: {composite} / 100** - {band(composite)}", f"2 x {points} points = {raw}; {cap_note}.", ""]
+    out += [evidence_note, ""]
     out.append("### Open blocking conditions")
     out += [f"- {name}: {note}" for name, note in blocking] or ["- none"]
     failing = []
@@ -189,7 +202,7 @@ def main():
     root, now = repo_root(), today()
     rows = [evaluate(root, criterion, now) for criterion in load_criteria(root)]
     violations = [row["violation"] for row in rows if row["violation"]]
-    report = render(rows, open_blocking(root), violations, now)
+    report = render(rows, open_blocking(root), violations, now, published_evidence(root))
     sys.stdout.write(report)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

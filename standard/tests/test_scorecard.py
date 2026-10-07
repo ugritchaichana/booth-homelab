@@ -195,6 +195,23 @@ class ScorecardRules(ScorecardFixture):
         self.assertEqual(rows["4.2"]["state"], "none")
         self.assertTrue(rows["4.2"]["check"].startswith("fail"), out)
 
+    def test_retired_row_scores_zero_and_never_violates_the_ratchet(self):
+        self.rows.append(chr(9).join(["1.5", "axis", "name 1.5", "retired", "-", "-"]))
+        self.add_record("1.5", FRESH_DATE, self.first_sha, 2)
+        code, rows, out = self.run_scorer()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(rows["1.5"]["current"], "0", out)
+        self.assertEqual(rows["1.5"]["state"], "retired evidence (ADR 0020)", out)
+
+    def test_published_evidence_line_counts_phases_and_files(self):
+        self.add_criterion("4.3")
+        _, _, out = self.run_scorer()
+        self.assertIn("Published evidence (docs/evidence/): not present.", out)
+        for name in ("phase1/INDEX.md", "phase1/run.txt", "phase2/INDEX.md"):
+            self.write(f"docs/evidence/{name}", "x" + chr(10))
+        _, _, out = self.run_scorer()
+        self.assertIn("Published evidence (docs/evidence/): 2 phases, 3 files.", out)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
