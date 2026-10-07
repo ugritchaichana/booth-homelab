@@ -1,81 +1,86 @@
 ---
 guests:
   case-bad-class:
-    runner-x:
+    runner-x-windows-server:
       flavor: aws/t3.medium
       template_class: windows-server
       slot: 1
   case-bad-name:
-    Runner_One:
+    Runner_One-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1
   case-duplicate-slot:
-    demo:
+    demo-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 3
-    smoke:
+    demo-vm-docker:
       flavor: aws/t3.medium
       template_class: vm-docker
       slot: 3
   case-malformed-flavor:
-    demo:
+    demo-lxc-runner:
       flavor: t3.medium
       template_class: lxc-runner
       slot: 1
   case-mixed-case-flavor:
-    azure-vm:
+    azure-vm-docker:
       flavor: azure/Standard_B2s
       template_class: vm-docker
       slot: 1
   case-pinned:
-    pinned-lxc:
+    pinned-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1
       template_version: 1
   case-role-at-the-limit:
-    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1
   case-role-too-long:
-    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1
   case-slot-out-of-range:
-    demo:
+    demo-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 100
   case-small-disk-lxc:
-    small-lxc:
+    small-lxc-runner:
       flavor: aws/t3.nano
       template_class: lxc-runner
       slot: 1
   case-small-disk-vm:
-    small-vm:
+    small-vm-docker:
       flavor: aws/t3.nano
       template_class: vm-docker
       slot: 1
   pve01:
-    demo:
+    demo-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1
-    smoke:
+    demo-vm-docker:
       flavor: aws/t3.medium
       template_class: vm-docker
       slot: 2
   other-host:
-    other-host-guest:
+    other-host-guest-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1
   case-unknown-flavor:
-    demo:
+    demo-lxc-runner:
       flavor: aws/t3.nonexistent
+      template_class: lxc-runner
+      slot: 1
+  case-key-class-mismatch:
+    demo-vm-docker:
+      flavor: aws/t3.medium
       template_class: lxc-runner
       slot: 1

@@ -76,22 +76,22 @@ run "aws_t3_medium_sizes_both_template_classes" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].cpu[0].cores == 2 && proxmox_virtual_environment_container.guest["demo"].memory[0].dedicated == 4096 && proxmox_virtual_environment_container.guest["demo"].memory[0].swap == 0
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].cpu[0].cores == 2 && proxmox_virtual_environment_container.guest["demo-lxc-runner"].memory[0].dedicated == 4096 && proxmox_virtual_environment_container.guest["demo-lxc-runner"].memory[0].swap == 0
     error_message = "The lxc-runner guest of flavor aws/t3.medium must plan 2 cores, 4096 MB and no swap."
   }
 
   assert {
-    condition     = one(proxmox_virtual_environment_container.guest["demo"].disk).size == 30
+    condition     = one(proxmox_virtual_environment_container.guest["demo-lxc-runner"].disk).size == 30
     error_message = "The lxc-runner guest of flavor aws/t3.medium must plan a 30 GB disk."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_vm.guest["smoke"].cpu[0].cores == 2 && proxmox_virtual_environment_vm.guest["smoke"].memory[0].dedicated == 4096 && proxmox_virtual_environment_vm.guest["smoke"].memory[0].floating == 2048
+    condition     = proxmox_virtual_environment_vm.guest["demo-vm-docker"].cpu[0].cores == 2 && proxmox_virtual_environment_vm.guest["demo-vm-docker"].memory[0].dedicated == 4096 && proxmox_virtual_environment_vm.guest["demo-vm-docker"].memory[0].floating == 2048
     error_message = "The vm-docker guest of flavor aws/t3.medium must plan 2 cores, 4096 MB and a 2048 MB balloon."
   }
 
   assert {
-    condition     = one(proxmox_virtual_environment_vm.guest["smoke"].disk).size == 30
+    condition     = one(proxmox_virtual_environment_vm.guest["demo-vm-docker"].disk).size == 30
     error_message = "The vm-docker guest of flavor aws/t3.medium must plan a 30 GB disk."
   }
 }
@@ -100,7 +100,7 @@ run "guests_carry_the_flavor_the_flavor_guest_and_the_source_tags" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].tags == tolist(["flavor-aws-t3.medium", "flavor-guest", "src-lxc-runner-v2"]) && proxmox_virtual_environment_vm.guest["smoke"].tags == tolist(["flavor-aws-t3.medium", "flavor-guest", "src-vm-docker-v2"])
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].tags == tolist(["flavor-aws-t3.medium", "flavor-guest", "src-lxc-runner-v2"]) && proxmox_virtual_environment_vm.guest["demo-vm-docker"].tags == tolist(["flavor-aws-t3.medium", "flavor-guest", "src-vm-docker-v2"])
     error_message = "Both guests must overwrite the inherited template tags with flavor-aws-t3.medium, flavor-guest and src-<class>-v2, sorted as Proxmox stores them."
   }
 }
@@ -109,12 +109,12 @@ run "names_say_the_role_the_template_class_and_the_cloned_version" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].initialization[0].hostname == "demo-lxc-runner-v2" && proxmox_virtual_environment_vm.guest["smoke"].name == "smoke-vm-docker-v2"
-    error_message = "Names must be <role>-<template class>-v<N> with N the version tagged current: demo-lxc-runner-v2 and smoke-vm-docker-v2."
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].initialization[0].hostname == "demo-lxc-runner-v2" && proxmox_virtual_environment_vm.guest["demo-vm-docker"].name == "demo-vm-docker-v2"
+    error_message = "Names must be <role>-<template class>-v<N> with N the version tagged current: demo-lxc-runner-v2 and demo-vm-docker-v2."
   }
 
   assert {
-    condition     = output.guests["demo"].name == "demo-lxc-runner-v2" && output.guests["smoke"].name == "smoke-vm-docker-v2"
+    condition     = output.guests["demo-lxc-runner"].name == "demo-lxc-runner-v2" && output.guests["demo-vm-docker"].name == "demo-vm-docker-v2"
     error_message = "The guests output must report the composed names."
   }
 }
@@ -127,7 +127,7 @@ run "tag_is_proxmox_valid_for_a_mixed_case_flavor" {
   }
 
   assert {
-    condition     = proxmox_virtual_environment_vm.guest["azure-vm"].tags == tolist(["flavor-azure-standard_b2s", "flavor-guest", "src-vm-docker-v2"])
+    condition     = proxmox_virtual_environment_vm.guest["azure-vm-docker"].tags == tolist(["flavor-azure-standard_b2s", "flavor-guest", "src-vm-docker-v2"])
     error_message = "A flavor tag must be lowercase and use only a-z, 0-9, underscore, dot, plus and hyphen: Standard_B2s becomes flavor-azure-standard_b2s."
   }
 }
@@ -143,17 +143,17 @@ run "guests_keep_the_firewall_and_network_the_guard_requires" {
   }
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].unprivileged == true && proxmox_virtual_environment_container.guest["demo"].network_interface[0].firewall == true && proxmox_virtual_environment_container.guest["demo"].network_interface[0].bridge == "guests"
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].unprivileged == true && proxmox_virtual_environment_container.guest["demo-lxc-runner"].network_interface[0].firewall == true && proxmox_virtual_environment_container.guest["demo-lxc-runner"].network_interface[0].bridge == "guests"
     error_message = "The container must be unprivileged and its NIC must sit on vnet guests with the firewall flag."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_vm.guest["smoke"].network_device[0].firewall == true && proxmox_virtual_environment_vm.guest["smoke"].network_device[0].bridge == "guests"
+    condition     = proxmox_virtual_environment_vm.guest["demo-vm-docker"].network_device[0].firewall == true && proxmox_virtual_environment_vm.guest["demo-vm-docker"].network_device[0].bridge == "guests"
     error_message = "The VM NIC must sit on vnet guests with the firewall flag."
   }
 
   assert {
-    condition     = one([for c in proxmox_virtual_environment_firewall_ipset.vm_ipfilter["smoke"].cidr : c.name]) == "10.99.16.102" && proxmox_virtual_environment_firewall_ipset.vm_ipfilter["smoke"].name == "ipfilter-net0"
+    condition     = one([for c in proxmox_virtual_environment_firewall_ipset.vm_ipfilter["demo-vm-docker"].cidr : c.name]) == "10.99.16.102" && proxmox_virtual_environment_firewall_ipset.vm_ipfilter["demo-vm-docker"].name == "ipfilter-net0"
     error_message = "ipfilter on a VM blocks everything unless ipfilter-net0 holds the VM's own address."
   }
 
@@ -167,17 +167,17 @@ run "guests_are_linked_clones_in_the_homelab_pool_and_stay_stopped" {
   command = plan
 
   assert {
-    condition     = one(proxmox_virtual_environment_container.guest["demo"].clone).vm_id == 9203 && one(proxmox_virtual_environment_container.guest["demo"].clone).full == false && one(proxmox_virtual_environment_vm.guest["smoke"].clone).vm_id == 9303 && one(proxmox_virtual_environment_vm.guest["smoke"].clone).full == false
+    condition     = one(proxmox_virtual_environment_container.guest["demo-lxc-runner"].clone).vm_id == 9203 && one(proxmox_virtual_environment_container.guest["demo-lxc-runner"].clone).full == false && one(proxmox_virtual_environment_vm.guest["demo-vm-docker"].clone).vm_id == 9303 && one(proxmox_virtual_environment_vm.guest["demo-vm-docker"].clone).full == false
     error_message = "Guests must be linked clones of the templates tagged current, 9203 and 9303."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].pool_id == "homelab" && proxmox_virtual_environment_vm.guest["smoke"].pool_id == "homelab"
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].pool_id == "homelab" && proxmox_virtual_environment_vm.guest["demo-vm-docker"].pool_id == "homelab"
     error_message = "Guests must land in pool homelab."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].started == false && proxmox_virtual_environment_vm.guest["smoke"].started == false && proxmox_virtual_environment_container.guest["demo"].start_on_boot == true && proxmox_virtual_environment_vm.guest["smoke"].on_boot == true
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].started == false && proxmox_virtual_environment_vm.guest["demo-vm-docker"].started == false && proxmox_virtual_environment_container.guest["demo-lxc-runner"].start_on_boot == true && proxmox_virtual_environment_vm.guest["demo-vm-docker"].on_boot == true
     error_message = "Guests are created stopped and start on boot."
   }
 }
@@ -186,12 +186,12 @@ run "two_guests_get_distinct_addresses_and_vm_ids_clear_of_the_probes" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].initialization[0].ip_config[0].ipv4[0].address == "10.99.16.101/24" && proxmox_virtual_environment_vm.guest["smoke"].initialization[0].ip_config[0].ipv4[0].address == "10.99.16.102/24"
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].initialization[0].ip_config[0].ipv4[0].address == "10.99.16.101/24" && proxmox_virtual_environment_vm.guest["demo-vm-docker"].initialization[0].ip_config[0].ipv4[0].address == "10.99.16.102/24"
     error_message = "Slots 1 and 2 must plan 10.99.16.101/24 and 10.99.16.102/24."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["demo"].initialization[0].ip_config[0].ipv4[0].gateway == "10.99.16.1" && proxmox_virtual_environment_vm.guest["smoke"].initialization[0].ip_config[0].ipv4[0].gateway == "10.99.16.1"
+    condition     = proxmox_virtual_environment_container.guest["demo-lxc-runner"].initialization[0].ip_config[0].ipv4[0].gateway == "10.99.16.1" && proxmox_virtual_environment_vm.guest["demo-vm-docker"].initialization[0].ip_config[0].ipv4[0].gateway == "10.99.16.1"
     error_message = "Both guests must route through gateway 10.99.16.1."
   }
 
@@ -210,21 +210,21 @@ run "only_the_selected_hosts_guests_are_planned" {
   command = plan
 
   assert {
-    condition     = toset(keys(output.guests)) == toset(["demo", "smoke"])
+    condition     = toset(keys(output.guests)) == toset(["demo-lxc-runner", "demo-vm-docker"])
     error_message = "A guest listed under another host must not be planned on pve01."
   }
 }
 
-run "an_empty_guest_list_plans_nothing" {
+run "a_host_without_a_guest_section_plans_nothing" {
   command = plan
 
   variables {
-    guests_file = null
+    host = "case-no-guests"
   }
 
   assert {
     condition     = length(output.guests) == 0
-    error_message = "The shipped guests.yml must plan no guest until one is added."
+    error_message = "A host with no guests listed must plan no guest."
   }
 }
 
@@ -236,12 +236,12 @@ run "a_pin_selects_that_template_version" {
   }
 
   assert {
-    condition     = one(proxmox_virtual_environment_container.guest["pinned-lxc"].clone).vm_id == 9202
+    condition     = one(proxmox_virtual_environment_container.guest["pinned-lxc-runner"].clone).vm_id == 9202
     error_message = "template_version 1 must clone the v1 template, 9202, not the one tagged current."
   }
 
   assert {
-    condition     = proxmox_virtual_environment_container.guest["pinned-lxc"].initialization[0].hostname == "pinned-lxc-lxc-runner-v1" && contains(proxmox_virtual_environment_container.guest["pinned-lxc"].tags, "src-lxc-runner-v1")
+    condition     = proxmox_virtual_environment_container.guest["pinned-lxc-runner"].initialization[0].hostname == "pinned-lxc-runner-v1" && contains(proxmox_virtual_environment_container.guest["pinned-lxc-runner"].tags, "src-lxc-runner-v1")
     error_message = "A guest pinned to v1 must be named and tagged with v1, not with the current version."
   }
 }
@@ -274,8 +274,8 @@ run "flavor_with_more_cores_than_the_host_budget_is_rejected" {
   }
 
   expect_failures = [
-    proxmox_virtual_environment_container.guest["demo"],
-    proxmox_virtual_environment_vm.guest["smoke"],
+    proxmox_virtual_environment_container.guest["demo-lxc-runner"],
+    proxmox_virtual_environment_vm.guest["demo-vm-docker"],
   ]
 }
 
@@ -287,8 +287,8 @@ run "flavor_with_more_memory_than_the_host_budget_is_rejected" {
   }
 
   expect_failures = [
-    proxmox_virtual_environment_container.guest["demo"],
-    proxmox_virtual_environment_vm.guest["smoke"],
+    proxmox_virtual_environment_container.guest["demo-lxc-runner"],
+    proxmox_virtual_environment_vm.guest["demo-vm-docker"],
   ]
 }
 
@@ -300,8 +300,8 @@ run "flavor_with_more_disk_than_the_host_budget_is_rejected" {
   }
 
   expect_failures = [
-    proxmox_virtual_environment_container.guest["demo"],
-    proxmox_virtual_environment_vm.guest["smoke"],
+    proxmox_virtual_environment_container.guest["demo-lxc-runner"],
+    proxmox_virtual_environment_vm.guest["demo-vm-docker"],
   ]
 }
 
@@ -325,7 +325,7 @@ run "flavor_disk_smaller_than_the_vm_template_disk_is_rejected" {
     host = "case-small-disk-vm"
   }
 
-  expect_failures = [proxmox_virtual_environment_vm.guest["small-vm"]]
+  expect_failures = [proxmox_virtual_environment_vm.guest["small-vm-docker"]]
 }
 
 run "flavor_disk_larger_than_the_container_template_disk_is_accepted" {
@@ -336,7 +336,7 @@ run "flavor_disk_larger_than_the_container_template_disk_is_accepted" {
   }
 
   assert {
-    condition     = one(proxmox_virtual_environment_container.guest["small-lxc"].disk).size == 10
+    condition     = one(proxmox_virtual_environment_container.guest["small-lxc-runner"].disk).size == 10
     error_message = "aws/t3.nano is 10 GB and the lxc-runner template 8 GB, so the guest must plan a 10 GB disk."
   }
 }
@@ -402,4 +402,14 @@ run "role_that_makes_the_name_exactly_63_characters_is_accepted" {
     condition     = length(one(values(output.guests)).name) == 63
     error_message = "A role of 49 characters composes a 63-character name, which is a valid hostname."
   }
+}
+
+run "guest_key_that_does_not_end_in_its_template_class_is_rejected" {
+  command = plan
+
+  variables {
+    host = "case-key-class-mismatch"
+  }
+
+  expect_failures = [output.guests]
 }
