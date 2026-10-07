@@ -53,7 +53,7 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0010 | [Run the operator toolchain in WSL with pinned, verified binaries](0010-run-the-operator-toolchain-in-wsl-with-pinned-verified-binaries.md) | Accepted |
 | 0011 | [Reach Proxmox from WSL through an SSH ProxyCommand on the Windows host](0011-reach-proxmox-from-wsl-through-an-ssh-proxycommand-on-the-windows-host.md) | Accepted |
 | 0012 | [Use OpenTofu and Ansible for infrastructure as code](0012-use-opentofu-and-ansible-for-infrastructure-as-code.md) | Accepted |
-| 0013 | [Keep OpenTofu state local and encrypted until the cache service exists](0013-keep-opentofu-state-local-and-encrypted-until-the-cache-service-exists.md) | Accepted |
+| 0013 | [Keep OpenTofu state local and encrypted until the cache service exists](0013-keep-opentofu-state-local-and-encrypted-until-the-cache-service-exists.md) | Accepted, amended by 0051 |
 | 0014 | [Run host setup in one elevated pass that never reboots, with the owner in Hyper-V Administrators](0014-run-host-setup-in-one-elevated-pass-that-never-reboots-with-the-owner-in-hyper-v-administrators.md) | Accepted |
 | 0015 | [Run Docker workloads in VMs, never in privileged containers](0015-run-docker-workloads-in-vms-never-in-privileged-containers.md) | Accepted |
 | 0016 | [Scale CI with an ephemeral runner pool and overflow to hosted runners](0016-scale-ci-with-an-ephemeral-runner-pool-and-overflow-to-hosted-runners.md) | Accepted |
@@ -77,7 +77,7 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0034 | [Publish the requirements as a redacted copy of the operator's document](0034-publish-the-requirements-as-a-redacted-copy-of-the-operators-document.md) | Accepted |
 | 0035 | [Leave the storage definitions as the installer made them in Phase 2](0035-leave-the-storage-definitions-as-the-installer-made-them-in-phase-2.md) | Accepted |
 | 0036 | [Keep templates in their own pool and let the provisioner token only clone them](0036-keep-templates-in-their-own-pool-and-let-the-provisioner-token-only-clone-them.md) | Accepted |
-| 0037 | [Make the guest firewall guard reject extra enabled rules on vnet guests](0037-make-the-guest-firewall-guard-reject-extra-enabled-rules-on-vnet-guests.md) | Accepted |
+| 0037 | [Make the guest firewall guard reject extra enabled rules on vnet guests](0037-make-the-guest-firewall-guard-reject-extra-enabled-rules-on-vnet-guests.md) | Accepted, amended by 0047 |
 | 0038 | [Build golden templates with a root orchestrator, a sandboxed guest-facing step and in-guest Ansible](0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) | Accepted |
 | 0039 | [Keep templates as Proxmox templates on local-lvm, clone them linked and check clone origins before deleting one](0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) | Accepted |
 | 0040 | [Version templates with a monotonic number, a root-only current tag and automatic promotion](0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) | Accepted |
@@ -96,3 +96,5 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0053 | [Prove Phase 4 on a runner-template clone before runners exist](0053-prove-phase-4-on-a-runner-template-clone-before-runners-exist.md) | Accepted |
 | 0054 | [Run CI on hosted runners until the runner pool exists](0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md) | Accepted |
 | 0055 | [Create flavor-sized guests from a declarative list with one command](0055-create-flavor-sized-guests-from-a-declarative-list-with-one-command.md) | Accepted |
+| 0056 | [Keep one implementation of the affected-test selector](0056-keep-one-implementation-of-the-affected-test-selector.md) | Accepted |
+| 0057 | [Measure coverage with coverage.py and Pester](0057-measure-coverage-with-coverage-py-and-pester.md) | Accepted |

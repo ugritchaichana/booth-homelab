@@ -12,7 +12,7 @@ A throwaway unprivileged container and a VM on the guest vnet, created only to p
 | Control rule | tcp/22 inbound from the guest gateway, added to each clone by `r15-verify.yml` as root before probing, not by this stack |
 | VM source filter | `ipfilter-net0` holding the VM's own address |
 | Disk | the class disk size read from the Ansible role defaults (`disk_gb`); a clone cannot be smaller than its template |
-| Tags | none: Proxmox checks tag permission on `/vms/<id>` without the pool, so a pool-scoped token cannot set tags when it creates a guest |
+| Name, tags | `r15-probe-<class>-v<N>`; tags `r15-probe` and `src-<class>-v<N>`, which replace the tags the clone inherits from the template |
 | Start | created stopped, `start_on_boot` on; `r15-verify.yml` starts them |
 
 The security group is created by the `pve_firewall` role (ADR 0025), so run `site.yml` first, and at least one version of each class must be built (`homelab-template build <class>` on the host). Nothing is downloaded by this stack, so a destroy no longer needs `Datastore.Allocate` (ADR 0035 teardown gap). Changing the clone source or `full` replaces the guest (`ForceNew` in the provider), so a promotion of a new template version replaces the probe guests on the next apply. Measured on the host: the token lists the members of pool `templates` and the clones accept the control channel (requirements rows 57 to 59; ADR 0044).
@@ -30,11 +30,6 @@ Then follow `tests/isolation/README.md`. Teardown: `bash scripts/iac/tofu.sh r15
 
 ## Checks without a host
 
-```sh
-export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
-tofu -chdir=iac/tofu/stacks/r15-probe init -backend=false
-tofu -chdir=iac/tofu/stacks/r15-probe validate
-tofu -chdir=iac/tofu/stacks/r15-probe test
-```
+The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/r15-probe init -backend=false && tofu -chdir=iac/tofu/stacks/r15-probe validate && tofu -chdir=iac/tofu/stacks/r15-probe test`.
 
 `tests/policy.tftest.hcl` asserts the firewall options, the two rules, the on-boot and NIC flags, the addresses, the source filter and the clone sources (the resolved VMIDs, `full = false`, pool `homelab`, a pin) with literal values, and rejects a private key and an address outside the subnet. `tests/template_source.tftest.hcl` covers the resolution rule of the module: zero matches, two matches, a `current` tag on a non-template, a template outside the pool or the VMID block, an unknown class and a pin. The expected values are literals in the test, not read from `iac/policy/runner-class.yml`.

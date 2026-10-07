@@ -28,7 +28,7 @@ Option 1, with one rule for who owns what:
 
 - An imperative script is allowed only as a thin wrapper over one of the two.
 - The exit gates are `tofu plan -detailed-exitcode` returning 0 after apply, and a second `ansible-playbook` run reporting `changed=0` on every host (R4).
-- Tool versions are pinned in CI (`.github/workflows/iac-ci.yml:30` for OpenTofu) and in the operator bootstrap (ADR 0010).
+- Tool versions are pinned in CI (`.github/workflows/iac-ci.yml`, `tofu_version`, for OpenTofu) and in the operator bootstrap (ADR 0010).
 - Further tools (SOPS for secrets, tflint, ansible-lint) are added each with a recorded reason, not by default.
 
 ## Rationale and trade-offs
