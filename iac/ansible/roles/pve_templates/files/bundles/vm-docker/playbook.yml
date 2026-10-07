@@ -1,0 +1,135 @@
+---
+- name: Install the vm-docker class content
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - versions.yml
+  vars:
+    manifest_path: /var/lib/homelab-build/manifest.json
+    runner_dir: /opt/actions-runner
+    runner_download: "{{ downloads | selectattr('name', 'equalto', 'actions-runner') | first }}"
+  tasks:
+    - name: Install the pinned apt packages
+      ansible.builtin.apt:
+        name: "{{ apt_packages | map(attribute='name') | zip(apt_packages | map(attribute='version')) | map('join', '=') | list }}"
+        state: present
+        update_cache: true
+        allow_downgrade: true
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Write the daemon configuration
+      ansible.builtin.copy:
+        src: daemon.json
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Remove material the engine may have generated
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/docker/key.json
+        - /root/.docker
+
+    - name: Create the runner user without sudo
+      ansible.builtin.user:
+        name: runner
+        shell: /bin/bash
+        groups: docker
+        append: true
+        create_home: true
+
+    - name: Create the runner directory
+      ansible.builtin.file:
+        path: "{{ runner_dir }}"
+        state: directory
+        owner: runner
+        group: runner
+        mode: "0755"
+
+    - name: Download the runner release
+      ansible.builtin.get_url:
+        url: "{{ runner_download.url }}"
+        dest: /var/tmp/actions-runner.tar.gz
+        checksum: "sha256:{{ runner_download.sha256 }}"
+        mode: "0600"
+
+    - name: Unpack the runner
+      ansible.builtin.unarchive:
+        src: /var/tmp/actions-runner.tar.gz
+        dest: "{{ runner_dir }}"
+        remote_src: true
+        owner: runner
+        group: runner
+        creates: "{{ runner_dir }}/bin/Runner.Listener"
+
+    - name: Remove the runner tarball
+      ansible.builtin.file:
+        path: /var/tmp/actions-runner.tar.gz
+        state: absent
+
+    - name: Enable and start the container engine
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Read the installed package versions
+      ansible.builtin.command: dpkg-query -W -f '${Package} ${Version}\n'
+      register: pve_templates_installed
+      changed_when: false
+
+    - name: Read the runner version
+      ansible.builtin.command: "{{ runner_dir }}/bin/Runner.Listener --version"
+      register: pve_templates_runner_version
+      changed_when: false
+      become: true
+      become_user: runner
+
+    - name: Assert the installed versions equal versions.yml
+      ansible.builtin.assert:
+        that:
+          - (installed_map[item.name] | default('')) == item.version
+          - pve_templates_runner_version.stdout | trim == runner_download.version
+        fail_msg: "version drift for {{ item.name }}: {{ installed_map[item.name] | default('absent') }} != {{ item.version }}"
+      loop: "{{ apt_packages }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        installed_map: >-
+          {{ dict(pve_templates_installed.stdout_lines | map('split', ' ') | map('first')
+          | zip(pve_templates_installed.stdout_lines | map('split', ' ') | map('last'))) }}
+
+    - name: Assert the runner is not configured
+      ansible.builtin.stat:
+        path: "{{ runner_dir }}/.runner"
+      register: pve_templates_runner_config
+      failed_when: pve_templates_runner_config.stat.exists
+
+    - name: Hash versions.yml
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/versions.yml"
+        checksum_algorithm: sha256
+      register: pve_templates_versions_file
+
+    - name: Write the manifest
+      ansible.builtin.copy:
+        content: "{{ manifest | to_nice_json }}\n"
+        dest: "{{ manifest_path }}"
+        mode: "0600"
+      vars:
+        installed_map: >-
+          {{ dict(pve_templates_installed.stdout_lines | map('split', ' ') | map('first')
+          | zip(pve_templates_installed.stdout_lines | map('split', ' ') | map('last'))) }}
+        manifest:
+          build_id: "{{ build_id }}"
+          os_release: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+          kernel: "{{ ansible_facts['kernel'] }}"
+          docker_version: "{{ installed_map['docker.io'] }}"
+          pve_templates_runner_version: "{{ pve_templates_runner_version.stdout | trim }}"
+          versions_sha256: "{{ pve_templates_versions_file.stat.checksum }}"
+          packages: "{{ installed_map }}"
