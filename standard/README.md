@@ -1,6 +1,6 @@
 # Homelab Engineering Standard — the 100-point target
 
-**Applies to:** `ugritchaichana/booth-homelab` and any homelab built from it.
+**Applies to:** the repository `OWNER/REPO` and any homelab built from it.
 **Frame:** a baseline another team could clone and depend on. **100 = every criterion shown working, sustained.**
 **Version:** 1.0 · 2026-10-05 · Author: maintainers.
 
@@ -327,13 +327,13 @@ docs/evidence/phase<N>/               sanitized runs of the platform, cited from
 
 | Measured by | Criteria |
 |---|---|
-| CI, every pull request and weekly | 1.1, 1.2 (temp-path scan), 2.4 (scanner), 2.5, 4.2, 4.3, 4.4, 4.5, 5.1, 5.3, 5.5 (configuration) |
-| Scheduled job on the host | 1.3, 1.5, 2.1, 2.2, 2.3, 3.1 (backup age), 3.2 (alert test) |
-| Drill or one-off, logged by hand | 1.2 (canary pair), 2.4 (rotation), 3.1 (restore), 3.3, 3.4, 3.5, 4.1, 5.2, 5.5 (repeat runs) |
+| CI, every pull request and weekly | 1.1 untrusted code cannot reach persistent infrastructure; 1.2 every job starts clean (temp-path scan); 2.4 secrets lifecycle (scanner); 2.5 IaC CI beyond syntax; 4.2 documentation is accurate; 4.3 conventional layout and templates; 4.4 independent review is enforced; 4.5 changes carry evidence; 5.1 test selection is fail-closed; 5.3 pipeline telemetry; 5.5 flakiness and test resources (configuration) |
+| Scheduled job on the host | 1.3 host and neighbouring runners unreachable; 1.5 egress control; 2.1 IaC is the single source of truth; 2.2 remote state with locking; 2.3 idempotency proven by recorded runs; 3.1 backups with a timed restore (backup age); 3.2 observability and alerting (alert test) |
+| Drill or one-off, logged by hand | 1.2 every job starts clean (canary pair); 2.4 secrets lifecycle (rotation); 3.1 backups with a timed restore (restore); 3.3 CI survives losing the host; 3.4 one-command rebuild; 3.5 disaster-recovery drills; 4.1 a new engineer brings it up from the README; 5.2 every advertised path has run; 5.5 flakiness measured (repeat runs) |
 
 **Tools already in the repo that can produce evidence:** `tests/isolation/r15-probe.sh` and
-`scripts/hyperv/Test-R15Controls.ps1` (1.3), `scripts/evidence/publish.py` (stores sanitized runs under
-`docs/evidence/`), `tests/verify-affected-graph.sh` and `tests/verify-affected-graph.ps1` (5.1).
+`scripts/hyperv/Test-R15Controls.ps1` (1.3, host and neighbouring runners unreachable), `scripts/evidence/publish.py` (stores sanitized runs under
+`docs/evidence/`), `tests/verify-affected-graph.sh` (5.1, test selection is fail-closed).
 
 ---
 
@@ -357,11 +357,11 @@ docs/evidence/phase<N>/               sanitized runs of the platform, cited from
 
 A line hit by the 4.2 grep is backed when the same line holds a Markdown link to one of:
 
-1. `https://github.com/ugritchaichana/booth-homelab/actions/runs/<digits>`, optionally followed by `/job/<digits>` or
+1. `https://github.com/OWNER/REPO/actions/runs/<digits>`, optionally followed by `/job/<digits>` or
    `/attempts/<n>`;
 2. a file under `standard/evidence/` (a relative path, or a repository blob or tree URL that ends in such a path);
    the file must exist;
-3. `https://github.com/ugritchaichana/booth-homelab/blob/<40-hex sha>/<path>#L<n>`; where a git history is
+3. `https://github.com/OWNER/REPO/blob/<40-hex sha>/<path>#L<n>`; where a git history is
    available, the commit and the path must exist;
 4. a file under `docs/evidence/phase<N>/` (a relative path, or a repository blob or tree URL that ends in such a
    path); the file must exist.
@@ -435,6 +435,6 @@ records: a record under `standard/evidence/<criterion>/` cites them and states w
 | 1.5 | retired evidence (ADR 0020); ADR 0027 describes the current public-IPv4-only guest egress, a different requirement | all of the criterion as written |
 | 2.1, 2.3 | [second probe apply without drift](../docs/evidence/phase2/probe-tofu-apply2.txt), [host stack plan without changes](../docs/evidence/phase4/tofu-proxmox-host-final-plan.txt) | a scheduled drift job, two consecutive playbook runs recorded by CI |
 | 3.2 | [guest firewall guard journal](../docs/evidence/phase4/guard-after-ct-2.txt), [cache counters after the loop](../docs/evidence/phase4/metrics-after-loop.txt) | alerts and measured time to detect |
-| 5.2 | [twenty-iteration cache loop](../docs/evidence/phase4/cache-loop20-results.txt), hosted full-suite run [37355482969](https://github.com/ugritchaichana/booth-homelab/actions/runs/37355482969) | a scheduled job that exercises each path |
+| 5.2 | [twenty-iteration cache loop](../docs/evidence/phase4/cache-loop20-results.txt), hosted full-suite run 37355482969 (requirements row 15, hosted baseline) | a scheduled job that exercises each path |
 
 Rows not listed have no published evidence.

@@ -7,7 +7,7 @@
 
 ## Context
 
-Ansible and OpenTofu run in WSL (ADR 0010) and must reach the Proxmox VM at `10.99.0.2`, which sits behind a Hyper-V internal switch and NAT with port ACLs that admit the host's address only on ports 22 and 8006 (`scripts/hyperv/README.md:105`). WSL runs in NAT mode, in its own private subnet behind a different vEthernet.
+Ansible and OpenTofu run in WSL (ADR 0010) and must reach the Proxmox VM at `10.99.0.2`, which sits behind a Hyper-V internal switch and NAT with port ACLs that admit the host's address only on ports 22 and 8006 (`scripts/hyperv/README.md`, Isolation layer table, row Allow management). WSL runs in NAT mode, in its own private subnet behind a different vEthernet.
 
 Measured 2026-10-06 (after the VM was installed):
 - Direct TCP to the VM on port 22 from WSL timed out, and a direct `ssh` failed with "Connection timed out".

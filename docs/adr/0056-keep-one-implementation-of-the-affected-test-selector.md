@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-07
 - Deciders: operator
+- Decision log: D87 in docs/platform/requirements.md
 
 ## Context
 
