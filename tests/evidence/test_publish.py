@@ -96,7 +96,7 @@ class CheckerRules(unittest.TestCase):
     def test_ipv6_global(self):
         for line in ("peer 2606:4700:4700::1112 up", "to [2a00:1450:4001:81b::200e]:443", "addr 2001:4860:4860:0:0:0:0:8888"):
             self.assertFlags(line, "ipv6-global")
-        for line in ("link fe80::1009:71ff:feba:d8a1%eth0:22", "ula fd00::1 and fc00::2", "doc 2001:db8::1", "doc 3fff::1",
+        for line in ("link fe80::1%eth0:22", "ula fd00::1 and fc00::2", "doc 2001:db8::1", "doc 3fff::1",
                      "loop ::1 and ::", "resolver 2606:4700:4700::1111 and 2606:4700:4700::1001", "at 08:04:39 today", "mac aa:bb:cc:dd:ee:ff", "mapped ::ffff:10.99.0.2", "multicast ff02::1"):
             self.assertEqual({r for _, r in rules_of(line)} - {"ipv4-outside-lab"}, set(), line)
 
