@@ -118,6 +118,14 @@ expect "the seal removes the login user key" absent "$(exists "$root/home/debian
 expect "the seal removes the host keys" absent "$(exists "$root/etc/ssh/ssh_host_ed25519_key")"
 expect "the seal truncates machine-id again" "present 0" "$(exists "$root/etc/machine-id") $(wc -c < "$root/etc/machine-id" | tr -d ' ')"
 expect "the seal removes the build output and the pushed bundle" "absent absent" "$(exists "$root/var/lib/homelab-build") $(exists "$root/tmp/homelab-bundle")"
+new_root seal-user
+mkdir -p "$root/etc/sudoers.d"
+echo 'debian ALL=(ALL) NOPASSWD:ALL' > "$root/etc/sudoers.d/90-cloud-init-users"
+echo 'debian:$6$salt$hash:19000:0:99999:7:::' > "$root/etc/shadow"
+set +e; FINALIZE_ROOT="$root" sh "$seal" debian > "$root.seal.log" 2>&1; rc=$?; set -e
+expect "the seal with a non-root login user exits 0" 0 "$rc"
+expect "the seal removes the NOPASSWD sudo entry of the login user" absent "$(exists "$root/etc/sudoers.d/90-cloud-init-users")"
+expect "the seal locks the password of the login user" "debian:!\$6\$salt\$hash:19000:0:99999:7:::" "$(cat "$root/etc/shadow")"
 new_root seal-leftover
 mkdir -p "$root/home/debian/.ssh"
 chmod 0500 "$root/home/debian/.ssh"

@@ -12,7 +12,12 @@ Environment=HOME=/run/homelab-template-guest
 IPAddressDeny=any
 ProtectSystem=strict
 ProtectHome=yes
-InaccessiblePaths=/etc/pve /root
+InaccessiblePaths=/etc/pve /root /var/lib/pve-cluster
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ProtectProc=invisible
+SystemCallFilter=@system-service
 NoNewPrivileges=yes
 PrivateTmp=yes
 PrivateDevices=yes
