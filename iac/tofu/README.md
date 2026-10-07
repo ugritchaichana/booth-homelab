@@ -19,7 +19,7 @@ The host stack reads `guest_network` (`zone`, `vnet`, `cidr`, `gateway`) and, op
 
 ## Guests by flavor
 
-`stacks/guest/` creates guests whose size comes only from `flavors.json` through `modules/flavor/`. The guest list is `stacks/guest/guests.yml`, keyed host, then role; the command edits it and plans:
+`stacks/guest/` creates guests whose size comes only from `flavors.json` through `modules/flavor/`. The guest list is `stacks/guest/guests.yml`, keyed host, then `<role>-<template class>`, so one role can have a guest of each class; the command edits it and plans (with `--apply`: applies without asking, repeats once while the plan still shows changes, which a cloned container needs for its disk size):
 
 ```sh
 bash scripts/iac/new-guest.sh --flavor aws/t3.medium --template lxc-runner --role demo
