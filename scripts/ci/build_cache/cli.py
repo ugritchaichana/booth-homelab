@@ -17,7 +17,7 @@ from .application.ports import Outcome, Store
 from .application.restore import restore, stamp_extracted
 from .application.save import save
 from .domain import keys
-from .domain.policy import DEFAULT_MAX_BYTES, DEFAULT_MAX_MEMBERS, ExtractionRules, supports_safe_extraction, write_decision
+from .domain.policy import DEFAULT_MAX_BYTES, DEFAULT_MAX_MEMBERS, ExtractionRules, write_decision
 
 log = logging.getLogger("build_cache")
 
@@ -106,10 +106,6 @@ def failed(op: str, args: argparse.Namespace, status: str, detail: str) -> Outco
 
 
 def run_restore(args: argparse.Namespace) -> int:
-    if not supports_safe_extraction(RUNTIME_VERSION):
-        version = ".".join(map(str, RUNTIME_VERSION))
-        emit(failed("restore", args, "error", f"python {version} is below the patched tarfile releases, extraction refused"), args)
-        return 0
     try:
         store = make_store(args.store or os.environ.get("BUILD_CACHE_STORE"))
         if store is None:

@@ -82,6 +82,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual((code, record["status"]), (0, "error"))
         self.assertFalse((self.repo / "apps" / "backend" / "obj").exists())
 
+    def test_an_unpatched_python_still_reports_a_miss_when_nothing_would_be_extracted(self):
+        with mock.patch.object(cli, "RUNTIME_VERSION", (3, 12, 3)):
+            self.assertEqual(self.run_cli("restore")[1]["status"], "miss")
+            args = ["restore", "--kind", "dotnet-outputs", "--root", str(self.repo)]
+            with mock.patch.dict(os.environ, {}, clear=False), redirect_stdout(StringIO()) as out:
+                os.environ.pop("BUILD_CACHE_STORE", None)
+                os.environ.pop("CACHE_URL", None)
+                self.assertEqual(cli.main(args), 0)
+        self.assertEqual(json.loads(out.getvalue())["status"], "miss")
+
     def test_an_archive_with_a_member_outside_the_plan_paths_is_rejected_by_the_cli(self):
         self.run_cli("save", *self.save_args())
         shutil.rmtree(self.repo / "apps" / "backend" / "obj")
