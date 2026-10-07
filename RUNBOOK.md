@@ -480,19 +480,9 @@ gh run view <run_id> --job=<job_id> --log --repo ugritchaichana/booth-homelab
 
 For Phase 3 ephemeral runner provisioning:
 
-### 7.1 Golden Template Creation (Packer)
+### 7.1 Golden templates
 
-Run container sanitization before converting to a golden template:
-```bash
-truncate -s 0 /etc/machine-id
-rm -f /var/lib/dbus/machine-id
-rm -f /etc/ssh/ssh_host_*
-apt-get clean
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Convert to Golden Template:
-pct template 9001
-```
+Retired: the container sanitization and `pct template` steps that stood here belonged to the previous host. Golden templates are built, verified, promoted and rolled back by the template framework, section 9 (ADR 0038 to ADR 0041).
 
 ### 7.2 OpenTofu Ephemeral Runner Provisioning
 
@@ -665,7 +655,7 @@ The command swaps `current` and `previous` and journals `ROLLBACK class=... curr
 | Orchestrator, configuration | `/usr/local/sbin/homelab-template`, `/etc/homelab-template/config.json` (rendered by the role, do not edit) |
 | Root state, manifests, failure markers | `/var/lib/homelab/templates/<class>.json`, `manifests/<class>/v<N>.json`, `failed/<class>` |
 | Guest-facing step and its work directory | `/usr/local/libexec/homelab-template/guest-step`, `/var/lib/homelab-template-work` (the key lives here only while a build runs) |
-| Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; no timer yet |
+| Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; `homelab-template-weekly.timer` and `.service` (weekly rebuild, section 9.8) |
 
 ### 9.7 Checks without a host
 
@@ -676,7 +666,7 @@ bash tests/isolation/test-template-finalize.sh
 bash tests/isolation/test-template-units.sh
 ```
 
-They run the real scripts against fakes of `pvesh`, `qm`, `pct`, `lvs`, `systemctl` and `ssh`, so they prove the logic and the unit file, not Proxmox's behaviour. The host proof (a build of each class, a rollback, the 403 checks with the provisioner token) is a later step; the arguments of `qm create --import-from`, `qm resize`, `pct create --ssh-public-keys` and the tag edit on a template are unverified until then.
+They run the real scripts against fakes of `pvesh`, `qm`, `pct`, `lvs`, `systemctl` and `ssh`, so they prove the logic and the unit file, not Proxmox's behaviour. The host proof on 2026-10-07 built both classes on pve01, retained two versions per class, rolled back with one command, checked the provisioner token (403 on deleting or retagging a template, 200 on cloning it) and ran the R15 baseline on clones of both templates; the measured values are rows 55 to 60 of `docs/platform/requirements.md`.
 
 
 ### 9.8 Host integration: bundles, base images, snippets content, weekly rebuild
@@ -696,15 +686,17 @@ The converge:
 
 Check storage content:
 
-    pvesm config local
+    pvesh get /storage/local --output-format json
 
-The `content` line must hold `snippets` and still hold `iso,vztmpl,backup,import`.
+The `content` field must hold `snippets` and still hold `iso,vztmpl,backup,import`.
 
 Check the images:
 
     ls -l /var/lib/vz/template/cache/ /var/lib/vz/import/
 
 #### 9.8.2 See the timer and the last build
+
+Role: operator, on pve01 through `$pve sudo` (`$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`).
 
     systemctl list-timers homelab-template-weekly.timer
     systemctl status homelab-template-weekly.service
@@ -774,15 +766,18 @@ Content lives in `iac/ansible/roles/pve_templates/files/bundles/vm-docker/` (`ve
 
 `homelab-template build vm-docker`. A drift between installed versions and `versions.yml` fails the build before conversion.
 
-#### Check the class works on a clone (role: operator with provisioner access, then root on the clone)
+#### Check the class works on a clone (role: operator, WSL)
 
-1. Clone the current `vm-docker` template to a test VMID in pool `homelab` (consumer procedure: ADR 0036).
-2. Start it and log in as `runner`.
-3. `docker run --rm hello-world` must print "Hello from Docker!".
-4. `grep -cE 'svm|vmx' /proc/cpuinfo` must print 0.
-5. `ls /opt/actions-runner/.runner /opt/actions-runner/.credentials 2>&1` must report both missing.
-6. `ss -ltn | grep -c 2375` must print 0 (no TCP listener).
-7. Destroy the test clone.
+Templates are sealed (no login key, ssh off), so use the R15 probe stack, which clones the current `vm-docker` template as VM 9102 and opens a probe-only channel (section 11.2 steps 1 to 4). Then, with `c` set to `$pve sudo ssh -i /root/.ssh/r15_probe_ed25519 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=accept-new debian@10.99.16.22`:
+
+1. `$c 'sudo docker run --rm hello-world'` must print "Hello from Docker!".
+2. `$c "grep -cE 'svm|vmx' /proc/cpuinfo"` must print 0.
+3. `$c 'ls /opt/actions-runner/.runner /opt/actions-runner/.credentials'` must report both missing.
+4. `$c 'ss -ltn | grep -c :2375'` must print 0 (no TCP listener).
+5. `$c 'sudo -n -l -U runner'` must say the runner user may not run sudo.
+6. Tear down with section 11.2 step 7.
+
+The probe's channel relies on the default user's sudo, which cloud-init restores at a clone's first boot; runner clones must not keep it (a Phase 5 entry gate).
 
 Decision record: ADR 0044 (with ADR 0036, 0039, 0040). Commands run from the operator's WSL shell at the repository root; `$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`, as in section 9.
 
