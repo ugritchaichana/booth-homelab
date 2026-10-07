@@ -480,19 +480,9 @@ gh run view <run_id> --job=<job_id> --log --repo ugritchaichana/booth-homelab
 
 For Phase 3 ephemeral runner provisioning:
 
-### 7.1 Golden Template Creation (Packer)
+### 7.1 Golden templates
 
-Run container sanitization before converting to a golden template:
-```bash
-truncate -s 0 /etc/machine-id
-rm -f /var/lib/dbus/machine-id
-rm -f /etc/ssh/ssh_host_*
-apt-get clean
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Convert to Golden Template:
-pct template 9001
-```
+Retired: the container sanitization and `pct template` steps that stood here belonged to the previous host. Golden templates are built, verified, promoted and rolled back by the template framework, section 9 (ADR 0038 to ADR 0041).
 
 ### 7.2 OpenTofu Ephemeral Runner Provisioning
 
@@ -665,7 +655,7 @@ The command swaps `current` and `previous` and journals `ROLLBACK class=... curr
 | Orchestrator, configuration | `/usr/local/sbin/homelab-template`, `/etc/homelab-template/config.json` (rendered by the role, do not edit) |
 | Root state, manifests, failure markers | `/var/lib/homelab/templates/<class>.json`, `manifests/<class>/v<N>.json`, `failed/<class>` |
 | Guest-facing step and its work directory | `/usr/local/libexec/homelab-template/guest-step`, `/var/lib/homelab-template-work` (the key lives here only while a build runs) |
-| Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; no timer yet |
+| Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; `homelab-template-weekly.timer` and `.service` (weekly rebuild, section 9.8) |
 
 ### 9.7 Checks without a host
 
@@ -676,7 +666,205 @@ bash tests/isolation/test-template-finalize.sh
 bash tests/isolation/test-template-units.sh
 ```
 
-They run the real scripts against fakes of `pvesh`, `qm`, `pct`, `lvs`, `systemctl` and `ssh`, so they prove the logic and the unit file, not Proxmox's behaviour. The host proof (a build of each class, a rollback, the 403 checks with the provisioner token) is a later step; the arguments of `qm create --import-from`, `qm resize`, `pct create --ssh-public-keys` and the tag edit on a template are unverified until then.
+They run the real scripts against fakes of `pvesh`, `qm`, `pct`, `lvs`, `systemctl` and `ssh`, so they prove the logic and the unit file, not Proxmox's behaviour. The host proof on 2026-10-07 built both classes on pve01, retained two versions per class, rolled back with one command, checked the provisioner token (403 on deleting or retagging a template, 200 on cloning it) and ran the R15 baseline on clones of both templates; the measured values are rows 55 to 60 of `docs/platform/requirements.md`.
+
+
+### 9.8 Host integration: bundles, base images, snippets content, weekly rebuild
+
+Role `pve_templates` (`iac/ansible/roles/pve_templates`), run on the Proxmox host from the repository root. Decision: ADR 0041.
+
+#### 9.8.1 Converge (role pve_templates, as root through Ansible)
+
+    bash scripts/iac/ansible.sh iac/ansible/playbooks/site.yml -l pve01
+
+The converge:
+- deploys every `files/bundles/<class>/` to `/usr/local/share/homelab-template/bundles/<class>/` (root-owned);
+- downloads each class base image and fails on a sha512 mismatch;
+- adds `snippets` to the content of storage `local`, keeping the existing types;
+- installs and enables the weekly timer;
+- starts the build of any class whose `versions.yml` changed, without waiting (the first converge starts every class).
+
+Check storage content:
+
+    pvesh get /storage/local --output-format json
+
+The `content` field must hold `snippets` and still hold `iso,vztmpl,backup,import`.
+
+Check the images:
+
+    ls -l /var/lib/vz/template/cache/ /var/lib/vz/import/
+
+#### 9.8.2 See the timer and the last build
+
+Role: operator, on pve01 through `$pve sudo` (`$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`).
+
+    systemctl list-timers homelab-template-weekly.timer
+    systemctl status homelab-template-weekly.service
+    journalctl -u 'homelab-template-build@*' -u homelab-template-weekly.service --since "7 days ago"
+    journalctl -u homelab-template-build@lxc-runner.service -n 200
+    systemctl list-units 'homelab-template-failure@*' --all
+
+A build that failed leaves a `homelab-template-failure@<class>.service` run; the weekly service itself still ends green.
+
+Run one class by hand (root, on the host):
+
+    systemctl start --no-block homelab-template-build@<class>.service
+
+#### 9.8.3 Bump a base image pin
+
+1. Find the new file and its sha512 from the vendor index (`SHA512SUMS` next to the Debian cloud image, the `aplinfo` index of the Proxmox template mirror). Debian images: use a dated directory, never `latest`.
+2. Edit `pve_templates_base_images` in `iac/ansible/roles/pve_templates/defaults/main.yml` (`url`, `sha512`) and `base:` in `pve_templates_classes` so the file name matches. The role asserts that the url file name equals the base volume name.
+3. Open a PR; after merge run the converge from step 1. The old image file stays on the host until removed by hand; delete it only after the class built from the new one.
+4. Bump the class `versions.yml` when the new image should produce a new template; the converge then starts that build.
+
+### 9.9 Bump a pinned toolchain in the lxc-runner template
+
+Role: operator with write access to the repository. All files are under `iac/ansible/roles/pve_templates/files/bundles/lxc-runner/`. Edit only `versions.yml` (plus `scan-allowlist.txt` when the scan asks). Work on a branch and open a pull request; the repository CI runs the content test.
+
+Each bump changes three fields together: `version`, `url`, and the hash.
+
+1. .NET SDK (entries `dotnet_sdk_8`, `dotnet_sdk_10`).
+   - Role: operator. Command: `curl -fsSL https://builds.dotnet.microsoft.com/dotnet/release-metadata/8.0/releases.json -o releases-8.0.json` (use `10.0` for the other).
+   - Read the hash and url: `jq -r '.releases[0].sdk.files[] | select(.rid=="linux-x64" and (.name|test("tar.gz"))) | .url, .hash' releases-8.0.json`. The hash is sha512; put it in `sha512:`.
+   - Check the file yourself after download: `sha512sum dotnet-sdk-<version>-linux-x64.tar.gz` must equal the pinned value. Signature check: Microsoft publishes the hash inside the metadata served over TLS from its own host; the pin is that hash.
+   - .NET 8 end of support is 2026-11-10 (`end_of_support.dotnet_sdk_8`). After that date, remove `dotnet_sdk_8` and the matching line in the playbook assert in the same pull request, after the repository stops targeting 8.0.x.
+2. Node 22 (entry `nodejs`).
+   - Command: `curl -fsSLO https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt` and `curl -fsSLO https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt.asc`. Read the version from the file names, then pin by exact version, never by the `latest-v22.x` path: url `https://nodejs.org/dist/v<version>/node-v<version>-linux-x64.tar.gz`.
+   - Signature: import the release keys listed in the `nodejs/release-keys` repository, then `gpg --verify SHASUMS256.txt.asc SHASUMS256.txt`. Do this at pin time on the operator machine, never on pve01.
+   - Hash: `grep 'node-v<version>-linux-x64.tar.gz$' SHASUMS256.txt` (sha256) goes in `sha256:`.
+3. `actions/runner` (entry `actions_runner`).
+   - Command: `gh api repos/actions/runner/releases/latest --jq .body` and take the sha256 between `BEGIN SHA linux-x64` and `END SHA linux-x64`. Url: `https://github.com/actions/runner/releases/download/v<version>/actions-runner-linux-x64-<version>.tar.gz`.
+   - The service stops queuing jobs to a runner more than 30 days behind a critical release, so keep the weekly rebuild running and bump within the month.
+4. Run the check locally (Linux or WSL): `bash tests/isolation/test-template-content.sh`. It must end with `OK:`.
+5. If the build later stops with `SCAN FAILED ... secret pattern: <path> sha256=<hash>` for a file inside a Node or runner directory, open the file. If it is the npm config help text or the definitions file with a placeholder key, add the line `<sha256>  <path>` to `scan-allowlist.txt` in the same pull request. Any other file is a finding: do not allowlist it.
+6. Merge. The next template build picks the new `versions.yml` up because the build copies the whole `bundles/lxc-runner/` directory into the guest; trigger it with the build command the framework section of `RUNBOOK.md` gives, or wait for the weekly timer. The build fails when the installed versions differ from `versions.yml`; the promotion step prints the manifest diff against the previous version.
+7. Verify the result: read the new version's manifest and check `toolchains` and `versions_sha256` equal `sha256sum versions.yml` of the merged commit.
+
+Rollback of a bad bump: revert the pull request, or switch the class back with the framework's one-command rollback (`RUNBOOK.md`, golden templates).
+
+Named gaps (not installed on purpose): `mc` (Phase 4 cache decision), `pwsh`, `gh`, Docker.
+
+### 9.10 The vm-docker class
+
+Content lives in `iac/ansible/roles/pve_templates/files/bundles/vm-docker/` (`versions.yml`, `daemon.json`, `playbook.yml`). Decision: ADR 0043. Build framework: ADR 0038, versioning and rollback: ADR 0040.
+
+#### Bump the container engine (role: operator, on a workstation)
+
+1. Find the current trixie versions: `apt-cache policy docker.io containerd runc` on a Debian 13 host after `apt-get update`.
+2. Edit the three `version:` values in `bundles/vm-docker/versions.yml`.
+3. `bash tests/isolation/test-template-content-vm.sh` (must print `all passed`).
+4. Commit, open a PR, merge. The next scheduled rebuild (or a manual one) picks it up.
+
+#### Bump the runner (role: operator, on a workstation)
+
+1. Pick the release at https://github.com/actions/runner/releases; copy the `linux-x64` sha256 from the release notes.
+2. Edit `version`, `url` and `sha256` of the `actions-runner` entry in `versions.yml` (the version appears in the URL twice).
+3. Verify the hash yourself: `curl -sLO <url>` then `sha256sum <file>` equals the pinned value.
+4. Run the test from the engine steps, then commit and merge.
+
+#### Build (role: root on pve01)
+
+`homelab-template build vm-docker`. A drift between installed versions and `versions.yml` fails the build before conversion.
+
+#### Check the class works on a clone (role: operator, WSL)
+
+Templates are sealed (no login key, ssh off), so use the R15 probe stack, which clones the current `vm-docker` template as VM 9102 and opens a probe-only channel (section 11.2 steps 1 to 4). Then, with `c` set to `$pve sudo ssh -i /root/.ssh/r15_probe_ed25519 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=accept-new debian@10.99.16.22`:
+
+1. `$c 'sudo docker run --rm hello-world'` must print "Hello from Docker!".
+2. `$c "grep -cE 'svm|vmx' /proc/cpuinfo"` must print 0.
+3. `$c 'ls /opt/actions-runner/.runner /opt/actions-runner/.credentials'` must report both missing.
+4. `$c 'ss -ltn | grep -c :2375'` must print 0 (no TCP listener).
+5. `$c 'sudo -n -l -U runner'` must say the runner user may not run sudo.
+6. Tear down with section 11.2 step 7.
+
+The probe's channel relies on the default user's sudo, which cloud-init restores at a clone's first boot; runner clones must not keep it (a Phase 5 entry gate).
+
+Decision record: ADR 0044 (with ADR 0036, 0039, 0040). Commands run from the operator's WSL shell at the repository root; `$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`, as in section 9.
+
+## 10. Consuming a template (OpenTofu)
+
+A consumer never names a VMID. It asks the module `iac/tofu/modules/proxmox/template-source` for a class (`lxc-runner` or `vm-docker`) and gets the VMID of the one template that carries the marker `homelab-template`, the class and the tag `current`. The plan stops (nothing is created) unless all of these hold: exactly one guest matches, it is a template, it is a member of pool `templates`, and its VMID lies in the class block (9200-9299 and 9300-9399). A pin replaces `current` with the tag `v<N>` and is checked the same way.
+
+### 10.1 Check what a consumer will resolve
+
+| Step | Who and where | Command or check |
+|---|---|---|
+| See the host's own view of the rule | operator, WSL | `$pve sudo homelab-template status`: exit 0 and one `current=` per class means a consumer resolves both classes |
+| Preview the consumer's resolution | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 plan` and read the `clone` lines of the two probe guests; the output `template_sources` lists class to VMID |
+| Read an error | operator | `Expected exactly one <class> template ... found 0` means no `current` (a build or a tag move is in progress, or none was ever built); `found 2` means two guests carry the tag, run `homelab-template repair <class>`; `is not a template`, `is not a member of pool templates`, `is outside the VMID block` name the one rule that failed |
+
+### 10.2 Pin a version
+
+A pin makes a consumer clone version N whatever `current` says. The pinned version must still exist: retention keeps only `current` and `previous` (ADR 0039).
+
+1. Find the versions that exist. Operator, WSL: `$pve sudo homelab-template status` (current and previous are named) and `$pve sudo qm list` / `$pve sudo pct list` (names `tmpl-<class>-v<N>`).
+2. Set the pin for one run. Operator, WSL: `export TF_VAR_template_pins='{"lxc-runner":1}'` (several classes: `'{"lxc-runner":1,"vm-docker":2}'`), then `bash scripts/iac/tofu.sh r15-probe pve01 plan`. The `clone` source of the guest changes to the pinned VMID.
+3. Apply it. Operator, WSL: `bash scripts/iac/tofu.sh r15-probe pve01 apply`. The guest is replaced, not edited in place, because the provider forces a new guest when the clone source changes.
+4. To pin permanently, put the same map in the consumer's variables file in the repository and review it like any change. Remove the pin (`unset TF_VAR_template_pins`, or delete the line) to follow `current` again.
+
+### 10.3 Roll back: the pin or the root command
+
+| | Pin (`template_pins`) | Root command (`homelab-template rollback <class>`) |
+|---|---|---|
+| Who runs it | operator, WSL, in the consumer's variables | operator, on the host as root |
+| What it moves | only the consumer that sets the pin | the `current` tag for every consumer that follows it |
+| Needs host access | no (API read only) | yes |
+| Survives a new build | yes: a new build promotes `current` but the pin holds | no: the next build promotes on top of the rolled-back version |
+| Needs the old version to exist | yes, N must still be present | yes, it is `previous` by definition |
+| Undo | remove the pin | `homelab-template rollback <class>` again swaps back |
+
+Use the pin when one consumer must hold a version while the fleet moves on, or when you have no host access. Use the root command when the new `current` is bad for everyone: `$pve sudo homelab-template rollback lxc-runner`, then `$pve sudo homelab-template status lxc-runner` (section 9.4). After a root rollback, a consumer without a pin resolves the previous version on its next plan; a guest already cloned from the bad version keeps running until it is replaced (apply again).
+
+## 11. Run the R15 probe on template clones
+
+The probe guests (VMIDs 9101 and 9102) are linked clones of the current `lxc-runner` and `vm-docker` templates in pool `homelab`. The rest of the procedure (keygen, targets file, phases, teardown) is `iac/tofu/stacks/r15-probe/README.md` and `tests/isolation/README.md`; this section adds what changed.
+
+Templates are sealed with sshd off (ADR 0038); the probe reaches its two clones through a probe-only channel, section 11.1.
+
+
+### 11.1 Control channel into the probe clones
+
+Decision record: ADR 0044 addendum. Templates stay sealed (ADR 0038); only the two probe clones get a channel. `$pve` is `ssh -F ~/.config/homelab/ssh_config pve01`.
+
+| Step | Who and where | Command or check |
+|---|---|---|
+| Precondition | operator, WSL | storage `local` allows `snippets`: `$pve sudo pvesm status --content snippets` lists `local` |
+| 1. Generate the key and the vendor-data snippet | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen`; it prints `TF_VAR_probe_ssh_public_key=...` and writes `/var/lib/vz/snippets/r15-probe-vendor.yaml` |
+| 2. Check the snippet | operator, WSL | `$pve sudo cat /var/lib/vz/snippets/r15-probe-vendor.yaml` shows `#cloud-config` and the public key only |
+| 3. Apply the probe stack | operator, WSL | `export TF_VAR_probe_ssh_public_key='ssh-ed25519 ...'` then `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
+| 4. Run a phase | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<dir>`; the play opens the container's channel with `pct exec`, the VM's channel comes from the snippet |
+
+- Run step 1 before step 3; without the file the VM clone fails to start.
+- The key changes only if `/root/.ssh/r15_probe_ed25519` is deleted; if so, rerun step 1 and replace the VM (`tofu apply -replace=proxmox_virtual_environment_vm.probe`) because vendor data runs at first boot only.
+- `pct exec` is used only for the probe guests in `probe.yml`, never for runners.
+- Failure reading: `wait_for` timeout on 10.99.16.22:22 means the snippet was not applied (check `$pve sudo qm config 9102 | grep cicustom`); on 10.99.16.21:22 means the `pct exec` task did not start `ssh.service` (check its output).
+- Rollback: `tofu destroy` of the stack; delete `/var/lib/vz/snippets/r15-probe-vendor.yaml` (contains only a public key).
+
+### 11.2 Procedure
+
+| # | Step | Who and where | Command or check |
+|---|---|---|---|
+| 1 | At least one version of each class is built and consumers resolve | operator, WSL | `$pve sudo homelab-template status` exits 0 |
+| 2 | The base images are no longer fetched by this stack; nothing to download | operator | none; the stack has no `proxmox_download_file` |
+| 3 | Create the ephemeral key on the host | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen`, then `export TF_VAR_probe_ssh_public_key='<printed key>'` |
+| 4 | Create the clones | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 init`, then `bash scripts/iac/tofu.sh r15-probe pve01 apply` |
+| 5 | Prove the clone source on the host | operator, WSL | `$pve sudo pct config 9101` and `$pve sudo qm config 9102` list no `template:`; `$pve sudo lvs -o lv_name,origin pve` shows the clone volumes with an `origin` of `base-<template vmid>-disk-N` |
+| 6 | Run the baseline | operator, WSL | `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 -e r15_phase=baseline -e r15_output_dir=<results directory>`; every `PROBE` row holds and `SUMMARY` exits 0 |
+| 7 | Tear down | operator, WSL | `bash scripts/iac/tofu.sh r15-probe pve01 destroy`, then delete the private key on the host (`$pve sudo rm /root/.ssh/r15_probe_ed25519`). No `pvesm free` is needed any more: no downloaded volume exists |
+
+Pin the probe to a version (to test the previous template): section 10.2 with the probe stack. A promoted new version replaces both probe guests on the next apply (the provider forces a new guest on a changed clone source); that is expected for this throwaway stack.
+
+While a probe clone of version N exists, retention will refuse to delete version N (journal: `REFUSED` with the clone's volume). Destroy the probe (step 7) before expecting space back.
+
+### 11.3 Checks without a host
+
+```sh
+export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
+tofu -chdir=iac/tofu/stacks/r15-probe init -backend=false
+tofu -chdir=iac/tofu/stacks/r15-probe test
+```
+
+`tests/template_source.tftest.hcl` is the table of refusals (zero, two, non-template, outside the pool or block, unknown class, pin); `tests/policy.tftest.hcl` pins the clone sources and `full = false`.
 
 ---
 
