@@ -138,6 +138,28 @@ class CliTests(unittest.TestCase):
         record = json.loads(out.getvalue())
         self.assertEqual((record["status"], record["detail"]), ("miss", "no store configured"))
 
+    def test_a_corrupt_stats_line_does_not_stop_a_save(self):
+        self.stats.write_text("{not json\n", encoding="utf-8")
+        code, record = self.run_cli("save", *self.save_args())
+        self.assertEqual((code, record["status"]), (0, "saved"))
+
+    def test_a_corrupt_stats_line_next_to_a_valid_hit_still_counts_the_hit(self):
+        self.run_cli("save", *self.save_args())
+        self.assertEqual(self.run_cli("restore")[1]["status"], "hit")
+        with open(self.stats, "a", encoding="utf-8") as handle:
+            handle.write("{not json\n[1]\n")
+        self.assertEqual(self.run_cli("save", *self.save_args())[1]["status"], "exists")
+
+    def test_a_tool_version_timeout_is_a_miss_on_restore_and_a_skip_on_save(self):
+        timeout = subprocess.TimeoutExpired(["dotnet", "--version"], 60)
+        with mock.patch.object(environment, "tool_version", side_effect=timeout):
+            code, record = self.run_cli("restore")
+            self.assertEqual((code, record["status"]), (0, "miss"))
+            self.assertIn("cannot derive key", record["detail"])
+            code, record = self.run_cli("save", *self.save_args())
+            self.assertEqual((code, record["status"]), (0, "skipped"))
+            self.assertIn("cannot derive key", record["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()

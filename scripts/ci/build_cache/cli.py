@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import os
+import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from .domain.policy import DEFAULT_MAX_BYTES, DEFAULT_MAX_MEMBERS, ExtractionRul
 log = logging.getLogger("build_cache")
 
 RUNTIME_VERSION = tuple(sys.version_info[:3])
+FAIL_OPEN = (RuntimeError, ValueError, OSError, subprocess.SubprocessError)
 DEFAULT_INPUT_PATHS = ["apps/backend", "apps/fixtures"]
 LOCKFILE_SCOPE = {"nuget": ("apps/backend", "packages.lock.json"), "node_modules": ("apps/frontend", "package-lock.json")}
 
@@ -112,7 +114,7 @@ def run_restore(args: argparse.Namespace) -> int:
             emit(failed("restore", args, "miss", "no store configured"), args)
             return 0
         plan = build_plan(args, discover_outputs=False)
-    except (RuntimeError, ValueError, OSError) as exc:
+    except FAIL_OPEN as exc:
         emit(failed("restore", args, "miss", f"cannot derive key: {exc}"), args)
         return 0
     hook = (lambda names: stamp_extracted(plan.artifact_root, names)) if plan.is_output else None
@@ -136,10 +138,10 @@ def run_save(args: argparse.Namespace) -> int:
             emit(failed("save", args, "skipped", decision.reason), args)
             return 0
         plan = build_plan(args, discover_outputs=True)
-    except (RuntimeError, ValueError, OSError) as exc:
+        hit = restored_hit(args, plan.key)
+    except FAIL_OPEN as exc:
         emit(failed("save", args, "skipped", f"cannot derive key: {exc}"), args)
         return 0
-    hit = restored_hit(args, plan.key)
     emit(save(args.kind, plan.key, plan.artifact_root, plan.paths, store, TarArchiver(), decision, hit), args)
     return 0
 
@@ -151,8 +153,11 @@ def restored_hit(args: argparse.Namespace, key: str) -> bool:
         return False
     status = None
     for line in Path(args.stats_file).read_text(encoding="utf-8").splitlines():
-        record = json.loads(line) if line.strip() else {}
-        if record.get("op") == "restore" and record.get("kind") == args.kind and record.get("key") == keys.short_key(key):
+        try:
+            record = json.loads(line) if line.strip() else {}
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict) and record.get("op") == "restore" and record.get("kind") == args.kind and record.get("key") == keys.short_key(key):
             status = record["status"]
     return status == "hit"
 
