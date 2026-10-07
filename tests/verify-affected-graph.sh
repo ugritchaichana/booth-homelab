@@ -24,6 +24,7 @@ trap 'exit 143' TERM
 WORK="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/selector-harness.XXXXXX")"
 WORK="$(cd "$WORK" && pwd -P)"
 ROOT_DIR="$WORK/apps/backend"
+CHECKOUT="$WORK"
 
 echo "=========================================================="
 echo "   Verification: Bash Transitive Graph Engine (exact sets) "
@@ -31,10 +32,6 @@ echo "=========================================================="
 echo "Source Repository: $REPO_ROOT"
 echo "Selector Script:   $SELECTOR_SH"
 echo "Disposable Clone:  $WORK"
-
-case "$ROOT_DIR" in
-    *[Tt][Ee][Ss][Tt]*) echo "[FAIL] Clone path contains 'test'; the selector's path-based test-project filter would match every project: $ROOT_DIR" >&2; exit 1 ;;
-esac
 
 git clone --quiet --no-hardlinks "$REPO_ROOT" "$WORK"
 git -C "$WORK" config user.name "Harness Test Runner"
@@ -53,7 +50,7 @@ fmt_set() {
 OUT=""
 run_selector() {
     local rc=0
-    OUT="$(cd "$WORK" && bash "$SELECTOR_SH" "$1" "$2" "$ROOT_DIR" "--dry-run" 2>&1)" || rc=$?
+    OUT="$(cd "$CHECKOUT" && bash "$SELECTOR_SH" "$1" "$2" "$CHECKOUT/apps/backend" "--dry-run" 2>&1)" || rc=$?
     if [ "$rc" -ne 0 ]; then
         echo "$OUT" >&2
         fail "$LABEL: selector exited with code $rc"
@@ -87,9 +84,9 @@ BILLING_UNIT="Billing.Api.UnitTests.csproj"
 ORDER_UNIT="Order.Api.UnitTests.csproj"
 ORDER_INTEGRATION="Order.Api.IntegrationTests.csproj"
 
-LABEL="SCENARIO 1"
+LABEL="leaf project"
 echo ""
-echo ">>> [SCENARIO 1] Committed leaf project: Billing.Api/InvoiceGenerator.cs..."
+echo ">>> [$LABEL] Committed leaf project: Billing.Api/InvoiceGenerator.cs..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "// Leaf edit trigger" >> "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
 git -C "$WORK" add -- apps/backend/src/Billing.Api/InvoiceGenerator.cs
@@ -97,9 +94,9 @@ git -C "$WORK" commit --quiet -m "leaf edit"
 run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set "$BILLING_UNIT" "$ORDER_INTEGRATION"
 
-LABEL="SCENARIO 2"
+LABEL="root domain propagation"
 echo ""
-echo ">>> [SCENARIO 2] Committed root domain: Core.Domain/Money.cs (transitive propagation)..."
+echo ">>> [$LABEL] Committed root domain: Core.Domain/Money.cs (transitive propagation)..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "// Root domain edit trigger" >> "$ROOT_DIR/src/Core.Domain/Money.cs"
 git -C "$WORK" add -- apps/backend/src/Core.Domain/Money.cs
@@ -107,9 +104,9 @@ git -C "$WORK" commit --quiet -m "domain edit"
 run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set "$ORDER_UNIT" "$ORDER_INTEGRATION"
 
-LABEL="SCENARIO 3"
+LABEL="docs only"
 echo ""
-echo ">>> [SCENARIO 3] Committed documentation-only file: docs/test-harness-doc.md..."
+echo ">>> [$LABEL] Committed documentation-only file: docs/test-harness-doc.md..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 mkdir -p "$WORK/docs"
 echo "# Docs only change" > "$WORK/docs/test-harness-doc.md"
@@ -119,9 +116,9 @@ run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set
 assert_message "Documentation-only change detected. Skipping test execution."
 
-LABEL="SCENARIO 4"
+LABEL="unmappable change fails closed"
 echo ""
-echo ">>> [SCENARIO 4] Committed unmappable non-doc: scripts/ci/probe.sh (fail-closed)..."
+echo ">>> [$LABEL] Committed unmappable non-doc: scripts/ci/probe.sh (fail-closed)..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 mkdir -p "$WORK/scripts/ci"
 printf '#!/bin/bash\necho probe\n' > "$WORK/scripts/ci/probe.sh"
@@ -131,9 +128,9 @@ run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
 assert_message "Unmappable non-documentation change detected; selecting FULL test suite"
 
-LABEL="SCENARIO 5"
+LABEL="shared build config"
 echo ""
-echo ">>> [SCENARIO 5] Committed shared build config: Directory.Build.props (fail-closed)..."
+echo ">>> [$LABEL] Committed shared build config: Directory.Build.props (fail-closed)..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "<!-- Shared build config probe -->" >> "$ROOT_DIR/Directory.Build.props"
 git -C "$WORK" add -- apps/backend/Directory.Build.props
@@ -142,9 +139,9 @@ run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
 assert_message "Shared configuration modified; selecting all test suites"
 
-LABEL="SCENARIO 6"
+LABEL="commit range"
 echo ""
-echo ">>> [SCENARIO 6] Two-commit range (Core.Domain, then Billing.Api)..."
+echo ">>> [$LABEL] Two-commit range (Core.Domain, then Billing.Api)..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "// Range test 1" >> "$ROOT_DIR/src/Core.Domain/Money.cs"
 git -C "$WORK" add -- apps/backend/src/Core.Domain/Money.cs
@@ -155,9 +152,9 @@ git -C "$WORK" commit --quiet -m "range commit 2 touching Billing.Api"
 run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
 
-LABEL="SCENARIO 7"
+LABEL="shared config plus mapped project"
 echo ""
-echo ">>> [SCENARIO 7] One commit: Directory.Build.props plus mappable Billing.Api (shared config widens the set)..."
+echo ">>> [$LABEL] One commit: Directory.Build.props plus mappable Billing.Api (shared config widens the set)..."
 BASE="$(git -C "$WORK" rev-parse HEAD)"
 echo "<!-- Shared build config probe 2 -->" >> "$ROOT_DIR/Directory.Build.props"
 echo "// Mixed edit trigger" >> "$ROOT_DIR/src/Billing.Api/InvoiceGenerator.cs"
@@ -167,7 +164,25 @@ run_selector "$BASE" "$(git -C "$WORK" rev-parse HEAD)"
 assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
 assert_message "Shared configuration modified; selecting all test suites"
 
+LABEL="checkout path contains test"
+echo ""
+echo ">>> [$LABEL] Unmappable non-doc change in a checkout whose path contains 'test' (name-only test filter)..."
+CHECKOUT="$WORK/clone-under-test"
+git clone --quiet --no-hardlinks "$WORK" "$CHECKOUT"
+git -C "$CHECKOUT" config user.name "Harness Test Runner"
+git -C "$CHECKOUT" config user.email "harness@booth-homelab.local"
+git -C "$CHECKOUT" config commit.gpgsign false
+BASE="$(git -C "$CHECKOUT" rev-parse HEAD)"
+mkdir -p "$CHECKOUT/scripts/ci"
+printf '#!/bin/bash\necho probe two\n' > "$CHECKOUT/scripts/ci/probe-two.sh"
+git -C "$CHECKOUT" add -- scripts/ci/probe-two.sh
+git -C "$CHECKOUT" commit --quiet -m "probe script in a path containing test"
+run_selector "$BASE" "$(git -C "$CHECKOUT" rev-parse HEAD)"
+assert_exact_set "$BILLING_UNIT" "$ORDER_UNIT" "$ORDER_INTEGRATION"
+assert_message "Directly Modified Projects (3):"
+assert_message "Total Transitive Projects Affected: 3"
+
 echo ""
 echo "=========================================================="
-echo "   ALL 7 SCENARIOS PASSED (EXACT SETS MATCH THE GRAPH)    "
+echo "   ALL SCENARIOS PASSED (EXACT SETS MATCH THE GRAPH)      "
 echo "=========================================================="

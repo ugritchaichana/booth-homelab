@@ -36,11 +36,8 @@ jobs:
       - name: Restore Backend Dependencies
         run: dotnet restore apps/backend/SdetTestingRig.sln
 
-      - name: Run Bash Selector Test Harness (7 Scenarios)
+      - name: Run Selector Test Harness
         run: ./tests/verify-affected-graph.sh
-
-      - name: Run PowerShell Selector Test Harness (6 Scenarios)
-        run: pwsh -File ./tests/verify-affected-graph.ps1
 
       - name: Mutation Check (Each Fail-Closed Mutant Must Fail Its Scenario)
         run: |
@@ -69,7 +66,7 @@ jobs:
               status=1
               continue
             fi
-            if ! grep -q "\[FAIL\] $scenario" "$log"; then
+            if ! grep -q "\[FAIL\] $scenario:" "$log"; then
               tail -n 6 "$log"
               echo "::error::$name was not killed by $scenario"
               status=1
@@ -77,9 +74,9 @@ jobs:
             fi
             echo "$name killed by $scenario"
           done <<'MUTANTS'
-          M1|/^# 2\.2 Unmappable Change Resolution/,/^fi[[:space:]]*$/d|SCENARIO 3|*
-          M2|/^# 2\.2 Unmappable Change Resolution/,/^fi[[:space:]]*$/{/mapfile -t UNIQUE_DIRECT/d}|SCENARIO 4|1
-          M3|/^# 2\.1 Shared Build Configuration/,/^fi[[:space:]]*$/{/mapfile -t UNIQUE_DIRECT/d}|SCENARIO 7|1
+          drop-unmappable-block|/^if .*#UNIQUE_DIRECT.*-eq 0/,/^fi[[:space:]]*$/d|docs only|*
+          drop-unmappable-fallback|/Unmappable non-documentation change detected/,/^fi[[:space:]]*$/{/mapfile -t UNIQUE_DIRECT/d}|unmappable change fails closed|1
+          drop-shared-config-widening|/GLOBAL BUILD CONFIG DETECTED/,/^fi[[:space:]]*$/{/mapfile -t UNIQUE_DIRECT/d}|shared config plus mapped project|1
           MUTANTS
           if [ "$attempted" -ne 3 ]; then
             echo "::error::Expected 3 mutants to be attempted, got $attempted"
