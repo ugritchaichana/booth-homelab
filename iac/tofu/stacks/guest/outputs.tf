@@ -1,6 +1,6 @@
 output "guests" {
   value = {
-    for role, guest in local.placed : role => {
+    for key, guest in local.placed : key => {
       name      = guest.name
       kind      = guest.kind
       vm_id     = guest.vm_id
@@ -16,6 +16,11 @@ output "guests" {
   precondition {
     condition     = length(local.placed) == length(local.sized_guests)
     error_message = "Every guest name <role>-<template class>-v<N> must be a lowercase hostname of at most 63 characters starting with a letter, so the role must be shorter and use only a-z, 0-9 and hyphen."
+  }
+
+  precondition {
+    condition     = alltrue([for guest in values(local.guests) : guest.identity_ok])
+    error_message = "Every guest key must be <role>-<template class>, with the class of its template_class and a non-empty role."
   }
 
   precondition {

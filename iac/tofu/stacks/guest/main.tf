@@ -15,6 +15,11 @@ module "flavor" {
   flavor = each.key
 }
 
+moved {
+  from = proxmox_virtual_environment_container.guest["demo"]
+  to   = proxmox_virtual_environment_container.guest["demo-lxc-runner"]
+}
+
 resource "proxmox_virtual_environment_container" "guest" {
   for_each = local.lxc_guests
 

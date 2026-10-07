@@ -18,9 +18,10 @@ locals {
   declared = lookup(yamldecode(file(coalesce(var.guests_file, "${path.module}/guests.yml"))).guests, var.host, {})
 
   guests = {
-    for role, guest in local.declared : role => {
+    for key, guest in local.declared : key => {
       flavor         = guest.flavor
       template_class = guest.template_class
+      identity_ok    = endswith(key, "-${guest.template_class}") && length(key) > length(guest.template_class) + 1
       kind           = try(local.classes[guest.template_class].type, null)
       version        = try(guest.template_version, null)
       source_key     = try(guest.template_version, null) == null ? guest.template_class : "${guest.template_class}-v${guest.template_version}"
@@ -34,24 +35,24 @@ locals {
   known_flavors     = toset(flatten([for provider, spec in local.catalog_providers : [for instance in keys(spec.instances) : "${provider}/${instance}"]]))
   flavor_names      = toset([for guest in values(local.declared) : guest.flavor if contains(local.known_flavors, guest.flavor)])
   name_pattern      = "^[a-z][a-z0-9-]{0,62}$"
-  sized_guests      = { for role, guest in local.guests : role => guest if contains(local.known_flavors, guest.flavor) && guest.kind != null }
+  sized_guests      = { for key, guest in local.guests : key => guest if contains(local.known_flavors, guest.flavor) && guest.kind != null }
 
-  cloned_versions = { for role, guest in local.sized_guests : role => module.template_source[guest.source_key].version }
-  names           = { for role, guest in local.sized_guests : role => local.cloned_versions[role] == null ? null : "${role}-${guest.template_class}-v${local.cloned_versions[role]}" }
+  cloned_versions = { for key, guest in local.sized_guests : key => module.template_source[guest.source_key].version }
+  names           = { for key, guest in local.sized_guests : key => local.cloned_versions[key] == null ? null : "${key}-v${local.cloned_versions[key]}" }
 
   placed = {
-    for role, guest in local.sized_guests : role => merge(guest, {
-      name = local.names[role]
+    for key, guest in local.sized_guests : key => merge(guest, {
+      name = local.names[key]
       tags = sort([
         "flavor-guest",
         "flavor-${replace(lower(guest.flavor), "/[^a-z0-9_.+-]/", "-")}",
-        "src-${guest.template_class}-v${local.cloned_versions[role]}",
+        "src-${guest.template_class}-v${local.cloned_versions[key]}",
       ])
-    }) if can(regex(local.name_pattern, local.names[role]))
+    }) if can(regex(local.name_pattern, local.names[key]))
   }
 
-  lxc_guests = { for role, guest in local.placed : role => guest if guest.kind == "lxc" }
-  vm_guests  = { for role, guest in local.placed : role => guest if guest.kind == "qemu" }
+  lxc_guests = { for key, guest in local.placed : key => guest if guest.kind == "lxc" }
+  vm_guests  = { for key, guest in local.placed : key => guest if guest.kind == "qemu" }
 
   template_sources = {
     for key, group in { for guest in values(local.guests) : guest.source_key => guest... } : key => {
