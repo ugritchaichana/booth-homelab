@@ -95,14 +95,14 @@ Provisioned a dedicated, isolated Self-Hosted GitHub Actions runner in a Debian 
 Deployed an enterprise S3-compatible remote cache server on Proxmox in Alpine Linux, connected over internal bridge `vmbr1` (Virtual Bus).
 
 ### Specifications & Performance
-- **Container ID:** CT 104 (`minio-s3`) on Alpine Linux 3.23 (RAM footprint < 50MB)
-- **Network Interface:** `10.99.20.20:9000` (Direct virtual bus transfer at 836+ MiB/s)
+- **Container ID:** CT 104 (`object-store`) on Alpine Linux 3.23 (RAM footprint < 50MB)
+- **Network Interface:** `internal object store endpoint` (Direct virtual bus transfer at 836+ MiB/s)
 - **Buckets:**
   - `build-cache`: Stores Zstandard compressed compilation artifacts and NuGet packages.
   - `test-artifacts`: Stores `.trx` test reports.
 - **Lifecycle & Security:**
   - 7-day ILM expiration policy to prevent storage exhaustion on homelab.
-  - CREEP Hardened (CVE-2025-36852) with branch-scoped cache isolation (`minio/build-cache/branches/<branch>/`).
+  - CREEP Hardened (CVE-2025-36852) with branch-scoped cache isolation (`build-cache/branches/<branch>/`).
 """
     },
     {
