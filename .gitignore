@@ -50,6 +50,4 @@ tests/isolation/targets.env
 
 # Python
 __pycache__/
-
-# Published evidence keeps its transcripts
-!docs/evidence/**/*.log
+*.pyc
