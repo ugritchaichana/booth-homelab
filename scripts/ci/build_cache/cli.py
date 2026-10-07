@@ -152,7 +152,7 @@ def restored_hit(args: argparse.Namespace, key: str) -> bool:
     status = None
     for line in Path(args.stats_file).read_text(encoding="utf-8").splitlines():
         record = json.loads(line) if line.strip() else {}
-        if record.get("op") == "restore" and record.get("kind") == args.kind and record.get("key") == key[-64:][:12]:
+        if record.get("op") == "restore" and record.get("kind") == args.kind and record.get("key") == keys.short_key(key):
             status = record["status"]
     return status == "hit"
 

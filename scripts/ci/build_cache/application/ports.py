@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
 
+from ..domain.keys import short_key
 from ..domain.models import Manifest, StoreUnavailable
 from ..domain.policy import ExtractionRules
 
@@ -47,7 +48,7 @@ class Outcome:
         return {
             "op": self.op,
             "kind": self.kind,
-            "key": self.key[-64:][:12],
+            "key": short_key(self.key),
             "status": self.status,
             "bytes": self.bytes,
             "ms": self.ms,
