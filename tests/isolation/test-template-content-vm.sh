@@ -30,9 +30,9 @@ bad = []
 for p in d["apt_packages"]:
     if not p.get("name") or not re.search(r"\d", str(p.get("version", ""))) or str(p["version"]) == "latest":
         bad.append(str(p.get("name")))
-for a in d["downloads"]:
+for name, a in d["artifacts"].items():
     if not (a.get("version") and a.get("url", "").startswith("https://") and a["version"] in a["url"] and re.fullmatch(r"[0-9a-f]{64}", a.get("sha256", ""))):
-        bad.append(a.get("name", "?"))
+        bad.append(name)
 print("incomplete:" + ",".join(bad) if bad else "ok")
 PY
 }
@@ -53,7 +53,7 @@ PY
 expect "mutation: a tcp host in daemon.json is rejected" "bad:hosts" "$(daemon_check "$mutant")"
 cp "$bundle/daemon.json" "$mutant/daemon.json"
 sed -i 's/[0-9a-f]\{64\}/0/' "$mutant/versions.yml"
-expect "mutation: a short hash in versions.yml is rejected" "incomplete:actions-runner" "$(versions_check "$mutant")"
+expect "mutation: a short hash in versions.yml is rejected" "incomplete:actions_runner" "$(versions_check "$mutant")"
 
 if [ "$failures" -ne 0 ]; then echo "$failures failure(s)"; exit 1; fi
 echo "all passed"
