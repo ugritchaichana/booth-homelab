@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Protocol, Sequence
 
 from ..domain.models import Manifest, StoreUnavailable
+from ..domain.policy import ExtractionRules
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class Store(Protocol):
 class Archiver(Protocol):
     def pack(self, root: Path, paths: Sequence[str]) -> Packed | None: ...
 
-    def unpack(self, data: bytes, compression: str, root: Path) -> list[str]: ...
+    def unpack(self, data: bytes, compression: str, root: Path, rules: ExtractionRules) -> list[str]: ...
 
 
 STORE_FAILURES = (StoreUnavailable, OSError, TimeoutError)

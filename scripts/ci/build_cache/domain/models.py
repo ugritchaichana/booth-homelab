@@ -21,6 +21,10 @@ class BadRequest(Exception):
     pass
 
 
+class UnsafeRuntime(Exception):
+    pass
+
+
 class ManifestError(ValueError):
     pass
 

@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 import json
 import os
 import shutil
@@ -10,8 +12,11 @@ from pathlib import Path
 from unittest import mock
 
 import support  # noqa: F401
+from support import PATCHED, file_info, tar_bytes
 from build_cache import cli
 from build_cache.adapters import environment
+from build_cache.adapters.fs_store import FilesystemStore
+from build_cache.domain.models import Manifest
 
 
 def git(repo, *args):
@@ -32,6 +37,9 @@ class CliTests(unittest.TestCase):
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-q", "-m", "init")
         (self.repo / "apps" / "backend" / "obj" / "x.dll").write_bytes(b"dll")
+        runtime = mock.patch.object(cli, "RUNTIME_VERSION", PATCHED)
+        runtime.start()
+        self.addCleanup(runtime.stop)
         patch = mock.patch.object(environment, "tool_version", return_value="8.0.425")
         patch.start()
         self.addCleanup(patch.stop)
@@ -65,6 +73,28 @@ class CliTests(unittest.TestCase):
         self.assertEqual(self.run_cli("save", *self.save_args())[1]["status"], "saved")
         self.assertEqual(self.run_cli("restore")[1]["status"], "hit")
         self.assertEqual(self.run_cli("save", *self.save_args())[1]["status"], "exists")
+
+    def test_an_unpatched_python_refuses_to_extract_and_reports_an_error(self):
+        self.run_cli("save", *self.save_args())
+        shutil.rmtree(self.repo / "apps" / "backend" / "obj")
+        with mock.patch.object(cli, "RUNTIME_VERSION", (3, 12, 10)):
+            code, record = self.run_cli("restore")
+        self.assertEqual((code, record["status"]), (0, "error"))
+        self.assertFalse((self.repo / "apps" / "backend" / "obj").exists())
+
+    def test_an_archive_with_a_member_outside_the_plan_paths_is_rejected_by_the_cli(self):
+        self.run_cli("save", *self.save_args())
+        shutil.rmtree(self.repo / "apps" / "backend" / "obj")
+        store = FilesystemStore(self.store)
+        pointer = next((self.store / "pointers").glob("*.json"))
+        key = pointer.stem
+        evil = gzip.compress(tar_bytes([(file_info("scripts/ci/x.sh", 1), b"x")]))
+        sha = hashlib.sha256(evil).hexdigest()
+        store.put_blob(sha, evil)
+        store.put_pointer(key, Manifest(key, "dotnet-outputs", sha, len(evil), "gzip"))
+        code, record = self.run_cli("restore")
+        self.assertEqual((code, record["status"]), (0, "rejected"))
+        self.assertFalse((self.repo / "scripts").exists())
 
     def test_save_on_a_non_default_ref_is_skipped(self):
         record = self.run_cli("save", *self.save_args("refs/heads/feature"))[1]
