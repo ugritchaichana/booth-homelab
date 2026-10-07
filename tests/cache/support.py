@@ -7,6 +7,7 @@ sys.path.insert(0, str(REPO / "scripts" / "ci"))
 
 import hashlib
 import io
+import subprocess
 import tarfile
 
 from build_cache.domain.models import Manifest, StoreUnavailable
@@ -78,3 +79,7 @@ def device_info(name):
     info = tarfile.TarInfo(name)
     info.type = tarfile.CHRTYPE
     return info
+
+
+def git(repo, *args):
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *args], check=True, capture_output=True)

@@ -12,15 +12,11 @@ from pathlib import Path
 from unittest import mock
 
 import support  # noqa: F401
-from support import PATCHED, file_info, tar_bytes
+from support import PATCHED, file_info, git, tar_bytes
 from build_cache import cli
 from build_cache.adapters import environment
 from build_cache.adapters.fs_store import FilesystemStore
 from build_cache.domain.models import Manifest
-
-
-def git(repo, *args):
-    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *args], check=True, capture_output=True)
 
 
 class CliTests(unittest.TestCase):
