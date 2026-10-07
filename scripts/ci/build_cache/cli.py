@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .adapters import environment as env
 from .adapters.fs_store import FilesystemStore
+from .adapters.http_store import HttpStore
 from .adapters.tar_archiver import TarArchiver
 from .application.ports import Outcome, Store
 from .application.restore import restore, stamp_extracted
@@ -35,7 +36,7 @@ class Plan:
 
 def make_store(spec: str | None) -> Store | None:
     if not spec:
-        return None
+        return HttpStore.from_env() if os.environ.get("CACHE_URL") else None
     scheme, _, location = spec.partition(":")
     if scheme == "fs" and location:
         return FilesystemStore(Path(location))
@@ -109,7 +110,7 @@ def run_restore(args: argparse.Namespace) -> int:
 
 def run_save(args: argparse.Namespace) -> int:
     decision = write_decision(
-        bool(os.environ.get(args.credential_env)),
+        bool(os.environ.get(args.credential_env) or os.environ.get("CACHE_WRITER_PASSWORD")),
         args.event or os.environ.get("GITHUB_EVENT_NAME", ""),
         args.ref or os.environ.get("GITHUB_REF", ""),
         args.default_branch,

@@ -9,6 +9,10 @@ class StoreUnavailable(Exception):
     pass
 
 
+class WriteRefused(Exception):
+    pass
+
+
 class ManifestError(ValueError):
     pass
 
