@@ -41,4 +41,8 @@ coverage/
 crash.log
 crash.*.log
 terraform.tfvars
+*.tfplan
 *.generated.ini
+
+# Isolation test targets
+tests/isolation/targets.env

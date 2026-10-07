@@ -1,0 +1,7 @@
+---
+automation_user: automation
+time_servers:
+  - 0.debian.pool.ntp.org
+  - 1.debian.pool.ntp.org
+journald_system_max_use: 200M
+ansible_python_interpreter: auto_silent

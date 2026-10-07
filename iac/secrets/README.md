@@ -4,9 +4,12 @@ Files here are encrypted with [sops](https://github.com/getsops/sops) for one ag
 
 Recipient (public): `age1n0vn2cctfh4acum3pygfgc2qn5889es6pnllc6q9m0a52e6gc90q7mr2sc`
 
-| File | Holds |
-|---|---|
-| `hosts/pve01.sops.yaml` | `root_password` of the `pve01` host (hashed into the install answer file at build time) |
+| File | Holds | Writer |
+|---|---|---|
+| `hosts/pve01.sops.yaml` | `root_password` of the `pve01` host (hashed into the install answer file at build time) | operator, at install |
+| `hosts/pve01-ssh.sops.yaml` | `ssh_host_ed25519_public`, the host key that `scripts/iac/render-ssh-config.sh` pins in the rendered `known_hosts` | operator, captured once over an already-trusted path |
+
+Each file has one writer. A host named `<name>` in `iac/inventory/hosts.yml` needs `hosts/<name>-ssh.sops.yaml` before the SSH config can be rendered.
 
 ## Use
 

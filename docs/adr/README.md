@@ -61,3 +61,5 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0018 | [Manage several machines as independent hosts in one inventory](0018-manage-several-machines-as-independent-hosts-in-one-inventory.md) | Accepted |
 | 0019 | [Take restore points of the PVE VM only while it is Off](0019-take-restore-points-of-the-pve-vm-only-while-it-is-off.md) | Accepted |
 | 0020 | [Retire the bootstrap, cache and Ansible assets of the previous host instead of porting them](0020-retire-the-bootstrap-cache-and-ansible-assets-of-the-previous-host-instead-of-porting-them.md) | Accepted |
+| 0021 | [Keep one inventory file as the single host data source](0021-keep-one-inventory-file-as-the-single-host-data-source.md) | Accepted |
+| 0022 | [Render the SSH config with the host key pinned from SOPS](0022-render-the-ssh-config-with-the-host-key-pinned-from-sops.md) | Accepted |
