@@ -74,7 +74,7 @@
     label: "{{ item.key }}"
 
 - name: Read the content types of the local storage
-  ansible.builtin.command: pvesm config {{ pve_templates_local_storage }}
+  ansible.builtin.command: pvesh get /storage/{{ pve_templates_local_storage }} --output-format json
   register: pve_templates_storage_before
   changed_when: false
   check_mode: false
@@ -82,14 +82,14 @@
 - name: Add snippets to the local storage and keep the existing content types
   ansible.builtin.command: >-
     pvesm set {{ pve_templates_local_storage }} --content
-    {{ (pve_templates_storage_before.stdout_lines | select('match', '^content ') | first).split()[1] }},{{ pve_templates_snippets_content }}
+    {{ (pve_templates_storage_before.stdout | from_json).content }},{{ pve_templates_snippets_content }}
   when: >-
     pve_templates_snippets_content not in
-    (pve_templates_storage_before.stdout_lines | select('match', '^content ') | first).split()[1].split(',')
+    (pve_templates_storage_before.stdout | from_json).content.split(',')
   changed_when: true
 
 - name: Read the content types of the local storage again
-  ansible.builtin.command: pvesm config {{ pve_templates_local_storage }}
+  ansible.builtin.command: pvesh get /storage/{{ pve_templates_local_storage }} --output-format json
   register: pve_templates_storage_after
   changed_when: false
   check_mode: false
@@ -101,8 +101,8 @@
       - before_types | difference(after_types) | length == 0
     fail_msg: "local content is {{ after_types }}, was {{ before_types }}"
   vars:
-    before_types: "{{ (pve_templates_storage_before.stdout_lines | select('match', '^content ') | first).split()[1].split(',') }}"
-    after_types: "{{ (pve_templates_storage_after.stdout_lines | select('match', '^content ') | first).split()[1].split(',') }}"
+    before_types: "{{ (pve_templates_storage_before.stdout | from_json).content.split(',') }}"
+    after_types: "{{ (pve_templates_storage_after.stdout | from_json).content.split(',') }}"
 
 - name: Install the weekly rebuild service
   ansible.builtin.template:
