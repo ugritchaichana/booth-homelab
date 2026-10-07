@@ -1,8 +1,6 @@
 name: PR Reviewer Guard
 
 on:
-  pull_request:
-    types: [opened, review_requested]
   pull_request_target:
     types: [opened, review_requested]
 
@@ -13,10 +11,15 @@ jobs:
   strip-copilot-reviewer:
     name: Guard
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Remove Copilot Pull Request Reviewer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "[*] Ensuring copilot-pull-request-reviewer is removed from PR #${{ github.event.pull_request.number }}"
-          gh api --method DELETE repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers -f 'reviewers[]=copilot-pull-request-reviewer' || true
+          echo "[*] Ensuring copilot-pull-request-reviewer is removed from PR #${PR_NUMBER}"
+          if ! output=$(gh api --method DELETE "repos/${REPOSITORY}/pulls/${PR_NUMBER}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer' 2>&1); then
+            echo "::warning::could not remove the reviewer from PR #${PR_NUMBER}: ${output}"
+          fi
