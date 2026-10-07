@@ -76,3 +76,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0033 | [Keep one SOPS file per consumer and host, with one writer each](0033-keep-one-sops-file-per-consumer-and-host-with-one-writer-each.md) | Accepted |
 | 0034 | [Publish the requirements as a redacted copy of the operator's document](0034-publish-the-requirements-as-a-redacted-copy-of-the-operators-document.md) | Accepted |
 | 0035 | [Leave the storage definitions as the installer made them in Phase 2](0035-leave-the-storage-definitions-as-the-installer-made-them-in-phase-2.md) | Accepted |
+| 0036 | [Keep templates in their own pool and let the provisioner token only clone them](0036-keep-templates-in-their-own-pool-and-let-the-provisioner-token-only-clone-them.md) | Accepted |

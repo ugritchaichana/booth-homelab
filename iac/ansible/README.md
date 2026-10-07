@@ -13,7 +13,7 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `roles/base/` | Provider-neutral Debian baseline. |
 | `roles/hyperv_guest/` | Blocks `hv_sock` and asserts no KVP, VSS or file-copy daemon. |
 | `roles/pve_host/` | Proxmox repositories, full upgrade, reboot on a new kernel, nested-KVM assert. |
-| `roles/pve_api_identity/` | OpenTofu's API user, role, pool, ACLs and privilege-separated token. |
+| `roles/pve_api_identity/` | OpenTofu's API user, roles, the `homelab` and `templates` pools, ACLs and privilege-separated token. |
 | `roles/pve_firewall/` | `cluster.fw`, `host.fw` and the firewall dead-man. |
 
 ## Toolchain

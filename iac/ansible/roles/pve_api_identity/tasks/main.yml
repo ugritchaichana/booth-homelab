@@ -1,13 +1,6 @@
 ---
-- name: Assert the identity cannot manage identities or the host
-  ansible.builtin.assert:
-    that:
-      - pve_api_identity_roles | dict2items | map(attribute='value') | flatten | intersect(pve_api_identity_forbidden_privileges) | length == 0
-      - pve_api_identity_grants | map(attribute='role') | difference(pve_api_identity_roles.keys() | list + ['NoAccess']) | length == 0
-      - pve_api_identity_rotate | string | lower in ['true', 'false', 'yes', 'no']
-    fail_msg: >-
-      A provisioner role may not hold Permissions.Modify, User.Modify or Sys.Modify, every grant needs a declared role,
-      and pve_api_identity_rotate must be true or false
+- name: Assert the declared roles and grants
+  ansible.builtin.import_tasks: assert.yml
 
 - name: Read the Proxmox users
   ansible.builtin.command: pveum user list --output-format json
@@ -68,14 +61,17 @@
   register: pve_api_identity_pools
   changed_when: false
 
-- name: Create the resource pool
+- name: Create the missing resource pools
   ansible.builtin.command:
     argv:
       - pveum
       - pool
       - add
-      - "{{ pve_api_identity_pool }}"
-  when: pve_api_identity_pool not in (pve_api_identity_pools.stdout | from_json | map(attribute='poolid') | list)
+      - "{{ item }}"
+  loop:
+    - "{{ pve_api_identity_pool }}"
+    - "{{ pve_api_identity_template_pool }}"
+  when: item not in (pve_api_identity_pools.stdout | from_json | map(attribute='poolid') | list)
   changed_when: true
 
 - name: Manage the API token and its secret
