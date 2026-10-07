@@ -8,8 +8,8 @@ A throwaway unprivileged container and a VM on the guest vnet, created only to p
 |---|---|
 | Container, VM | ids, addresses and login users in `probe.yml`; addresses must lie inside the host's guest subnet |
 | Clone source | the template module `iac/tofu/modules/proxmox/template-source` resolves one template per class (`template_class` in `probe.yml`) and fails closed unless exactly one matches; `template_pins` pins a class to version N; clones are linked (`full = false`) in pool `homelab` |
-| Firewall options, group, NIC flag | `iac/policy/runner-class.yml`, shared with the runner stack that comes later (the names the Proxmox API reports) |
-| Rules | tcp/22 inbound from the guest gateway only, and the security group `guest-egress` |
+| Firewall options, rules, group | inherited from the template (`clone_vmfw_conf`), not declared here; they are the runner-class policy of `iac/policy/runner-class.yml` and `tests/policy.tftest.hcl` asserts the stack declares none. The NIC flag comes from the policy file |
+| Control rule | tcp/22 inbound from the guest gateway, added to each clone by `r15-verify.yml` as root before probing, not by this stack |
 | VM source filter | `ipfilter-net0` holding the VM's own address |
 | Disk | the class disk size read from the Ansible role defaults (`disk_gb`); a clone cannot be smaller than its template |
 | Tags | none: Proxmox checks tag permission on `/vms/<id>` without the pool, so a pool-scoped token cannot set tags when it creates a guest |
