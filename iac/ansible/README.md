@@ -8,13 +8,14 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `requirements.yml` | Pinned collections. |
 | `requirements-ci.txt` | Hash-locked Python toolchain for CI and local linting. |
 | `playbooks/bootstrap.yml` | First contact as `root`: switches the Proxmox repositories, then creates the automation user. |
-| `playbooks/site.yml` | Steady state, run as the automation user: `base`, then `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall` on the Proxmox hosts. |
+| `playbooks/site.yml` | Steady state, run as the automation user: `base`, then `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`, `pve_templates` on the Proxmox hosts. |
 | `playbooks/r15-verify.yml` | R15 proof, run on demand: starts the probe guests, runs `tests/isolation/r15-probe.sh` in each over the control channel, checks the guests' firewall options for drift, fetches the output (ADR 0031, ADR 0032). |
 | `roles/base/` | Provider-neutral Debian baseline. |
 | `roles/hyperv_guest/` | Blocks `hv_sock` and asserts no KVP, VSS or file-copy daemon. |
 | `roles/pve_host/` | Proxmox repositories, full upgrade, reboot on a new kernel, nested-KVM assert. |
 | `roles/pve_api_identity/` | OpenTofu's API user, roles, the `homelab` and `templates` pools, ACLs and privilege-separated token. |
 | `roles/pve_firewall/` | `cluster.fw`, `host.fw` and the firewall dead-man. |
+| `roles/pve_templates/` | Golden template build framework: the `homelab-template` root orchestrator (`build`, `rollback`, `status`), the non-root sandboxed guest-facing step and its units, the in-guest `finalize.sh`. Class content and the timer come in later changes (ADR 0038, 0039, 0040; `RUNBOOK.md` section 9). |
 
 ## Toolchain
 

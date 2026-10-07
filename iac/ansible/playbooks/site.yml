@@ -54,3 +54,7 @@
     - name: Apply the Proxmox firewall role
       ansible.builtin.include_role:
         name: pve_firewall
+
+    - name: Apply the golden template build framework role
+      ansible.builtin.include_role:
+        name: pve_templates

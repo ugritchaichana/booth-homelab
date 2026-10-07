@@ -25,6 +25,7 @@
 6. [CI/CD Pipeline Integration & GitHub Workflows](#6-cicd-pipeline-integration--github-workflows)
 7. [Ephemeral Runner Lifecycle & Zero-Trace Decommissioning (IaC)](#7-ephemeral-runner-lifecycle--zero-trace-decommissioning-iac)
 8. [Troubleshooting, Empirical Traps & Incident Decision Trees](#8-troubleshooting-empirical-traps--incident-decision-trees)
+9. [Golden Templates (Phase 3 build framework)](#9-golden-templates-phase-3-build-framework)
 
 ---
 
@@ -588,6 +589,94 @@ flowchart TD
     M3 -- "Yes" --> M4["Cap ZFS ARC:\necho 2147483648 > /sys/module/zfs/parameters/zfs_arc_max"]
     M3 -- "No" --> M5["Reduce CT 102 RAM cap or stop idle containers"]
 ```
+
+---
+
+## 9. Golden Templates (Phase 3 build framework)
+
+Two classes of runner template are built on the Proxmox host and cloned later by the runner stack: `lxc-runner` (VMID block 9200-9299) and `vm-docker` (VMID block 9300-9399). Decisions: [ADR 0038](docs/adr/0038-build-golden-templates-with-a-root-orchestrator-a-sandboxed-guest-step-and-in-guest-ansible.md) (how a build runs), [ADR 0039](docs/adr/0039-keep-templates-as-proxmox-templates-on-local-lvm-and-check-clone-origins-before-deleting-one.md) (storage, retention, verification), [ADR 0040](docs/adr/0040-version-templates-with-a-monotonic-number-a-root-only-current-tag-and-automatic-promotion.md) (versions, the `current` tag, rollback), [ADR 0036](docs/adr/0036-keep-templates-in-their-own-pool-and-let-the-provisioner-token-only-clone-them.md) (pool and clone-only privilege).
+
+Every command below that starts with `$pve` runs from the operator's WSL shell. The host user is the automation user, which uses `sudo` for root (ADR 0023). On the host, root is the only identity that builds, promotes and rolls back; the API token cannot delete or retag a template.
+
+```sh
+pve="ssh -F ~/.config/homelab/ssh_config pve01"
+```
+
+### 9.1 Prerequisites
+
+| Step | Who and where | Command or check |
+|---|---|---|
+| Framework installed | operator, WSL | `bash scripts/iac/ansible.sh site.yml -l pve01`, then a second run must end `changed=0` |
+| Pool `templates` and the clone-only role exist | operator, WSL | `$pve sudo pveum acl list` shows `/pool/templates` with `HomelabTemplateClone` |
+| Firewall group `guest-egress` and the guard timer exist | operator, WSL | `$pve sudo systemctl is-active homelab-guest-firewall-guard.timer` prints `active` |
+| Base images are on `local` | operator, WSL | the file names are `base` of each class in `iac/ansible/roles/pve_templates/defaults/main.yml`; check with `$pve sudo pvesm list local` |
+| Class content (the class `playbook.yml`) is installed under `/usr/local/share/homelab-template/bundles/<class>/` | operator, WSL | delivered by the class content changes; until then a build uses the minimal common playbook, which installs no toolchain and only describes the guest in the manifest |
+| Free space | operator, WSL | `$pve sudo lvs -o lv_name,data_percent,metadata_percent pve/data` and `$pve df -h /var/lib/vz`; a build refuses above the thresholds in `pve_templates_thresholds` |
+
+### 9.2 Build a version
+
+```sh
+$pve sudo systemctl start --no-block homelab-template-build@lxc-runner.service      # or vm-docker
+$pve sudo journalctl -f -u homelab-template-build@lxc-runner.service -u homelab-template-guest@build.service -u homelab-template-guest@verify.service
+```
+
+Use the unit rather than the bare command: the unit writes the failure marker through `OnFailure=`. The same build by hand is `$pve sudo homelab-template build lxc-runner`.
+
+What the journal shows, in order: `PREFLIGHT ok` (thin-pool and storage numbers), `LEFTOVER` (a guest from a crashed build, destroyed), `BUILD start ... version=v<N> vmid=<id>`, `READBACK ok ... before first start` (every network, firewall and guest-shape attribute matched), `START`, the guest step's lines (`guest-step: MANIFEST-DIFF ...`), `GATE ok ... manifest_sha256=...`, `READBACK ok ... template`, `VERIFY ok clone=<id> is a linked clone`, `TAGS`, `PROMOTED class=... v<old> -> v<new>`, `RETENTION destroyed|kept`. A failure ends with `FAILED` or `REFUSED` and the reason.
+
+### 9.3 Status
+
+```sh
+$pve sudo homelab-template status
+```
+
+One line per class: `class=lxc-runner current=v3 vmid=9204 name=tmpl-lxc-runner-v3 previous=v2 last_build=...`. Exit 0 only when every class has exactly one `current`. `class=<c> ERROR current-count=0` or `=2` means consumers refuse that class; `MISMATCH recorded=<n>` means the tags differ from the root state (run `repair`, section 9.5). The same data from the API: `$pve sudo pvesh get /cluster/resources --type vm --output-format json`, filtered on the tag `homelab-template`.
+
+### 9.4 Roll back
+
+```sh
+$pve sudo homelab-template rollback lxc-runner
+$pve sudo homelab-template status lxc-runner
+```
+
+The command swaps `current` and `previous` and journals `ROLLBACK class=... current v<a> -> v<b>`. A second `rollback` swaps back. The next build promotes on top of the rolled-back version, and retention keeps that version and retires the one rolled back from. Running clones are not touched.
+
+### 9.5 Recover a failed build
+
+1. The marker: `$pve sudo ls /var/lib/homelab/templates/failed/`. Read the cause: `$pve sudo journalctl -u homelab-template-build@<class>.service -n 200` and, for the guest step, `$pve sudo journalctl -u homelab-template-guest@build.service -n 200`.
+2. Match the last `FAILED` or `REFUSED` line:
+
+| Line says | Meaning | Action |
+|---|---|---|
+| `REFUSED thin pool ... is above` or `storage local has ... GiB free` | space guard | free space (delete unused guests or backups), then rebuild |
+| `REFUSED another homelab-template run holds the lock` | a build is running | `$pve sudo systemctl status homelab-template-build@<class>.service`; wait for it |
+| `pre-start read-back differs: ...` | the guest was created with a setting that differs from policy; it was never started and is destroyed | fix the named setting in the role or `iac/policy/runner-class.yml`, converge, rebuild |
+| `pass marker ... missing`, `guest-step: in-guest run.sh exited` or `SCAN FAILED` | the in-guest build or secret scan failed; nothing was converted | read the guest-step journal lines above it, fix the class content, rebuild |
+| `not a linked clone` or `clone check differs` | verification failed; the new template was destroyed | read the line, rebuild |
+| `promotion recorded in state but the tag move failed` | state moved, tags did not | `$pve sudo homelab-template repair <class>`, then `status` |
+
+3. Leftover guests need no manual cleanup: the next build destroys any non-template guest in the class block. To look first: `$pve sudo qm list` and `$pve sudo pct list`.
+4. Rebuild with the unit from section 9.2. A success removes the failure marker.
+
+### 9.6 Where things live
+
+| What | Where (on pve01) |
+|---|---|
+| Orchestrator, configuration | `/usr/local/sbin/homelab-template`, `/etc/homelab-template/config.json` (rendered by the role, do not edit) |
+| Root state, manifests, failure markers | `/var/lib/homelab/templates/<class>.json`, `manifests/<class>/v<N>.json`, `failed/<class>` |
+| Guest-facing step and its work directory | `/usr/local/libexec/homelab-template/guest-step`, `/var/lib/homelab-template-work` (the key lives here only while a build runs) |
+| Units | `homelab-template-build@<class>.service`, `homelab-template-guest@build.service`, `homelab-template-failure@<class>.service`; no timer yet |
+
+### 9.7 Checks without a host
+
+```sh
+bash tests/isolation/test-template-build.sh
+bash tests/isolation/test-template-guest-step.sh
+bash tests/isolation/test-template-finalize.sh
+bash tests/isolation/test-template-units.sh
+```
+
+They run the real scripts against fakes of `pvesh`, `qm`, `pct`, `lvs`, `systemctl` and `ssh`, so they prove the logic and the unit file, not Proxmox's behaviour. The host proof (a build of each class, a rollback, the 403 checks with the provisioner token) is a later step; the arguments of `qm create --import-from`, `qm resize`, `pct create --ssh-public-keys` and the tag edit on a template are unverified until then.
 
 ---
 
