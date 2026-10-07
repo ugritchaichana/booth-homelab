@@ -17,10 +17,11 @@ from .application.ports import Outcome, Store
 from .application.restore import restore, stamp_extracted
 from .application.save import save
 from .domain import keys
-from .domain.policy import write_decision
+from .domain.policy import DEFAULT_MAX_BYTES, DEFAULT_MAX_MEMBERS, ExtractionRules, write_decision
 
 log = logging.getLogger("build_cache")
 
+RUNTIME_VERSION = tuple(sys.version_info[:3])
 DEFAULT_INPUT_PATHS = ["apps/backend", "apps/fixtures"]
 LOCKFILE_SCOPE = {"nuget": ("apps/backend", "packages.lock.json"), "node_modules": ("apps/frontend", "package-lock.json")}
 
@@ -32,6 +33,7 @@ class Plan:
     paths: list[str]
     is_output: bool
     input_paths: list[str]
+    rules: ExtractionRules
 
 
 def make_store(spec: str | None) -> Store | None:
@@ -43,6 +45,15 @@ def make_store(spec: str | None) -> Store | None:
     raise ValueError(f"unsupported store spec: {spec!r}")
 
 
+def extraction_rules(prefixes: tuple[str, ...], segments: frozenset[str]) -> ExtractionRules:
+    return ExtractionRules(
+        prefixes,
+        segments,
+        int(os.environ.get("BUILD_CACHE_MAX_BYTES", DEFAULT_MAX_BYTES)),
+        int(os.environ.get("BUILD_CACHE_MAX_MEMBERS", DEFAULT_MAX_MEMBERS)),
+    )
+
+
 def build_plan(args: argparse.Namespace, discover_outputs: bool) -> Plan:
     root = Path(args.root).resolve()
     runner_class = args.runner_class or os.environ.get("BUILD_CACHE_RUNNER_CLASS", "default")
@@ -52,14 +63,15 @@ def build_plan(args: argparse.Namespace, discover_outputs: bool) -> Plan:
         lockfiles = env.lockfile_digests(root, scope, basename)
         toolchain = env.tool_version("dotnet" if args.kind == "nuget" else "node")
         key = keys.dependency_key(args.kind, platform, toolchain, lockfiles)
+        allowed: tuple[str, ...] = ()
         if args.artifact_root:
             artifact_root, paths = Path(args.artifact_root), ["."]
         elif args.kind == "nuget":
             packages = os.environ.get("NUGET_PACKAGES") or str(Path.home() / ".nuget" / "packages")
             artifact_root, paths = Path(packages), ["."]
         else:
-            artifact_root, paths = root / scope, ["node_modules"]
-        return Plan(key, artifact_root, paths, False, [])
+            artifact_root, paths, allowed = root / scope, ["node_modules"], ("node_modules",)
+        return Plan(key, artifact_root, paths, False, [], extraction_rules(allowed, frozenset()))
 
     input_paths = args.input_path or DEFAULT_INPUT_PATHS
     if env.git_inputs_dirty(root, input_paths):
@@ -68,7 +80,7 @@ def build_plan(args: argparse.Namespace, discover_outputs: bool) -> Plan:
     key = keys.outputs_key(platform, env.tool_version("dotnet"), args.configuration, trees, root.as_posix())
     artifact_root = Path(args.artifact_root) if args.artifact_root else root
     paths = env.discover_output_dirs(root, input_paths) if discover_outputs else []
-    return Plan(key, artifact_root, paths, True, input_paths)
+    return Plan(key, artifact_root, paths, True, input_paths, extraction_rules(tuple(input_paths), frozenset({"bin", "obj"})))
 
 
 def emit(outcome: Outcome, args: argparse.Namespace) -> None:
@@ -104,7 +116,7 @@ def run_restore(args: argparse.Namespace) -> int:
         emit(failed("restore", args, "miss", f"cannot derive key: {exc}"), args)
         return 0
     hook = (lambda names: stamp_extracted(plan.artifact_root, names)) if plan.is_output else None
-    emit(restore(args.kind, plan.key, plan.artifact_root, store, TarArchiver(), hook), args)
+    emit(restore(args.kind, plan.key, plan.artifact_root, store, TarArchiver(version_info=RUNTIME_VERSION), hook, plan.rules), args)
     return 0
 
 

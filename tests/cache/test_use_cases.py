@@ -6,13 +6,13 @@ import threading
 import unittest
 from pathlib import Path
 
-from support import DownStore, MemoryStore, device_info, file_info, key_for, link_info, publish, tar_bytes
+from support import PATCHED, DownStore, MemoryStore, device_info, file_info, key_for, link_info, publish, tar_bytes
 from build_cache.adapters.fs_store import FilesystemStore
 from build_cache.adapters.tar_archiver import TarArchiver
 from build_cache.application.restore import restore, stamp_extracted
 from build_cache.application.save import save
 from build_cache.domain.models import ArchiveRejected, Manifest, StoreUnavailable
-from build_cache.domain.policy import WriteDecision, write_decision
+from build_cache.domain.policy import ExtractionRules, WriteDecision, write_decision
 
 ALLOW = WriteDecision(True, "test")
 STAMP = 2_000_000_000_000_000_000
@@ -26,7 +26,7 @@ class Workspace(unittest.TestCase):
         (self.src / "obj").mkdir(parents=True)
         (self.src / "obj" / "a.dll").write_bytes(b"binary-a")
         (self.src / "obj" / "b.cache").write_text("cache")
-        self.archiver = TarArchiver(prefer_zstd=False)
+        self.archiver = TarArchiver(prefer_zstd=False, version_info=PATCHED)
 
 
 class RestoreSaveTests(Workspace):
@@ -156,16 +156,16 @@ class ArchiveSafetyTests(Workspace):
     def test_unpack_raises_archive_rejected(self):
         data = gzip.compress(tar_bytes([(file_info("../evil.txt", 1), b"x")]))
         with self.assertRaises(ArchiveRejected):
-            self.archiver.unpack(data, "gzip", self.dest)
+            self.archiver.unpack(data, "gzip", self.dest, ExtractionRules())
 
     def test_garbage_stream_refused(self):
         with self.assertRaises(ArchiveRejected):
-            self.archiver.unpack(b"not gzip", "gzip", self.dest)
+            self.archiver.unpack(b"not gzip", "gzip", self.dest, ExtractionRules())
 
     def test_one_bad_member_means_nothing_is_extracted(self):
         entries = [(file_info("good.txt", 1), b"g"), (file_info("../evil.txt", 1), b"x")]
         with self.assertRaises(ArchiveRejected):
-            self.archiver.unpack(gzip.compress(tar_bytes(entries)), "gzip", self.dest)
+            self.archiver.unpack(gzip.compress(tar_bytes(entries)), "gzip", self.dest, ExtractionRules())
         self.assertFalse((self.dest / "good.txt").exists())
 
 
@@ -183,9 +183,9 @@ class ArchiverTests(Workspace):
 
     @unittest.skipUnless(shutil.which("zstd"), "zstd binary not installed")
     def test_zstd_roundtrip_records_format(self):
-        packed = TarArchiver().pack(self.src, ["obj"])
+        packed = TarArchiver(version_info=PATCHED).pack(self.src, ["obj"])
         self.assertEqual(packed.compression, "zstd")
-        TarArchiver().unpack(packed.data, "zstd", self.dest)
+        TarArchiver(version_info=PATCHED).unpack(packed.data, "zstd", self.dest, ExtractionRules())
         self.assertEqual((self.dest / "obj" / "a.dll").read_bytes(), b"binary-a")
 
     def test_gzip_used_when_zstd_absent_and_format_recorded(self):

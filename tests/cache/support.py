@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+PATCHED = (3, 13, 5)
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "ci"))
 
