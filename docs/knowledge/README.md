@@ -7,6 +7,7 @@ The repository holds the platform's measured results and what was learned buildi
 | `docs/evidence/<phase>/` | Sanitized transcripts and reports of runs on the real host, one directory per phase, each with an `INDEX.md` |
 | `docs/knowledge/real-host-defects.md` | Every defect only the real host exposed, with its fix and the pull request that carries it |
 | `docs/knowledge/test-catalogue.md` | One row per test file: what it proves, the exact local command, the CI job, and where only the host proves it |
+| `docs/knowledge/previous-agent-debt.md` | What the previous agent left (open pull requests, retired-host files, the red master build), each with a verdict and the reason |
 
 ## Reading an evidence index
 
@@ -56,6 +57,10 @@ Operators can add a hard word check that never reaches the repository: `--deny-l
 ## Why only exact values are replaced
 
 A pattern that rewrites anything shaped like an IPv4 address once rewrote part of a package version string and faked a hash mismatch. The publisher therefore substitutes only values listed in the operator's map, whole-value and longest first; for a value shaped like an address it also refuses to cut it out of a longer dotted number. Anything the map does not list is not rewritten: the checker flags it, the file is withheld, and the operator decides whether to extend the map. Each `INDEX.md` records which address allow sources were used. A published file is never hand-edited.
+
+## The wiki mirror
+
+`wiki/*.md` is mirrored to the GitHub wiki by `scripts/ci/sync_wiki.py`, which copies pages and never deletes any. Three pages were renamed in this release (`02-GitHub-Actions-Runner-LXC`, the object-store cache page `03-...` and `05-Performance-Benchmark-Results`), so their old copies stay on the wiki until the owner deletes them there. This is an owner step in the wiki's page settings; the repository cannot do it.
 
 ## Rules for knowledge pages
 
