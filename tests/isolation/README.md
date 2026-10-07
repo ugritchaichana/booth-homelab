@@ -22,6 +22,7 @@ Every `test-*.sh` file is plain Bash, takes no argument, exits non-zero on the f
 | `test-cache-verify-cas.sh` | A blob whose content does not match its name is quarantined, not served. |
 | `test-cache-wait-for-address.sh` | The start waits for the configured address using the routing table file, not `ip`. |
 | `test-cache-writer-secret.sh` | `cache-writer-secret.sh` stores the credential through SOPS and GitHub, never on a command line or in output. |
+| `test-render-ssh-config.sh` | Renders the SSH config in a fake repository with a stub `sops`: the cache host alias, its `HostKeyAlias` and its `known_hosts` name come from the one inventory entry and agree, the alias follows an inventory rename, and a second cache host is rejected. |
 | `targets.example.env` | Row format with documentation addresses. Copy to `targets.env`, which git ignores. |
 
 ## Targets file

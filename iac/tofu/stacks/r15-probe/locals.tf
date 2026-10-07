@@ -10,4 +10,9 @@ locals {
   policy       = yamldecode(file("${path.module}/../../../policy/runner-class.yml"))
   guests       = local.probe.r15_guests
   nic_firewall = local.policy.runner_class_nic_firewall == 1
+
+  name_pattern = "^[a-z][a-z0-9-]{0,62}$"
+  versions     = { for key, guest in local.guests : key => module.template_source[guest.template_class].version }
+  names        = { for key, guest in local.guests : key => local.versions[key] == null ? null : "r15-probe-${guest.template_class}-v${local.versions[key]}" }
+  tags         = { for key, guest in local.guests : key => local.versions[key] == null ? [] : sort(["r15-probe", "src-${guest.template_class}-v${local.versions[key]}"]) }
 }

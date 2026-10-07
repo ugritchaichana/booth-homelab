@@ -6,6 +6,7 @@ resource "proxmox_virtual_environment_container" "cache" {
   unprivileged  = true
   start_on_boot = true
   started       = false
+  tags          = local.tags
 
   cpu {
     cores = 1
@@ -39,7 +40,7 @@ resource "proxmox_virtual_environment_container" "cache" {
   }
 
   initialization {
-    hostname = "cache01"
+    hostname = local.hostname
 
     dns {
       servers = [var.dns_server]

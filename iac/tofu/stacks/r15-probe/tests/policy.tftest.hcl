@@ -184,8 +184,8 @@ run "probe_clones_overwrite_the_inherited_template_tags" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.probe.tags == tolist(["r15-probe"]) && proxmox_virtual_environment_vm.probe.tags == tolist(["r15-probe"])
-    error_message = "A linked clone inherits the template's tags, current included; the probe guests must overwrite them with r15-probe."
+    condition     = !contains(proxmox_virtual_environment_container.probe.tags, "homelab-template") && !contains(proxmox_virtual_environment_vm.probe.tags, "current") && contains(proxmox_virtual_environment_container.probe.tags, "r15-probe") && contains(proxmox_virtual_environment_vm.probe.tags, "r15-probe")
+    error_message = "A linked clone inherits the template's tags, current included; the probe guests must overwrite them with their own tags."
   }
 }
 
@@ -241,5 +241,47 @@ run "the_vm_clone_installs_the_probe_key_from_the_vendor_data_snippet" {
   assert {
     condition     = proxmox_virtual_environment_vm.probe.initialization[0].vendor_data_file_id == "local:snippets/r15-probe-vendor.yaml"
     error_message = "The VM clone must reference the vendor-data snippet that the keygen step writes, or sshd stays sealed."
+  }
+}
+
+run "names_and_tags_say_the_role_and_the_cloned_template_version" {
+  command = plan
+
+  assert {
+    condition     = proxmox_virtual_environment_container.probe.initialization[0].hostname == "r15-probe-lxc-runner-v2" && proxmox_virtual_environment_vm.probe.name == "r15-probe-vm-docker-v2"
+    error_message = "The names must be r15-probe-<template class>-v<N> with N the version the current tag selects, 2."
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_container.probe.tags == tolist(["r15-probe", "src-lxc-runner-v2"]) && proxmox_virtual_environment_vm.probe.tags == tolist(["r15-probe", "src-vm-docker-v2"])
+    error_message = "The tags must be r15-probe and src-<template class>-v<N>, sorted as Proxmox stores them."
+  }
+
+  assert {
+    condition     = alltrue([for name in values(local.names) : can(regex("^[a-z][a-z0-9-]{0,62}$", name)) && length(name) <= 63])
+    error_message = "Each name must be a valid DNS label of at most 63 characters."
+  }
+
+  assert {
+    condition     = output.guests.lxc.name == "r15-probe-lxc-runner-v2" && output.guests.vm.name == "r15-probe-vm-docker-v2"
+    error_message = "The guests output must report the composed names."
+  }
+}
+
+run "a_pin_changes_the_names_and_tags_with_the_clone_source" {
+  command = plan
+
+  variables {
+    template_pins = { "lxc-runner" = 1, "vm-docker" = 1 }
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_container.probe.initialization[0].hostname == "r15-probe-lxc-runner-v1" && proxmox_virtual_environment_vm.probe.name == "r15-probe-vm-docker-v1"
+    error_message = "With pin 1 per class the names must carry v1, the version of the template that is cloned."
+  }
+
+  assert {
+    condition     = contains(proxmox_virtual_environment_container.probe.tags, "src-lxc-runner-v1") && contains(proxmox_virtual_environment_vm.probe.tags, "src-vm-docker-v1")
+    error_message = "With pin 1 per class the source tags must carry v1."
   }
 }
