@@ -180,6 +180,50 @@ expect "a cache port above 65535 is a usage error" 2 'CACHE_PORT must be 1 to 65
 CACHE_ADDR=cache.example CACHE_PORT=8080 run --guest lxc --phase baseline
 expect "a cache host name is a usage error" 2 'CACHE_ADDR must be an IPv4 address'
 
+cat > "$work/cache-neg.env" << 'ROWS'
+cache_gateway_ssh=runner tcp 10.99.17.1 22 blocked open True
+cache_gateway_web_console=runner tcp 10.99.17.1 8006 blocked open True
+cache_other_port=runner tcp 10.99.17.10 9092 blocked refused True
+ROWS
+cat "$work/targets.env" "$work/cache-neg.env" > "$work/combined.env"
+neg_open="10.99.17.1:22 open"
+neg_red="$neg_open
+10.99.17.1:8006 open
+10.99.17.10:9092 refused"
+
+printf '%s\n' "$holds" > "$STUB_TCP_MAP"
+run --guest lxc --phase baseline --targets "$work/combined.env"
+expect "runner rows: the cache gateway ssh, the web console and the closed port are dropped" 0 '^SUMMARY negatives_blocked=7/7 positives_ok=1/1 egress_curl=200$'
+expect "runner rows: the other-port row is a paired negative" 0 '^PROBE cache_other_port tcp 10.99.17.10:9092 blocked dropped PASS$'
+
+printf '%s\n' "$holds" "10.99.17.1:8006 open" > "$STUB_TCP_MAP"
+run --guest vm --phase baseline --targets "$work/combined.env"
+expect "runner rows: the cache gateway web console open from a runner fails" 1 '^FAILED cache_gateway_web_console expected blocked, got open$'
+
+printf '%s\n' "$holds" "10.99.17.10:9092 refused" > "$STUB_TCP_MAP"
+run --guest lxc --phase baseline --targets "$work/combined.env"
+expect "runner rows: a reset on the other port with the firewall on fails the row" 1 '^FAILED cache_other_port expected blocked, got refused$'
+
+printf '%s\n' "$holds" "192.0.2.1:22 open" "$neg_red" > "$STUB_TCP_MAP"
+run --guest lxc --phase red-first --targets "$work/combined.env"
+expect "runner rows: red-first needs the host ports open and the closed port refused" 0 '^SUMMARY negatives_blocked=3/3 positives_ok=5/5 egress_curl=200$'
+
+printf '%s\n' "$holds" "192.0.2.1:22 open" "10.99.17.1:22 open" "10.99.17.1:8006 open" > "$STUB_TCP_MAP"
+run --guest lxc --phase red-first --targets "$work/combined.env"
+expect "runner rows: red-first with the firewall still dropping the other port fails" 1 '^FAILED cache_other_port expected refused, got dropped$'
+
+printf '%s\n' "$holds" "192.0.2.1:22 open" "10.99.17.1:22 open" "10.99.17.1:8006 open" "10.99.17.10:9092 open" > "$STUB_TCP_MAP"
+run --guest lxc --phase red-first --targets "$work/combined.env"
+expect "runner rows: red-first with a service listening on the other port fails" 1 '^FAILED cache_other_port expected refused, got open$'
+
+printf '%s\n' "$holds" > "$STUB_TCP_MAP"
+run --guest cache --phase baseline --targets "$work/combined.env"
+if grep -q -e cache_gateway -e cache_other_port "$work/out.txt"; then echo "FAIL runner-scope rows ran inside the cache container"; fails=$((fails + 1)); else echo "ok   runner-scope rows are skipped inside the cache container"; fi
+
+printf '%s\n' "bad=all tcp 10.99.17.1 22 blocked maybe True" > "$work/bad.env"
+run --guest lxc --phase baseline --targets "$work/bad.env"
+expect "an unknown expect_red value is a usage error" 2 'expect_red must be open, blocked or refused'
+
 printf '%s\n' "" > "$STUB_TCP_MAP"
 sed 's/ channel:[a-z]*$/ True/' "$repo/tests/isolation/targets.example.env" > "$work/example.env"
 run --guest vm --phase baseline --targets "$work/example.env"

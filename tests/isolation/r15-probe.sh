@@ -76,12 +76,12 @@ evaluate() {
     actual="$(tcp_state "$host" "$port")"
   fi
 
-  if [ "$want" = open ]; then
+  if [ "$want" = open ] || [ "$want" = refused ]; then
     pos_total=$((pos_total + 1))
-    if [ "$actual" = open ]; then
+    if [ "$actual" = "$want" ]; then
       pos_ok=$((pos_ok + 1)); verdict=PASS
     else
-      verdict=FAIL; failed+=("$label expected open, got $actual")
+      verdict=FAIL; failed+=("$label expected $want, got $actual")
     fi
   elif [ "$actual" = open ] || [ "$actual" = refused ]; then
     neg_total=$((neg_total + 1))
@@ -113,14 +113,14 @@ while IFS='=' read -r label rest || [ -n "$label" ]; do
   [[ "$label" =~ ^[a-z0-9_]+$ ]] || die "invalid label '$label' in $targets"
   read -r scope kind host port expect expect_red control extra <<< "$rest"
   [ -z "${extra:-}" ] || die "$label: expected 7 fields after '='"
-  case "${scope:-}" in all | lxc | vm | cache) ;; *) die "$label: scope must be all, lxc, vm or cache" ;; esac
+  case "${scope:-}" in all | runner | lxc | vm | cache) ;; *) die "$label: scope must be all, runner, lxc, vm or cache" ;; esac
   case "${kind:-}" in tcp | tcp6 | tcpvia) ;; *) die "$label: kind must be tcp, tcp6 or tcpvia" ;; esac
   [[ "${host:-}" =~ ^[0-9A-Za-z:.%_-]+$ ]] || die "$label: invalid host"
   [[ "${port:-}" =~ ^[0-9]{1,5}$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "$label: invalid port"
   case "${expect:-}" in open | blocked) ;; *) die "$label: expect must be open or blocked" ;; esac
-  case "${expect_red:-}" in open | blocked) ;; *) die "$label: expect_red must be open or blocked" ;; esac
+  case "${expect_red:-}" in open | blocked | refused) ;; *) die "$label: expect_red must be open, blocked or refused" ;; esac
   case "${control:-}" in True | False | -) ;; *) die "$label: control must be True, False or -" ;; esac
-  [ "$scope" = all ] || [ "$scope" = "$guest" ] || continue
+  [ "$scope" = all ] || [ "$scope" = "$guest" ] || { [ "$scope" = runner ] && [ "$guest" != cache ]; } || continue
 
   evaluate "$label" "$kind" "$host" "$port" "$expect" "$expect_red" "$control"
 done < "$targets"
