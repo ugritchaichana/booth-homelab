@@ -11,10 +11,15 @@
       - pve_firewall_deadman_minutes | int > 0
       - pve_firewall_guest_gateway is match(pve_firewall_address_pattern)
       - "'/' not in pve_firewall_guest_gateway"
+      - pve_firewall_cache_endpoint.address is not defined or pve_firewall_cache_endpoint.address is match(pve_firewall_address_pattern)
+      - pve_firewall_cache_endpoint.address is not defined or (pve_firewall_cache_endpoint.port | int) in range(1, 65536)
+      - pve_firewall_cache_endpoint.address is not defined or pve_firewall_cache_network.gateway is match(pve_firewall_address_pattern)
+      - pve_firewall_cache_endpoint.address is not defined or pve_firewall_guest_cidr is match(pve_firewall_address_pattern)
     fail_msg: >-
       Set pve_firewall_management_sources to IPv4 addresses without a zero prefix,
       pve_firewall_host_routed_prefixes to a list of IPv4 prefixes without a zero prefix and
-      the guest_network gateway to one IPv4 address
+      the guest_network gateway to one IPv4 address, and cache_endpoint (address, port) with cache_network (gateway)
+      and guest_network (cidr) to valid values
   no_log: true
 
 - name: Read the dead-man timer state
@@ -270,12 +275,29 @@
     group: root
     mode: "0750"
 
+- name: Create the guest firewall guard policy directory
+  ansible.builtin.file:
+    path: "{{ pve_firewall_guard_policy_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Write the guest firewall guard policy
+  ansible.builtin.copy:
+    dest: "{{ pve_firewall_guard_policy_file }}"
+    content: "{{ {'vnets': pve_firewall_guard_vnets} | to_nice_json }}
+"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Install the guest firewall guard service
   ansible.builtin.copy:
     dest: "/etc/systemd/system/{{ pve_firewall_guard_unit }}.service"
     content: |
       [Unit]
-      Description=Stop guests on the guest network whose firewall settings are not the required policy
+      Description=Stop guests on the lab vnets whose firewall settings are not the policy of their vnet
       After=pve-cluster.service pve-firewall.service
 
       [Service]
@@ -336,23 +358,23 @@
   register: pve_firewall_ipv6_live
   changed_when: false
 
-- name: Look for the guest bridge
+- name: Look for the lab vnet bridges
   ansible.builtin.stat:
-    path: "/proc/sys/net/ipv6/conf/{{ pve_firewall_guest_vnet }}"
-  register: pve_firewall_guest_bridge
+    path: "/proc/sys/net/ipv6/conf/{{ item }}"
+  loop: "{{ pve_firewall_guard_vnets.keys() | list }}"
+  register: pve_firewall_vnet_bridges
 
-- name: Read the IPv6 settings of the guest bridge
-  ansible.builtin.command: sysctl -n net.ipv6.conf.{{ pve_firewall_guest_vnet }}.{{ item }}
-  loop:
-    - accept_ra
-    - autoconf
+- name: Read the IPv6 settings of the lab vnet bridges
+  ansible.builtin.command: sysctl -n net.ipv6.conf.{{ item.0 }}.{{ item.1 }}
+  loop: >-
+    {{ pve_firewall_vnet_bridges.results | selectattr('stat.exists') | map(attribute='item') | list
+    | product(['accept_ra', 'autoconf']) | list }}
   register: pve_firewall_ipv6_bridge
   changed_when: false
-  when: pve_firewall_guest_bridge.stat.exists
 
 - name: Assert the host ignores router advertisements and does not route IPv6
   ansible.builtin.assert:
     that:
       - pve_firewall_ipv6_live.results | map(attribute='stdout') | unique | list == ['0']
-      - not pve_firewall_guest_bridge.stat.exists or (pve_firewall_ipv6_bridge.results | map(attribute='stdout') | unique | list == ['0'])
-    fail_msg: The host still accepts IPv6 router advertisements on the guest bridge or forwards IPv6 between interfaces
+      - pve_firewall_ipv6_bridge.results | map(attribute='stdout') | reject('equalto', '0') | list | length == 0
+    fail_msg: The host still accepts IPv6 router advertisements on a lab vnet bridge or forwards IPv6 between interfaces

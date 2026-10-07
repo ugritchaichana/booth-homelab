@@ -27,6 +27,23 @@ resource "proxmox_sdn_subnet" "this" {
   snat    = true
 }
 
+resource "proxmox_sdn_vnet" "additional" {
+  for_each = var.additional_vnets
+
+  id            = each.key
+  zone          = proxmox_sdn_zone_simple.this.id
+  isolate_ports = true
+}
+
+resource "proxmox_sdn_subnet" "additional" {
+  for_each = var.additional_vnets
+
+  cidr    = each.value.cidr
+  vnet    = proxmox_sdn_vnet.additional[each.key].id
+  gateway = each.value.gateway
+  snat    = true
+}
+
 # Experimental provider resource: replaced on every SDN change so PVE applies the pending config.
 resource "proxmox_sdn_applier" "this" {
   lifecycle {
@@ -34,6 +51,8 @@ resource "proxmox_sdn_applier" "this" {
       proxmox_sdn_zone_simple.this,
       proxmox_sdn_vnet.this,
       proxmox_sdn_subnet.this,
+      proxmox_sdn_vnet.additional,
+      proxmox_sdn_subnet.additional,
     ]
   }
 
@@ -41,6 +60,8 @@ resource "proxmox_sdn_applier" "this" {
     proxmox_sdn_zone_simple.this,
     proxmox_sdn_vnet.this,
     proxmox_sdn_subnet.this,
+    proxmox_sdn_vnet.additional,
+    proxmox_sdn_subnet.additional,
   ]
 }
 

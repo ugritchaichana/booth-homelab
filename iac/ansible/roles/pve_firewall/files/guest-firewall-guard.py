@@ -46,15 +46,34 @@ def is_gateway_ssh_rule(rule, gateway):
     )
 
 
-def check_guest(node, guest, args):
+def load_policy(path):
+    with open(path, encoding="utf-8") as handle:
+        vnets = json.load(handle)["vnets"]
+    if not isinstance(vnets, dict) or not vnets:
+        raise ValueError("policy has no vnets")
+    for name, entry in vnets.items():
+        if not entry.get("groups"):
+            raise ValueError("vnet %s requires at least one group" % name)
+    return vnets
+
+
+def check_guest(node, guest, vnets):
     base = "/nodes/%s/%s/%s" % (node, guest["type"], guest["vmid"])
     config = pvesh(base + "/config")
     nics = [nic_options(v) for k, v in config.items() if NET_KEY.match(k)]
-    if not any(nic.get("bridge") == args.vnet for nic in nics):
+    if not nics:
         return None
+    problems = []
+    for index, nic in enumerate(nics):
+        if nic.get("bridge") not in vnets:
+            problems.append("a NIC is on a bridge outside the lab vnets (nic %d)" % index)
+    if problems:
+        return problems
+    entries = [vnets[nic["bridge"]] for nic in nics]
+    groups = {group for entry in entries for group in entry["groups"]}
+    gateways = {entry["allow_gateway_ssh"] for entry in entries if entry.get("allow_gateway_ssh")}
     options = pvesh(base + "/firewall/options")
     rules = pvesh(base + "/firewall/rules")
-    problems = []
     if not truthy(options.get("enable", 0)):
         problems.append("firewall not enabled")
     if str(options.get("policy_in", "DROP")).upper() != "DROP":
@@ -63,17 +82,15 @@ def check_guest(node, guest, args):
         problems.append("policy_out is not DROP")
     if not truthy(options.get("ipfilter", 0)):
         problems.append("ipfilter is off")
-    if not any(
-        r.get("type") == "group" and r.get("action") == args.group and truthy(r.get("enable", 0))
-        for r in rules
-    ):
-        problems.append("group rule %s missing or disabled" % args.group)
+    for group in sorted(groups):
+        if not any(r.get("type") == "group" and r.get("action") == group and truthy(r.get("enable", 0)) for r in rules):
+            problems.append("group rule %s missing or disabled" % group)
     for rule in rules:
         if not truthy(rule.get("enable", 0)):
             continue
-        if rule.get("type") == "group" and rule.get("action") == args.group:
+        if rule.get("type") == "group" and rule.get("action") in groups:
             continue
-        if is_gateway_ssh_rule(rule, args.gateway):
+        if any(is_gateway_ssh_rule(rule, gateway) for gateway in gateways):
             continue
         problems.append("enabled rule outside the allowed set (pos %s)" % rule.get("pos", "?"))
     for index, nic in enumerate(nics):
@@ -102,9 +119,7 @@ def stop_guest(guest):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--node", required=True)
-    parser.add_argument("--vnet", required=True)
-    parser.add_argument("--group", required=True)
-    parser.add_argument("--gateway", required=True)
+    parser.add_argument("--policy", required=True)
     parser.add_argument("--state-dir", default="/var/lib/homelab/guest-firewall-guard")
     parser.add_argument("--unverified-limit", type=int, default=3)
     args = parser.parse_args()
@@ -116,6 +131,12 @@ def main():
     except OSError:
         print("guest-firewall-guard: another run holds the lock, skipping")
         return EXIT_OK
+
+    try:
+        vnets = load_policy(args.policy)
+    except Exception as err:
+        print("guest-firewall-guard: ERROR cannot read the policy (%s); no guest was stopped" % err)
+        return EXIT_UNVERIFIED
 
     try:
         resources = [r for r in pvesh("/cluster/resources", "--type", "vm") if r.get("node") == args.node]
@@ -131,7 +152,7 @@ def main():
         violation = os.path.join(args.state_dir, "violations", vmid)
         unverified = os.path.join(args.state_dir, "unverified", vmid)
         try:
-            problems = check_guest(args.node, guest, args)
+            problems = check_guest(args.node, guest, vnets)
         except Exception as err:
             count = 1
             if os.path.exists(unverified):

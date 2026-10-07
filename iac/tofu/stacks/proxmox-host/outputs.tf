@@ -18,3 +18,11 @@ output "guest_network" {
     gateway = module.guest_network.gateway
   }
 }
+
+output "cache_network" {
+  value = local.cache_network == null ? null : {
+    vnet    = local.cache_network.vnet
+    cidr    = module.guest_network.additional_vnets[local.cache_network.vnet].cidr
+    gateway = module.guest_network.additional_vnets[local.cache_network.vnet].gateway
+  }
+}

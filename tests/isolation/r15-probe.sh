@@ -12,7 +12,7 @@ via_route=""
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 while [ "$#" -gt 0 ]; do
-  [ "$#" -ge 2 ] || die "usage: r15-probe.sh --guest lxc|vm --phase <phase> [--targets FILE] [--wait SECONDS]"
+  [ "$#" -ge 2 ] || die "usage: r15-probe.sh --guest lxc|vm|cache --phase <phase> [--targets FILE] [--wait SECONDS]"
   case "$1" in
     --guest) guest="$2" ;;
     --phase) phase="$2" ;;
@@ -23,12 +23,18 @@ while [ "$#" -gt 0 ]; do
   shift 2
 done
 
-case "$guest" in lxc | vm) ;; *) die "--guest must be lxc or vm" ;; esac
+case "$guest" in lxc | vm | cache) ;; *) die "--guest must be lxc, vm or cache" ;; esac
 case "$phases" in *" $phase "*) ;; *) die "--phase must be one of:$phases" ;; esac
 [[ "$wait_s" =~ ^[1-9][0-9]?$ ]] || die "--wait must be 1 to 99 seconds"
 [ -r "$targets" ] || die "no readable targets file at $targets"
 command -v curl > /dev/null || die "curl is not installed"
 command -v timeout > /dev/null || die "timeout is not installed"
+cache_addr="${CACHE_ADDR:-}"
+cache_port="${CACHE_PORT:-}"
+if [ -n "$cache_addr$cache_port" ]; then
+  [[ "$cache_addr" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || die "CACHE_ADDR must be an IPv4 address"
+  [[ "$cache_port" =~ ^[0-9]{1,5}$ ]] && [ "$cache_port" -ge 1 ] && [ "$cache_port" -le 65535 ] || die "CACHE_PORT must be 1 to 65535"
+fi
 
 drop_via_route() {
   [ -z "$via_route" ] || ip route del "$via_route" 2> /dev/null
@@ -59,28 +65,8 @@ tcp_state_via_gateway() {
   drop_via_route
 }
 
-neg_total=0
-neg_ok=0
-pos_total=0
-pos_ok=0
-failed=()
-
-echo "RUN guest=$guest phase=$phase host=$(hostname) utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-while IFS='=' read -r label rest || [ -n "$label" ]; do
-  case "$label" in '' | '#'*) continue ;; esac
-  [[ "$label" =~ ^[a-z0-9_]+$ ]] || die "invalid label '$label' in $targets"
-  read -r scope kind host port expect expect_red control extra <<< "$rest"
-  [ -z "${extra:-}" ] || die "$label: expected 7 fields after '='"
-  case "${scope:-}" in all | lxc | vm) ;; *) die "$label: scope must be all, lxc or vm" ;; esac
-  case "${kind:-}" in tcp | tcp6 | tcpvia) ;; *) die "$label: kind must be tcp, tcp6 or tcpvia" ;; esac
-  [[ "${host:-}" =~ ^[0-9A-Za-z:.%_-]+$ ]] || die "$label: invalid host"
-  [[ "${port:-}" =~ ^[0-9]{1,5}$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "$label: invalid port"
-  case "${expect:-}" in open | blocked) ;; *) die "$label: expect must be open or blocked" ;; esac
-  case "${expect_red:-}" in open | blocked) ;; *) die "$label: expect_red must be open or blocked" ;; esac
-  case "${control:-}" in True | False | -) ;; *) die "$label: control must be True, False or -" ;; esac
-  [ "$scope" = all ] || [ "$scope" = "$guest" ] || continue
-
+evaluate() {
+  local label="$1" kind="$2" host="$3" port="$4" expect="$5" expect_red="$6" control="$7" want actual verdict
   want="$expect"
   [ "$phase" = red-first ] && want="$expect_red"
   if [ "$kind" = tcpvia ]; then
@@ -111,7 +97,40 @@ while IFS='=' read -r label rest || [ -n "$label" ]; do
     fi
   fi
   echo "PROBE $label $kind $host:$port $want $actual $verdict"
+  last_actual="$actual"
+}
+
+neg_total=0
+neg_ok=0
+pos_total=0
+pos_ok=0
+failed=()
+
+echo "RUN guest=$guest phase=$phase host=$(hostname) utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+while IFS='=' read -r label rest || [ -n "$label" ]; do
+  case "$label" in '' | '#'*) continue ;; esac
+  [[ "$label" =~ ^[a-z0-9_]+$ ]] || die "invalid label '$label' in $targets"
+  read -r scope kind host port expect expect_red control extra <<< "$rest"
+  [ -z "${extra:-}" ] || die "$label: expected 7 fields after '='"
+  case "${scope:-}" in all | lxc | vm | cache) ;; *) die "$label: scope must be all, lxc, vm or cache" ;; esac
+  case "${kind:-}" in tcp | tcp6 | tcpvia) ;; *) die "$label: kind must be tcp, tcp6 or tcpvia" ;; esac
+  [[ "${host:-}" =~ ^[0-9A-Za-z:.%_-]+$ ]] || die "$label: invalid host"
+  [[ "${port:-}" =~ ^[0-9]{1,5}$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "$label: invalid port"
+  case "${expect:-}" in open | blocked) ;; *) die "$label: expect must be open or blocked" ;; esac
+  case "${expect_red:-}" in open | blocked) ;; *) die "$label: expect_red must be open or blocked" ;; esac
+  case "${control:-}" in True | False | -) ;; *) die "$label: control must be True, False or -" ;; esac
+  [ "$scope" = all ] || [ "$scope" = "$guest" ] || continue
+
+  evaluate "$label" "$kind" "$host" "$port" "$expect" "$expect_red" "$control"
 done < "$targets"
+
+if [ -n "$cache_addr" ] && [ "$guest" != cache ]; then
+  evaluate cache_port_reachable tcp "$cache_addr" "$cache_port" open open -
+  cache_control=False
+  [ "$last_actual" = open ] && cache_control=True
+  evaluate cache_ssh_blocked tcp "$cache_addr" 22 blocked open "$cache_control"
+fi
 
 code="$(curl -sS -m 8 -o /dev/null -w '%{http_code}' https://deb.debian.org/ 2> /dev/null)"
 [ -n "$code" ] || code=000
