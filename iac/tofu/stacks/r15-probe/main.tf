@@ -57,10 +57,6 @@ resource "proxmox_virtual_environment_container" "probe" {
         gateway = local.guest_network.gateway
       }
     }
-
-    user_account {
-      keys = [var.probe_ssh_public_key]
-    }
   }
 
   lifecycle {
@@ -159,77 +155,5 @@ resource "proxmox_virtual_environment_firewall_ipset" "vm_ipfilter" {
 
   cidr {
     name = local.guests.vm.address
-  }
-}
-
-resource "proxmox_virtual_environment_firewall_options" "lxc" {
-  node_name     = local.node_name
-  container_id  = proxmox_virtual_environment_container.probe.vm_id
-  enabled       = local.options.enable == 1
-  input_policy  = local.options.policy_in
-  output_policy = local.options.policy_out
-  ipfilter      = local.options.ipfilter == 1
-  log_level_out = local.options.log_level_out
-  macfilter     = local.options.macfilter == 1
-  dhcp          = local.options.dhcp == 1
-  radv          = local.options.radv == 1
-  ndp           = local.options.ndp == 1
-}
-
-resource "proxmox_virtual_environment_firewall_options" "vm" {
-  node_name     = local.node_name
-  vm_id         = proxmox_virtual_environment_vm.probe.vm_id
-  enabled       = local.options.enable == 1
-  input_policy  = local.options.policy_in
-  output_policy = local.options.policy_out
-  ipfilter      = local.options.ipfilter == 1
-  log_level_out = local.options.log_level_out
-  macfilter     = local.options.macfilter == 1
-  dhcp          = local.options.dhcp == 1
-  radv          = local.options.radv == 1
-  ndp           = local.options.ndp == 1
-
-  depends_on = [proxmox_virtual_environment_firewall_ipset.vm_ipfilter]
-}
-
-resource "proxmox_virtual_environment_firewall_rules" "lxc" {
-  node_name    = local.node_name
-  container_id = proxmox_virtual_environment_container.probe.vm_id
-
-  rule {
-    type    = "in"
-    action  = "ACCEPT"
-    proto   = "tcp"
-    dport   = tostring(local.probe.r15_control_port)
-    source  = local.guest_network.gateway
-    comment = "Control channel from the host"
-    enabled = true
-  }
-
-  rule {
-    security_group = local.policy.runner_class_security_group
-    comment        = "Egress policy"
-    enabled        = true
-  }
-}
-
-resource "proxmox_virtual_environment_firewall_rules" "vm" {
-  node_name = local.node_name
-  vm_id     = proxmox_virtual_environment_vm.probe.vm_id
-
-  rule {
-    type    = "in"
-    action  = "ACCEPT"
-    proto   = "tcp"
-    dport   = tostring(local.probe.r15_control_port)
-    source  = local.guest_network.gateway
-    comment = "Control channel from the host"
-    enabled = true
-  }
-
-  rule {
-    security_group = local.policy.runner_class_security_group
-    comment        = "Egress policy"
-    enabled        = true
   }
 }

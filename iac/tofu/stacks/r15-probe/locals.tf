@@ -9,6 +9,5 @@ locals {
   probe        = yamldecode(file("${path.module}/probe.yml"))
   policy       = yamldecode(file("${path.module}/../../../policy/runner-class.yml"))
   guests       = local.probe.r15_guests
-  options      = local.policy.runner_class_firewall_options
   nic_firewall = local.policy.runner_class_nic_firewall == 1
 }
