@@ -116,3 +116,6 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
   when: pve_templates_unit_files.changed or pve_templates_unit_dropin.changed
+
+- name: Deploy bundles, fetch base images, set storage content and schedule rebuilds
+  ansible.builtin.import_tasks: host.yml

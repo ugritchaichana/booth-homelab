@@ -32,6 +32,12 @@ cat > "$work/render.yml" <<YML
         dest: "$work/10-site.conf"
         mode: "0600"
 
+    - name: Render the weekly rebuild service
+      ansible.builtin.template:
+        src: $role/templates/homelab-template-weekly.service.j2
+        dest: "$work/homelab-template-weekly.service"
+        mode: "0600"
+
     - name: Render the orchestrator configuration
       ansible.builtin.copy:
         content: "{{ pve_templates_config | to_nice_json }}"
@@ -134,8 +140,23 @@ build="$role/files/homelab-template-build@.service"
 expect "the build unit runs as root through the orchestrator" "1" "$(grep -c '^ExecStart=/usr/local/sbin/homelab-template build %i$' "$build")"
 expect "the build unit names the failure unit in OnFailure=" "1" "$(grep -c '^OnFailure=homelab-template-failure@%i.service$' "$build")"
 expect "the failure unit records the failure through the orchestrator" "1" "$(grep -c '^ExecStart=/usr/local/sbin/homelab-template record-failure %i$' "$role/files/homelab-template-failure@.service")"
-expect "no timer ships with the framework" "0" "$(find "$role" -name '*.timer' | wc -l | tr -d ' ')"
-expect "the role does not enable or start any unit" "0" "$(grep -cE 'enabled:|state: (started|restarted)' "$role/tasks/main.yml")"
+expect "exactly one timer ships" "1" "$(find "$role" -name '*.timer' | wc -l | tr -d ' ')"
+expect "the role enables only the weekly timer" "1" "$(cat "$role"/tasks/*.yml | grep -cE 'enabled:')"
+expect "the role starts a build unit only without waiting" "1" "$(grep -c 'no_block: true' "$role/tasks/host.yml")"
+
+echo "== the weekly timer and service"
+timer="$role/files/homelab-template-weekly.timer"
+expect "the timer fires weekly" "1" "$(grep -c '^OnCalendar=weekly$' "$timer")"
+expect "the timer catches up a missed run" "1" "$(grep -c '^Persistent=true$' "$timer")"
+expect "the timer spreads its start" "1" "$(grep -cE '^RandomizedDelaySec=[0-9]+min$' "$timer")"
+weekly="$work/homelab-template-weekly.service"
+expect "the service builds every class through the build unit, in order" "$(python3 -I -c "import json; print(','.join(sorted(json.load(open('$work/config.json'))['classes'])))")" "$(sed -n 's|^ExecStart=-/usr/bin/systemctl start --wait homelab-template-build@\(.*\)\.service$|\1|p' "$weekly" | paste -sd,)"
+expect "the service denies every IP address" "1" "$(grep -c '^IPAddressDeny=any$' "$weekly")"
+expect "the service allows no IP address of its own" "0" "$(grep -c '^IPAddressAllow=' "$weekly")"
+expect "the service is limited to unix sockets" "1" "$(grep -c '^RestrictAddressFamilies=AF_UNIX$' "$weekly")"
+expect "the service never starts the PVE VM" "0" "$(grep -cE 'qm |pct |start-vm' "$weekly")"
+sed '/^IPAddressDeny=any$/d' "$weekly" > "$work/weekly-mutant.service"
+expect "a service without IPAddressDeny=any is caught" "0" "$(grep -c '^IPAddressDeny=any$' "$work/weekly-mutant.service")"
 
 echo "== the rendered orchestrator configuration carries the policy file, not a copy"
 python3 -I - "$work/config.json" "$repo/iac/policy/runner-class.yml" "$work/vars.json" > "$work/config-check.out" 2>&1 <<'PY' && echo ok > "$work/config-check.rc" || echo bad > "$work/config-check.rc"
