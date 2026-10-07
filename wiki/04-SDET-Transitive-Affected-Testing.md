@@ -41,7 +41,8 @@ Per-test detail: [docs/knowledge/test-catalogue.md](https://github.com/ugritchai
 
 ```mermaid
 graph LR
-    T["Telemetry"] --> B["Build (.NET)"]
+    S["Select Runner"] --> T["Telemetry"] & B["Build (.NET)"] & TD["Test (.NET)"] & CS["Cache save (.NET)"] & A["Test (Angular)"] & AS["Cache save (Angular)"] & R["Report"]
+    T --> B
     B --> TD["Test (.NET)"]
     B --> CS["Cache save (.NET)"]
     TD --> CS
@@ -54,7 +55,7 @@ graph LR
     A --> R
 ```
 
-Every job also depends on a `select-runner` job (omitted from the diagram) that picks the runner labels.
+The `select-runner` job picks the runner labels once; every other job needs it.
 
 | Job | Restores | Saves |
 |---|---|---|
