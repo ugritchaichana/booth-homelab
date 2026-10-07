@@ -1,0 +1,43 @@
+---
+# Single source of truth for the lxc-runner toolchains. Edit a version, its url and its hash together.
+schema: 1
+artifacts:
+  dotnet_sdk_8:
+    version: 8.0.425
+    url: https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.425/dotnet-sdk-8.0.425-linux-x64.tar.gz
+    sha512: 934b8060a7190e5909ad1fd0785db542f487b3bbf6cdd14826b02095fdd0d0394298b1634085eff302928fccc33f7c1a7253e9b87df555fc36fce819bcd2e798
+  dotnet_sdk_10:
+    version: 10.0.401
+    url: https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.401/dotnet-sdk-10.0.401-linux-x64.tar.gz
+    sha512: 51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b
+  nodejs:
+    version: 22.23.3
+    url: https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.gz
+    sha256: 1084aa36196bba4c3a5e69a1ee388a6e4ff729dad09445fbcd434b28fe3c24af
+  actions_runner:
+    version: 2.338.0
+    url: https://github.com/actions/runner/releases/download/v2.338.0/actions-runner-linux-x64-2.338.0.tar.gz
+    sha256: af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32
+end_of_support:
+  dotnet_sdk_8: 2026-11-10
+apt_sources: []
+apt_packages:
+  - ca-certificates
+  - curl
+  - diffutils
+  - file
+  - git
+  - hostname
+  - jq
+  - libicu76
+  - libkrb5-3
+  - liblttng-ust1t64
+  - libssl3t64
+  - procps
+  - tar
+  - tzdata
+  - unzip
+  - xz-utils
+  - zip
+  - zlib1g
+  - zstd
