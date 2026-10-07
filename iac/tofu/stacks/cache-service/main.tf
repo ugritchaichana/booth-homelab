@@ -5,7 +5,7 @@ resource "proxmox_virtual_environment_container" "cache" {
   description   = "Build cache (bazel-remote); configured by the cache_service role"
   unprivileged  = true
   start_on_boot = true
-  started       = true
+  started       = false
 
   cpu {
     cores = 1
@@ -58,6 +58,8 @@ resource "proxmox_virtual_environment_container" "cache" {
   }
 
   lifecycle {
+    ignore_changes = [started]
+
     precondition {
       condition     = local.cache_ready
       error_message = "The host entry in the inventory needs cache_network (vnet, cidr, gateway) and cache_endpoint (address, port) before this stack can plan."

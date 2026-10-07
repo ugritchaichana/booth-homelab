@@ -1,0 +1,46 @@
+---
+- name: Read the container config
+  ansible.builtin.command:
+    argv: [pvesh, get, "/nodes/{{ cache_node }}/lxc/{{ cache_vmid }}/config", --output-format, json]
+  register: cache_gate_config
+  changed_when: false
+
+- name: Read the container firewall options
+  ansible.builtin.command:
+    argv: [pvesh, get, "/nodes/{{ cache_node }}/lxc/{{ cache_vmid }}/firewall/options", --output-format, json]
+  register: cache_gate_options
+  changed_when: false
+
+- name: Read the container firewall rules
+  ansible.builtin.command:
+    argv: [pvesh, get, "/nodes/{{ cache_node }}/lxc/{{ cache_vmid }}/firewall/rules", --output-format, json]
+  register: cache_gate_rules
+  changed_when: false
+
+- name: Require the runner-class firewall and the NIC on the cache vnet before the first start
+  ansible.builtin.assert:
+    that:
+      - (cache_gate_options.stdout | from_json).enable | default(0) | int == 1
+      - (cache_gate_options.stdout | from_json).policy_in | default('DROP') | upper == 'DROP'
+      - (cache_gate_options.stdout | from_json).policy_out | default('ACCEPT') | upper == 'DROP'
+      - (cache_gate_options.stdout | from_json).ipfilter | default(0) | int == 1
+      - (cache_gate_rules.stdout | from_json) | length == 2
+      - (cache_gate_rules.stdout | from_json) | map(attribute='type') | unique | list == ['group']
+      - (cache_gate_rules.stdout | from_json) | map(attribute='enable', default=0) | map('int') | unique | list == [1]
+      - (cache_gate_rules.stdout | from_json) | map(attribute='action') | sort | list == ['cache-ingress', 'guest-egress']
+      - (cache_gate_config.stdout | from_json).net0 is regex('(^|,)bridge=' ~ cache_vnet ~ '(,|$)')
+      - (cache_gate_config.stdout | from_json).net0 is regex('(^|,)firewall=1(,|$)')
+    fail_msg: The container firewall or NIC does not match the cache policy; the container was not started
+    quiet: true
+
+- name: Read the container status
+  ansible.builtin.command:
+    argv: [pct, status, "{{ cache_vmid }}"]
+  register: cache_gate_status
+  changed_when: false
+
+- name: Start the container now that the firewall is in place
+  ansible.builtin.command:
+    argv: [pct, start, "{{ cache_vmid }}"]
+  when: "'stopped' in cache_gate_status.stdout"
+  changed_when: true

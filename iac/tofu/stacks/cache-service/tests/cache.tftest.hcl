@@ -20,6 +20,11 @@ run "container_sits_on_the_cache_vnet_with_the_planned_shape" {
   }
 
   assert {
+    condition     = proxmox_virtual_environment_container.cache.started == false && length(regexall("ignore_changes = [[]started[]]", file("${path.module}/main.tf"))) == 1
+    error_message = "The container must be created stopped and never be stopped later: the playbook starts it only after the firewall read-back."
+  }
+
+  assert {
     condition     = proxmox_virtual_environment_container.cache.network_interface[0].bridge == "cache" && proxmox_virtual_environment_container.cache.network_interface[0].firewall == true
     error_message = "The NIC must sit on vnet cache with the firewall flag, or no guest rule applies."
   }

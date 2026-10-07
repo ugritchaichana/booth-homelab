@@ -6,7 +6,7 @@ The unprivileged container that hosts the build cache (ADR 0048). The service it
 
 | Object | Value |
 |---|---|
-| Container | id 9050 (variable `vm_id`, validated outside the template blocks and the probe ids), pool `homelab`, unprivileged, `start_on_boot`, started |
+| Container | id 9050 (variable `vm_id`, validated outside the template blocks and the probe ids), pool `homelab`, unprivileged, `start_on_boot`, created stopped and `ignore_changes = [started]`: `cache.yml` starts it after reading the firewall back |
 | Source | the Debian 13 standard template the template role fetches (read from `pve_templates_classes` in the role defaults), not a clone |
 | Size | 1 core, 1024 MB, no swap, root 4 GiB, mount point `mp0` of 10 GiB at the role's data mount, both on `local-lvm` |
 | NIC | `eth0` on the `cache` vnet, firewall flag on, static address and gateway from `cache_endpoint` and `cache_network` of the host entry in `iac/inventory/hosts.yml` |
