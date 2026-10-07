@@ -1,0 +1,35 @@
+# Managed by the cache_service role
+[Unit]
+Description=bazel-remote build cache {{ cache_service_version }}
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor={{ cache_service_data_mount }}
+
+[Service]
+Type=simple
+User={{ cache_service_user }}
+Group={{ cache_service_group }}
+ExecStart={{ cache_service_binary_link }} \
+  --dir {{ cache_service_data_dir }} \
+  --max_size {{ cache_service_max_size_gib }} \
+  --storage_mode {{ cache_service_storage_mode }} \
+  --http_address {{ cache_service_listen_address }}:{{ cache_service_listen_port }} \
+  --grpc_address none \
+  --htpasswd_file {{ cache_service_htpasswd_file }} \
+  --allow_unauthenticated_reads \
+  --disable_http_ac_validation \
+  --max_blob_size {{ cache_service_max_blob_size_bytes }} \
+  --enable_endpoint_metrics
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={{ cache_service_data_mount }}
+PrivateTmp=true
+ProtectHome=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax={{ cache_service_memory_max }}
+
+[Install]
+WantedBy=multi-user.target

@@ -4,6 +4,7 @@
 - Date: 2026-10-06
 - Deciders: operator
 - Decision log: D41 in docs/platform/requirements.md
+- Amended by 0051: the planned move to an S3 backend is withdrawn; state stays local and encrypted
 
 ## Context
 

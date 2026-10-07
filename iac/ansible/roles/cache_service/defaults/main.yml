@@ -1,0 +1,23 @@
+---
+cache_service_version: 2.6.2
+cache_service_url: "https://github.com/buchgr/bazel-remote/releases/download/v{{ cache_service_version }}/bazel-remote-{{ cache_service_version }}-linux-amd64"
+cache_service_sha256: 62e236bf8396e69396928e0d0c32062fbd5575f20fe55dc10a82eb791297e1a0
+
+cache_service_user: bazel-remote
+cache_service_group: bazel-remote
+cache_service_install_dir: /usr/local/lib/bazel-remote
+cache_service_binary_link: /usr/local/bin/bazel-remote
+cache_service_data_mount: /var/lib/bazel-remote
+cache_service_data_dir: "{{ cache_service_data_mount }}/data"
+cache_service_config_dir: /etc/bazel-remote
+cache_service_htpasswd_file: "{{ cache_service_config_dir }}/htpasswd"
+cache_service_writer_user: ci-writer
+cache_service_writer_password_min_length: 40
+cache_service_bcrypt_cost: 10
+
+cache_service_max_size_gib: 8
+cache_service_max_blob_size_bytes: 2147483648
+cache_service_storage_mode: uncompressed
+cache_service_memory_max: 768M
+cache_service_listen_address: "{{ cache_endpoint.address }}"
+cache_service_listen_port: "{{ cache_endpoint.port }}"
