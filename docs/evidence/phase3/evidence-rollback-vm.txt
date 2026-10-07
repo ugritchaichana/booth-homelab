@@ -1,0 +1,12 @@
+== vm-docker rollback and back
+class=vm-docker current=v5 vmid=9303 name=tmpl-vm-docker-v5 previous=v4 last_build=2026-10-07T05:32:36Z
+homelab-template: TAGS vmid=9303 v5 -> homelab-template;v5;vm-docker
+homelab-template: TAGS vmid=9302 v4 -> current;homelab-template;v4;vm-docker
+homelab-template: ROLLBACK class=vm-docker current v5 -> v4 previous=v5 vmid=9302
+rc=0
+class=vm-docker current=v4 vmid=9302 name=tmpl-vm-docker-v4 previous=v5 last_build=2026-10-07T05:32:36Z
+homelab-template: TAGS vmid=9302 v4 -> homelab-template;v4;vm-docker
+homelab-template: TAGS vmid=9303 v5 -> current;homelab-template;v5;vm-docker
+homelab-template: ROLLBACK class=vm-docker current v4 -> v5 previous=v4 vmid=9303
+rc=0
+class=vm-docker current=v5 vmid=9303 name=tmpl-vm-docker-v5 previous=v4 last_build=2026-10-07T05:32:36Z

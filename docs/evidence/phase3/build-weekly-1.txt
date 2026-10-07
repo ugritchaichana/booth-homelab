@@ -1,0 +1,119 @@
+2026-10-07T11:40:43+07:00 pve01 systemd[1]: Starting homelab-template-weekly.service - Rebuild every golden template class in turn...
+2026-10-07T11:40:43+07:00 pve01 systemd[1]: Starting homelab-template-build@lxc-runner.service - Build the golden template of class lxc-runner...
+2026-10-07T11:40:46+07:00 pve01 homelab-template[11677]: homelab-template: PREFLIGHT ok data_percent=0.00 metadata_percent=1.60 local_free_gib=32.5
+2026-10-07T11:40:48+07:00 pve01 homelab-template[11677]: homelab-template: BUILD start class=lxc-runner version=v1 vmid=9202 build_id=lxc-runner-v1-20261007T044048Z-aa55786d
+2026-10-07T11:40:49+07:00 pve01 pct[11762]: <root@pam> starting task UPID:pve01:00002DF9:0000F659:6AC5CD51:vzcreate:9202:root@pam:
+2026-10-07T11:40:52+07:00 pve01 pct[11769]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T11:40:54+07:00 pve01 pct[11762]: <root@pam> end task UPID:pve01:00002DF9:0000F659:6AC5CD51:vzcreate:9202:root@pam: WARNINGS: 1
+2026-10-07T11:41:03+07:00 pve01 homelab-template[11677]: homelab-template: READBACK ok vmid=9202 kind=lxc before first start: bridge=guests only, firewall on, options and rules exact, shape ok
+2026-10-07T11:41:03+07:00 pve01 homelab-template[11677]: homelab-template: START vmid=9202
+2026-10-07T11:41:03+07:00 pve01 pct[12005]: <root@pam> starting task UPID:pve01:00002EE8:0000FC2B:6AC5CD5F:vzstart:9202:root@pam:
+2026-10-07T11:41:03+07:00 pve01 pct[12008]: starting CT 9202: UPID:pve01:00002EE8:0000FC2B:6AC5CD5F:vzstart:9202:root@pam:
+2026-10-07T11:41:06+07:00 pve01 pct[12008]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T11:41:06+07:00 pve01 pct[12005]: <root@pam> end task UPID:pve01:00002EE8:0000FC2B:6AC5CD5F:vzstart:9202:root@pam: WARNINGS: 1
+2026-10-07T11:41:07+07:00 pve01 systemd[1]: Starting homelab-template-guest@build.service - Guest-facing step (build) of a golden template build...
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]: Traceback (most recent call last):
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:   File "/usr/local/libexec/homelab-template/guest-step", line 176, in <module>
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:     sys.exit(main())
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:              ~~~~^^
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:   File "/usr/local/libexec/homelab-template/guest-step", line 171, in main
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:     {"build": build, "verify": verify, "cleanup": cleanup}[args.mode](args.work_dir)
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:   File "/usr/local/libexec/homelab-template/guest-step", line 113, in build
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:     params = read_params(work)
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:   File "/usr/local/libexec/homelab-template/guest-step", line 26, in read_params
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:     with open(os.path.join(work, "build", "params.env"), encoding="utf-8") as handle:
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]:          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-07T11:41:07+07:00 pve01 guest-step[12197]: PermissionError: [Errno 13] Permission denied: '/var/lib/homelab/template-work/build/params.env'
+2026-10-07T11:41:07+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]: Traceback (most recent call last):
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:   File "/usr/local/libexec/homelab-template/guest-step", line 176, in <module>
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:     sys.exit(main())
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:              ~~~~^^
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:   File "/usr/local/libexec/homelab-template/guest-step", line 171, in main
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:     {"build": build, "verify": verify, "cleanup": cleanup}[args.mode](args.work_dir)
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:   File "/usr/local/libexec/homelab-template/guest-step", line 156, in cleanup
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:     params = read_params(work)
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:   File "/usr/local/libexec/homelab-template/guest-step", line 26, in read_params
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:     with open(os.path.join(work, "build", "params.env"), encoding="utf-8") as handle:
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]:          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-07T11:41:07+07:00 pve01 guest-step[12208]: PermissionError: [Errno 13] Permission denied: '/var/lib/homelab/template-work/build/params.env'
+2026-10-07T11:41:07+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Control process exited, code=exited, status=1/FAILURE
+2026-10-07T11:41:07+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Failed with result 'exit-code'.
+2026-10-07T11:41:07+07:00 pve01 systemd[1]: Failed to start homelab-template-guest@build.service - Guest-facing step (build) of a golden template build.
+2026-10-07T11:41:11+07:00 pve01 homelab-template[11677]: homelab-template: CLEANUP FAILED vmid=9202: pct destroy 9202 failed rc=255: unable to destroy CT 9202 - container is running
+2026-10-07T11:41:11+07:00 pve01 homelab-template[11677]: homelab-template: FAILED Failed: systemctl start --wait failed rc=1: Job for homelab-template-guest@build.service failed because the control process exited with error code.
+2026-10-07T11:41:11+07:00 pve01 homelab-template[11677]: See "systemctl status homelab-template-guest@build.service" and "journalctl -xeu homelab-template-guest@build.service" for details.
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Failed with result 'exit-code'.
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: Failed to start homelab-template-build@lxc-runner.service - Build the golden template of class lxc-runner.
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Consumed 24.707s CPU time, 769.2M memory peak.
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Triggering OnFailure= dependencies.
+2026-10-07T11:41:11+07:00 pve01 systemctl[11675]: Job for homelab-template-build@lxc-runner.service failed because the control process exited with error code.
+2026-10-07T11:41:11+07:00 pve01 systemctl[11675]: See "systemctl status homelab-template-build@lxc-runner.service" and "journalctl -xeu homelab-template-build@lxc-runner.service" for details.
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: Starting homelab-template-failure@lxc-runner.service - Record a failed golden template build of class lxc-runner...
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: Starting homelab-template-build@vm-docker.service - Build the golden template of class vm-docker...
+2026-10-07T11:41:11+07:00 pve01 homelab-template[12580]: homelab-template: BUILD FAILED class=lxc-runner at 2026-10-07T04:41:11Z; marker /var/lib/homelab/templates/failed/lxc-runner; read: journalctl -u homelab-template-build@lxc-runner
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: homelab-template-failure@lxc-runner.service: Deactivated successfully.
+2026-10-07T11:41:11+07:00 pve01 systemd[1]: Finished homelab-template-failure@lxc-runner.service - Record a failed golden template build of class lxc-runner.
+2026-10-07T11:41:16+07:00 pve01 homelab-template[12583]: homelab-template: PREFLIGHT ok data_percent=1.20 metadata_percent=1.62 local_free_gib=32.5
+2026-10-07T11:41:18+07:00 pve01 homelab-template[12583]: homelab-template: BUILD start class=vm-docker version=v1 vmid=9302 build_id=vm-docker-v1-20261007T044118Z-a538dccc
+2026-10-07T11:41:19+07:00 pve01 qm[12684]: <root@pam> starting task UPID:pve01:0000318F:00010263:6AC5CD6F:qmcreate:9302:root@pam:
+2026-10-07T11:41:29+07:00 pve01 qm[12684]: <root@pam> end task UPID:pve01:0000318F:00010263:6AC5CD6F:qmcreate:9302:root@pam: OK
+2026-10-07T11:41:30+07:00 pve01 qm[12862]: <root@pam> starting task UPID:pve01:0000323F:0001065B:6AC5CD7A:resize:9302:root@pam:
+2026-10-07T11:41:30+07:00 pve01 qm[12863]: <root@pam> update VM 9302: resize --disk scsi0 --size 20G
+2026-10-07T11:41:30+07:00 pve01 qm[12862]: <root@pam> end task UPID:pve01:0000323F:0001065B:6AC5CD7A:resize:9302:root@pam: OK
+2026-10-07T11:41:44+07:00 pve01 homelab-template[12583]: homelab-template: READBACK ok vmid=9302 kind=qemu before first start: bridge=guests only, firewall on, options and rules exact, shape ok
+2026-10-07T11:41:44+07:00 pve01 homelab-template[12583]: homelab-template: START vmid=9302
+2026-10-07T11:41:45+07:00 pve01 qm[13079]: <root@pam> starting task UPID:pve01:0000334C:00010C46:6AC5CD89:qmstart:9302:root@pam:
+2026-10-07T11:41:45+07:00 pve01 qm[13132]: start VM 9302: UPID:pve01:0000334C:00010C46:6AC5CD89:qmstart:9302:root@pam:
+2026-10-07T11:41:47+07:00 pve01 qm[13132]: VM 9302 started with PID 13181 using pve-qemu-kvm_11.0.3-4.
+2026-10-07T11:41:47+07:00 pve01 qm[13079]: <root@pam> end task UPID:pve01:0000334C:00010C46:6AC5CD89:qmstart:9302:root@pam: OK
+2026-10-07T11:41:47+07:00 pve01 systemd[1]: Starting homelab-template-guest@build.service - Guest-facing step (build) of a golden template build...
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]: Traceback (most recent call last):
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:   File "/usr/local/libexec/homelab-template/guest-step", line 176, in <module>
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:     sys.exit(main())
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:              ~~~~^^
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:   File "/usr/local/libexec/homelab-template/guest-step", line 171, in main
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:     {"build": build, "verify": verify, "cleanup": cleanup}[args.mode](args.work_dir)
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:   File "/usr/local/libexec/homelab-template/guest-step", line 113, in build
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:     params = read_params(work)
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:   File "/usr/local/libexec/homelab-template/guest-step", line 26, in read_params
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:     with open(os.path.join(work, "build", "params.env"), encoding="utf-8") as handle:
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]:          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-07T11:41:47+07:00 pve01 guest-step[13259]: PermissionError: [Errno 13] Permission denied: '/var/lib/homelab/template-work/build/params.env'
+2026-10-07T11:41:47+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]: Traceback (most recent call last):
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:   File "/usr/local/libexec/homelab-template/guest-step", line 176, in <module>
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:     sys.exit(main())
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:              ~~~~^^
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:   File "/usr/local/libexec/homelab-template/guest-step", line 171, in main
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:     {"build": build, "verify": verify, "cleanup": cleanup}[args.mode](args.work_dir)
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:   File "/usr/local/libexec/homelab-template/guest-step", line 156, in cleanup
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:     params = read_params(work)
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:   File "/usr/local/libexec/homelab-template/guest-step", line 26, in read_params
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:     with open(os.path.join(work, "build", "params.env"), encoding="utf-8") as handle:
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]:          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-07T11:41:47+07:00 pve01 guest-step[13263]: PermissionError: [Errno 13] Permission denied: '/var/lib/homelab/template-work/build/params.env'
+2026-10-07T11:41:47+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Control process exited, code=exited, status=1/FAILURE
+2026-10-07T11:41:47+07:00 pve01 systemd[1]: homelab-template-guest@build.service: Failed with result 'exit-code'.
+2026-10-07T11:41:47+07:00 pve01 systemd[1]: Failed to start homelab-template-guest@build.service - Guest-facing step (build) of a golden template build.
+2026-10-07T11:41:49+07:00 pve01 homelab-template[12583]: homelab-template: CLEANUP FAILED vmid=9302: qm destroy 9302 failed rc=25: VM 9302 is running - destroy failed
+2026-10-07T11:41:49+07:00 pve01 homelab-template[12583]: homelab-template: FAILED Failed: systemctl start --wait failed rc=1: Job for homelab-template-guest@build.service failed because the control process exited with error code.
+2026-10-07T11:41:49+07:00 pve01 homelab-template[12583]: See "systemctl status homelab-template-guest@build.service" and "journalctl -xeu homelab-template-guest@build.service" for details.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Main process exited, code=exited, status=1/FAILURE
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Failed with result 'exit-code'.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: Failed to start homelab-template-build@vm-docker.service - Build the golden template of class vm-docker.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Consumed 39.265s CPU time, 1G memory peak.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Triggering OnFailure= dependencies.
+2026-10-07T11:41:49+07:00 pve01 systemctl[12581]: Job for homelab-template-build@vm-docker.service failed because the control process exited with error code.
+2026-10-07T11:41:49+07:00 pve01 systemctl[12581]: See "systemctl status homelab-template-build@vm-docker.service" and "journalctl -xeu homelab-template-build@vm-docker.service" for details.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: Starting homelab-template-failure@vm-docker.service - Record a failed golden template build of class vm-docker...
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: homelab-template-weekly.service: Deactivated successfully.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: Finished homelab-template-weekly.service - Rebuild every golden template class in turn.
+2026-10-07T11:41:49+07:00 pve01 homelab-template[13273]: homelab-template: BUILD FAILED class=vm-docker at 2026-10-07T04:41:49Z; marker /var/lib/homelab/templates/failed/vm-docker; read: journalctl -u homelab-template-build@vm-docker
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: homelab-template-failure@vm-docker.service: Deactivated successfully.
+2026-10-07T11:41:49+07:00 pve01 systemd[1]: Finished homelab-template-failure@vm-docker.service - Record a failed golden template build of class vm-docker.
