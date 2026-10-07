@@ -8,16 +8,21 @@ Host configuration for the lab. Host data comes from `../inventory/` (ADR 0021);
 | `requirements.yml` | Pinned collections. |
 | `requirements-ci.txt` | Hash-locked Python toolchain for CI and local linting. |
 | `playbooks/bootstrap.yml` | First contact as `root`: switches the Proxmox repositories, then creates the automation user. |
-| `playbooks/site.yml` | Steady state, run as the automation user: `base`, then `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`, `pve_templates` on the Proxmox hosts. |
-| `playbooks/r15-verify.yml` | R15 proof, run on demand: starts the probe guests, runs `tests/isolation/r15-probe.sh` in each over the control channel, checks the guests' firewall options for drift, fetches the output (ADR 0031, ADR 0032). |
-| `roles/base/` | Provider-neutral Debian baseline. |
-| `roles/hyperv_guest/` | Blocks `hv_sock` and asserts no KVP, VSS or file-copy daemon. |
-| `roles/pve_host/` | Proxmox repositories, full upgrade, reboot on a new kernel, nested-KVM assert. |
-| `roles/pve_api_identity/` | OpenTofu's API user, roles, the `homelab` and `templates` pools, ACLs and privilege-separated token. |
-| `roles/pve_firewall/` | `cluster.fw`, `host.fw` and the firewall dead-man. |
-| `roles/pve_templates/` | Golden template build framework: the `homelab-template` root orchestrator (`build`, `rollback`, `status`), the non-root sandboxed guest-facing step and its units, the in-guest `finalize.sh`. Class content and the timer come in later changes (ADR 0038, 0039, 0040; `RUNBOOK.md` section 9). |
-| `playbooks/cache.yml` | Build cache service on `cache01` (inventory `iac/inventory/cache.yml`, reached through pve01): python3 bootstrap, then the `cache_service` role. Run with `-i iac/inventory/hosts.yml -i iac/inventory/cache.yml`; `site.yml` never touches it. |
-| `roles/cache_service/` | bazel-remote pinned by version and sha256, service user, htpasswd with one writer, hardened systemd unit (ADR 0048, ADR 0050). |
+| `playbooks/site.yml` | Steady state, run as the automation user. On every host: `base`. On the Proxmox hosts, in order: `hyperv_guest`, `pve_host`, `hyperv_guest` again (after a possible reboot), `pve_api_identity`, `pve_firewall`, `pve_templates`. |
+| `playbooks/cache.yml` | Build cache service. Play 1 reads back the cache container's firewall and starts the container only if it complies; play 2 installs python3; play 3 applies `cache_service`. Run with `-i iac/inventory/hosts.yml -i iac/inventory/cache.yml`; `site.yml` never touches it. |
+| `playbooks/r15-verify.yml` | R15 proof, run on demand: creates the probe control key (tag `r15_keygen`), starts the probe guests, runs `tests/isolation/r15-probe.sh` in each (and in the cache container) over the control channel, checks the guests' firewall options for drift, fetches the output (ADR 0031, 0032). |
+
+## Roles
+
+| Role | Purpose | Decision |
+| :--- | :--- | :--- |
+| `base/` | Provider-neutral Debian baseline: automation user, sudo, time sync, journal cap, sshd hardening behind a dead-man. | ADR 0023 |
+| `hyperv_guest/` | Blocks `hv_sock` and asserts no KVP, VSS or file-copy daemon. | ADR 0028 |
+| `pve_host/` | Proxmox repositories (`pve-no-subscription`), full upgrade, reboot on a new kernel, nested-KVM assert. | ADR 0005 |
+| `pve_api_identity/` | OpenTofu's API user `tofu@pve`, seven purpose roles, the pools `homelab` and `templates`, ACLs and the privilege-separated token. | ADR 0026, 0036 |
+| `pve_firewall/` | `cluster.fw`, `host.fw`, the `guest-egress` and `cache-ingress` security groups, the firewall dead-man and the guest firewall guard timer. | ADR 0025, 0027, 0037, 0047 |
+| `pve_templates/` | Golden template framework: the `homelab-template` root orchestrator (`build`, `rollback`, `status`, `repair`), the non-root sandboxed guest-facing step, the in-guest `finalize.sh`, class bundles `lxc-runner` and `vm-docker`, base images pinned by sha512, `snippets` content, the weekly rebuild timer. | ADR 0038 to 0043; `RUNBOOK.md` section 9 |
+| `cache_service/` | `bazel-remote` pinned by version and sha256 in the cache container, service user, htpasswd with one writer, the address wait and CAS sweep before each start, a hardened systemd unit. | ADR 0048, 0050; `RUNBOOK.md` section 12 |
 
 ## Toolchain
 
@@ -32,6 +37,7 @@ Static checks, from the repository root:
 ```sh
 ansible-lint --profile production iac/ansible
 ANSIBLE_CONFIG=iac/ansible/ansible.cfg ansible-playbook --syntax-check iac/ansible/playbooks/site.yml
+for t in tests/isolation/test-*.sh; do bash "$t"; done
 ```
 
 Role test (needs a Docker daemon, so it runs in CI): `cd iac/ansible/roles/base && molecule test`.
@@ -41,9 +47,10 @@ Role test (needs a Docker daemon, so it runs in CI): `cd iac/ansible/roles/base 
 ```sh
 bash scripts/iac/ansible.sh bootstrap.yml -e ansible_user=root
 bash scripts/iac/ansible.sh site.yml
+bash scripts/iac/ansible.sh iac/ansible/playbooks/cache.yml -i iac/inventory/hosts.yml -i iac/inventory/cache.yml
 ```
 
-The inventory `ansible_user` is `automation`; `bootstrap.yml` is the only play that connects as `root`, hence its `-e ansible_user=root`. Host keys come from `iac/inventory/host_vars/<host>.yml`, which reads them from `iac/secrets/hosts/<host>-access.sops.yaml`.
+The inventory `ansible_user` is `automation`; `bootstrap.yml` is the only play that connects as `root`, hence its `-e ansible_user=root`. Host keys come from `iac/inventory/host_vars/<host>.yml`, which reads them from `iac/secrets/hosts/<host>-access.sops.yaml`. A second run of `site.yml` must report `changed=0`, unless the host applied upstream package updates in between: the `pve_host` role upgrades and reboots into a newer kernel, so drain any pool first once runners exist.
 
 ## Role `base`
 
@@ -83,5 +90,7 @@ If a step after the arming fails, the timer stays armed and restores the previou
 ## Roles for Proxmox hosts
 
 - `pve_host`: `tasks/repos.yml` disables the enterprise repositories and enables `pve-no-subscription` as deb822 sources (it works before `sudo` exists, so `bootstrap.yml` runs it first); the rest of the role upgrades, reboots into a newer kernel and asserts nested KVM.
-- `pve_api_identity`: creates `tofu@pve` without a password, the role `HomelabProvisioner` (one role per purpose, each granted only on its path, see `defaults/main.yml`; none manages identities or the host), the pool and the ACLs for both the user and the token, then the privilege-separated token. The secret goes to `iac/secrets/tofu/<host>-api.sops.yaml` through `sops set --value-stdin`; nothing is printed or placed on a command line. A run skips an existing token; `-e pve_api_identity_rotate=true` replaces it. The sops key must be readable by the controller.
-- `pve_firewall`: writes `/etc/pve/firewall/cluster.fw` and `/etc/pve/nodes/<node>/host.fw` behind a dead-man that restores the previous files, also at boot. Host-routed prefixes come from `iac/secrets/hosts/<host>-network.sops.yaml`. A root-owned timer (`homelab-guest-firewall-guard`) stops any guest on the guest vnet whose firewall settings are not the required policy; the role also turns off IPv6 router advertisements for the host. `bash tests/isolation/test-cluster-fw-render.sh` checks the rendered deny set offline.
+- `pve_api_identity`: creates `tofu@pve` without a password, the pools and the privilege-separated token. One role per purpose, each granted only on its path (`defaults/main.yml`): `HomelabGuests` on pool `homelab`; `HomelabTemplateClone` (`VM.Clone`, `VM.Audit`) on pool `templates` and nowhere else; `HomelabDisks` on the guest-disk storage; `HomelabTemplates` on the image storage; `HomelabNodeDownload` on the node; `HomelabGuestNetwork` on each guest vnet path; `HomelabNetworkAdmin` on `/sdn`; `NoAccess` on `/sdn/zones/localnetwork`. The role asserts that `Permissions.Modify`, `Sys.Modify` and `User.Modify` are in none of them. The token secret goes to `iac/secrets/tofu/<host>-api.sops.yaml` through `sops set --value-stdin`; nothing is printed or placed on a command line. A run skips an existing token; `-e pve_api_identity_rotate=true` replaces it. The sops key must be readable by the controller.
+- `pve_firewall`: writes `/etc/pve/firewall/cluster.fw` and `/etc/pve/nodes/<node>/host.fw` behind a dead-man that restores the previous files, also at boot. Host-routed prefixes come from `iac/secrets/hosts/<host>-network.sops.yaml`. A root-owned timer (`homelab-guest-firewall-guard`) stops any guest whose firewall settings differ from the per-vnet policy in `/etc/homelab/guest-firewall-guard-policy.json`, including a guest with a NIC on any other bridge; the role also turns off IPv6 router advertisements for the host. `bash tests/isolation/test-cluster-fw-render.sh` and `test-guest-fw-guard.sh` check the rendered rules and the guard offline.
+- `pve_templates`: see `RUNBOOK.md` section 9 for building, rolling back, bumping a pinned toolchain and recovering a failed build. `bash tests/isolation/test-template-build.sh` and the other `test-template-*.sh` files check the logic against fakes.
+- `cache_service`: see `RUNBOOK.md` section 12. `bash tests/isolation/test-cache-service-role.sh` checks the rendered unit and the role's pins.

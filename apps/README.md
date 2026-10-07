@@ -1,55 +1,35 @@
-# Applications & Workload Codebases
+# Sample applications
 
-This directory contains the target applications and test suites executed by the continuous testing rig.
+Small workloads that the CI executes: a .NET 8 backend solution and an Angular (Jest) frontend. They exist to give the platform something real to build, test and cache; improving them is not a platform goal.
 
----
+| Path | Content |
+|---|---|
+| `backend/` | .NET 8 solution `SdetTestingRig.sln`; `Directory.Build.props` makes the build deterministic |
+| `backend/src/` | `Core.Domain`, `Core.Application`, `Billing.Api`, `Order.Api` |
+| `backend/tests/` | `Billing.Api.UnitTests`, `Order.Api.UnitTests`, `Order.Api.IntegrationTests` |
+| `frontend/` | Angular standalone components tested with Jest and jsdom (no browser); billing and order components and their specs under `src/app/` |
+| `fixtures/tax-rounding.json` | Shared cases for the backend and frontend rounding tests |
 
-## 📁 Workload Architecture
+## Lockfiles
 
-```
-apps/
-├── backend/                  # .NET 8 Multi-Project Enterprise Solution
-│   ├── SdetTestingRig.sln
-│   ├── Directory.Build.props # Enforces /p:Deterministic=true
-│   ├── src/
-│   │   ├── Core.Domain/      # Domain entities (Money, Order, Invoice)
-│   │   ├── Core.Application/ # Business logic services
-│   │   ├── Billing.Api/      # Billing REST service
-│   │   └── Order.Api/        # Order REST service
-│   └── tests/
-│       ├── Billing.Api.UnitTests/
-│       ├── Order.Api.UnitTests/
-│       └── Order.Api.IntegrationTests/
-│
-└── frontend/                 # Angular 18/19 Standalone Component Suite
-    ├── package.json          # Modern Angular dependencies
-    ├── jest.config.js        # Pure headless jsdom test preset
-    ├── setup-jest.ts         # Angular zone.js & Jest polyfills
-    └── src/app/
-        ├── billing/          # Billing summary component & service
-        └── order/            # Order checkout component & service
-```
+Every backend project carries a `packages.lock.json` and the frontend a `package-lock.json`. The build cache keys dependency entries on their hashes (ADR 0049), so a dependency change must come with the lockfile change. The pipeline restores in locked mode (`dotnet restore --locked-mode`, `npm ci`).
 
----
+## Run locally
 
-## 🧪 Local Execution
-
-### 1. Backend (.NET 8)
-```powershell
-dotnet test apps/backend/SdetTestingRig.sln --verbosity quiet
-```
-
-### 2. Frontend (Angular Jest)
-```bash
+```sh
+dotnet test apps/backend/SdetTestingRig.sln
+npm ci --prefix apps/frontend
 npm test --prefix apps/frontend -- --silent
 ```
 
-### 3. Transitive Graph Diff Engine
-```powershell
-pwsh -File ./tests/verify-affected-graph.ps1
+The .NET selector that runs only the test projects affected by a change, and its harness:
+
+```sh
+bash scripts/apps/dotnet-affected-test.sh <base-ref> <head-ref>
+bash tests/verify-affected-graph.sh
 ```
 
----
+On Windows use `scripts/apps/dotnet-affected-test.ps1` and `tests/verify-affected-graph.ps1`. See `wiki/04-SDET-Transitive-Affected-Testing.md`.
 
 ## Flaky tests
 

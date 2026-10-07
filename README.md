@@ -1,228 +1,128 @@
-# 🚀 Booth Homelab: Enterprise SDET & IaC Testing Rig
+# Homelab CI platform on Proxmox VE 9
 
-[![Release v1.0.0](https://img.shields.io/github/v/release/ugritchaichana/booth-homelab?color=blue&logo=github)](https://github.com/ugritchaichana/booth-homelab/releases/tag/v1.0.0)
-[![SDET Homelab CI Pipeline](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml)
-[![Synchronize Wiki Knowledge Base](https://github.com/ugritchaichana/booth-homelab/actions/workflows/wiki-sync.yml/badge.svg)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/wiki-sync.yml)
-[![Proxmox VE](https://img.shields.io/badge/Hypervisor-Proxmox%20VE%208.4-E57000?logo=proxmox&logoColor=white)](https://www.proxmox.com/)
-[![Tailscale](https://img.shields.io/badge/Mesh%20VPN-Tailscale-24292E?logo=tailscale&logoColor=white)](https://tailscale.com/)
-[![MinIO S3](https://img.shields.io/badge/Remote%20Cache-MinIO%20S3-C72C48?logo=minio&logoColor=white)](https://min.io/)
-[![.NET 8](https://img.shields.io/badge/.NET-8.0%20LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
-[![Angular Jest](https://img.shields.io/badge/Angular-Jest%20jsdom-DD0031?logo=angular&logoColor=white)](https://angular.dev/)
+A neutral homelab baseline: Proxmox VE 9 runs as a Hyper-V VM on a Windows workstation, is rebuilt entirely from code, and is meant to host single-use CI runners. This repository holds the code, the measured evidence and the knowledge gathered while building it, so it can be reviewed, forked and developed further.
 
-## 📖 About The Project
+## Status
 
-**Booth Homelab** is a Big Tech SaaS Continuous Testing Rig engineered to run continuous integration, parallel test suites, and infrastructure-as-code automation locally without cloud bill inflation or network bottlenecks.
+| Phase | Scope | State |
+|---|---|---|
+| 0 | Requirements and decisions | Done (`docs/platform/requirements.md`) |
+| 1 | Windows host, Hyper-V VM `pve01`, unattended PVE 9 install, two-layer isolation | Done, measured (rows 35 to 42) |
+| 2 | IaC foundation: OpenTofu + Ansible, SOPS + age, firewall, API identity, guest network | Done, measured (rows 43 to 54) |
+| 3 | Golden templates `lxc-runner` and `vm-docker`, versioning, rollback, weekly rebuild | Done, measured (rows 55 to 60) |
+| 4 | Build cache service `bazel-remote` and its client | Done, measured (rows 61 to 70) |
+| 5 | Runner pool controller | **Not built**, handed off |
+| 6 | Reusable workflows and cutover to the new runners | **Not built**, handed off |
+| 7 | Observability, alerts, backups | **Not built**, handed off |
+| 8 | Rebuild-from-zero proof and portability proof | **Not built**, handed off |
 
-- **Dual-Runner Testing Fleet:** Dedicated Proxmox VE unprivileged LXC containers running isolated .NET 8 (`pve-runner-01`) and Angular Jest (`pve-runner-angular`) test environments.
-- **In-Memory Virtual Bus:** MinIO S3 remote cache across an internal Linux bridge (`vmbr1`) clocking **>800 MiB/s** transfer throughput.
-- **Transitive Dependency Graph Testing:** AST-based code-change traversal that builds and tests only affected modules, cutting CI cycle times by up to **80%**.
-- **Autonomous & AI-Ready:** Fully documented with human-facing guides ([README.md](README.md), [RUNBOOK.md](RUNBOOK.md)) and machine-readable operational truth ([AI_CONTEXT.md](AI_CONTEXT.md)) for 100% autonomous agent development.
+Phases 5 to 8 are described, with their entry gates, in [`docs/handoff/`](docs/handoff/README.md). CI runs on GitHub-hosted runners today ([ADR 0054](docs/adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)): `sdet-ci.yml` forces `force_ubuntu_runner` on push and pull request. The self-hosted path (golden templates and the build cache) is wired and proven on the host, but no self-hosted runner is online until Phase 5: the retired host's runners are offline and stay registered until Phase 6 deregisters them. Hosted jobs run with the cache disabled (row 68).
 
----
-
-## 🏛️ System Architecture & Topology
-
-The homelab leverages an unprivileged Linux Container (LXC) architecture on Proxmox VE connected via an isolated internal bridge (`vmbr1`) operating as an **ultra-high-speed virtual bus** (>800 MiB/s transfer speeds).
+## Architecture
 
 ```mermaid
 graph TD
-    subgraph Host ["Proxmox VE 8.4 Hypervisor (AMD-V / Intel Core Ultra)"]
-        subgraph VirtualBus ["Virtual Bus Subnet (vmbr1 - 10.99.20.0/24)"]
-            CT102["🖥️ CT 102: gha-runner-01\n.NET 8 Unit & Integration Tests\n[Docker-in-LXC | 3 vCPU | 4GB RAM]"]
-            CT103["⚡ CT 103: gha-runner-angular\nAngular Standalone Jest Runner\n[Headless jsdom | 2 vCPU | 1.5GB RAM]"]
-            CT104["🗄️ CT 104: minio-s3\nDistributed S3 Cache (:9000)\n[7-day TTL | Zstandard Engine]"]
+    subgraph Win ["Windows workstation"]
+        WSL["WSL: operator toolchain<br>OpenTofu, Ansible, SOPS"]
+        FW["Windows firewall + Hyper-V port ACLs<br>(isolation layer 1)"]
+        subgraph VM ["Hyper-V VM pve01 (Proxmox VE 9)"]
+            PFW["PVE firewall, group guest-egress<br>(isolation layer 2)"]
+            subgraph G ["vnet guests 10.99.16.0/24"]
+                T1["golden template lxc-runner"]
+                T2["golden template vm-docker"]
+                P["R15 probe clones"]
+            end
+            subgraph C ["vnet cache 10.99.17.0/24"]
+                CACHE["cache01: bazel-remote 2.6.2, tcp 8080"]
+            end
         end
     end
-
-    GitHubActions["☁️ GitHub Actions Orchestrator\n(.github/workflows/sdet-ci.yml)"] -->|"Parallel Dispatch"| CT102
-    GitHubActions -->|"Parallel Dispatch"| CT103
-    CT102 <-->|"Fetch/Store .NET Cache (>800 MiB/s)"| CT104
-    CT103 <-->|"Fetch/Store npm node_modules (>800 MiB/s)"| CT104
+    WSL -->|"SSH ProxyCommand through the host"| VM
+    G -->|"one firewall path, tcp 8080"| CACHE
+    FW --- VM
 ```
 
----
+| Part | What it is | Decision |
+|---|---|---|
+| Host VM | Gen2 Hyper-V VM, 12 vCPU, 20 GiB static RAM, 128 GiB dynamic VHDX, internal switch plus WinNAT | ADR 0003, 0006 |
+| Isolation (R15) | Two layers: Hyper-V extended port ACLs with a Windows Firewall rule, and the classic PVE firewall with a `guest-egress` security group. Runner guests reach the internet and the cache path only | ADR 0007, 0027, 0028 |
+| IaC | OpenTofu (`bpg/proxmox`) for SDN, guests and template downloads; Ansible for OS, firewall files, the API identity and the template framework; state local and encrypted | ADR 0012, 0013, 0025 |
+| Secrets | SOPS + age, one file per consumer and host, one writer each | ADR 0009, 0033 |
+| Guest network | SDN zone `hlab` with vnets `guests` and `cache`, source-NATed, static addresses, port isolation on `guests` | ADR 0030, 0045 |
+| Golden templates | `lxc-runner` and `vm-docker`, built on the host by a root orchestrator, two versions kept, one-command rollback, weekly rebuild | ADR 0038 to 0044 |
+| Build cache | `bazel-remote` in container `cache01` on the `cache` vnet; anonymous reads, one writer credential, content-addressed keys, outputs restored only on an exact match | ADR 0048 to 0050 |
+| Evidence and knowledge | Sanitized transcripts per phase and a defect and test catalogue, published from the operator's machine | ADR 0052 |
 
-## ⚡ Key Architectural Highlights
+## Measured results
 
-### 1. Parallel Dual-Runner Testing Rig
-- **.NET 8 Runner (`pve-runner-01` / CT 102):**
-  - Dedicated Debian 12 LXC configured with `nesting=1` and `keyctl=1` for Docker-in-LXC.
-  - Executes C# unit tests and integration tests (`OrderProcessingIntegrationTests.cs`) deterministically using `/p:Deterministic=true`.
-  - Integrates an AST Transitive Dependency Graph analyzer to execute only affected test suites based on `git diff`.
-- **Angular Jest Runner (`pve-runner-angular` / CT 103):**
-  - Dedicated Debian 12 LXC running Node.js 22 LTS and npm 10.x.
-  - Pure headless testing using `jest-preset-angular` and `jsdom` (no Chromium or GUI browser overhead), maintaining an ultra-lean 1.5 GB RAM footprint.
-  - Executes 4 spec suites (19 test cases) across components and services in **~2.3 seconds**.
+Every number cites a row of [`docs/platform/requirements.md`](docs/platform/requirements.md) (section 3) or a run.
 
-### 2. Virtual Bus Remote Cache (MinIO S3 + Zstandard)
-- Dependencies and compilation artifacts are compressed with Zstandard (`zstd -T0`) and stored on **CT 104 MinIO S3** over `10.99.20.20:9000`.
-- **Sub-Second Restores:** In warm pipeline runs, `node_modules` (28 MiB) is restored in under 1 second, reducing total job duration from **1m58s** to **18s** (**84% duration reduction**).
-- **Immunity from External Outages:** Complete protection against public npm/NuGet rate limits, network jitter, or upstream CDN downtime.
+| Result | Value | Source |
+|---|---|---|
+| Hosted baseline, full suite, cold cache | 71 s | row 15, run 37355482969 |
+| Cache hit ratio, unchanged lockfile, 20 fresh-workspace runs | dependencies 38/38, outputs 19/19 on runs 2 to 20 | row 63 |
+| R15 negatives blocked, runner clones, with the cache path | 19/19 negatives, 2/2 positives; unchanged after a `pve01` reboot | row 66 |
+| R15 negatives blocked, cache container | 12/12 negatives, 1/1 positive | row 66 |
+| Golden template build | about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | row 55 |
+| `pve01` reboot to cache service ready | SSH at 43 s, container at 45 s, service at 49 s | row 67 |
+| Stale-binary test (red first) | stale variant detected, new design fresh | row 64, cache CI run 37592628530 |
 
-### 3. Network Isolation, Zero-Trust Firewall & Host Protection
-- **Layer 2 Bridge Port Isolation & Netfilter:**
-  - Bridge port isolation (`isolated on`) prevents East-West frame switching between test runners (`CT 102` and `CT 103`).
-  - Kernel netfilter (`HOMELAB-FORWARD`) strictly blocks East-West runner traffic, rejects runner access to the MinIO web console (`:9001`), and permits runner access only to the MinIO S3 API (`:9000`).
-  - Host ingress firewall (`HOMELAB-INPUT`) drops runner traffic destined for the host management plane (`:22` SSH and `:8006` Proxmox API).
-  - Outbound egress is strictly scoped via `ipset` to authorized package/API registries (`api.github.com`, `registry.npmjs.org`, `api.nuget.org`, Debian mirrors) with default-deny dropping all unauthorized high ports and external IPs.
-- **Least-Privilege IAM & Integrity Verification (Cache Poisoning Prevention):**
-  - Runners hold only a bucket-scoped reader alias (user from `SDET_PR_READER_USER`); the writer account (`SDET_CI_WRITER_USER`) credential reaches only the master cache-save job through the `cache-writer` GitHub Environment secrets, as an alias that lives for that job only.
-  - Enforced only once `configure_iam_cache_accounts.py` is re-run with rotated passwords and the `cache-writer` Environment is restricted to `master`; until then the previous credentials remain live.
-  - S3 archives enforce SHA256 integrity digest verification before decompression into the workspace with path traversal rejection.
-- **Zero Public WAN Exposure:**
-  - Hypervisor management and containers reside behind Tailscale WireGuard Mesh with Subnet Routing (`10.99.10.0/24`, `10.99.20.0/24`).
+The performance targets of the platform (full suite 60 s or less with warm caches, queue-to-start p95 10 s or less, scale-from-zero 30 s or less) need the runner pool and are not measured yet.
 
-### 4. Credential Hardening & Standards
+## Repository layout
 
-> [!IMPORTANT]
-> **Credential Security Advisory:**  
-> All administrative and API credentials must be injected via environment variables (`PVE_PASS`, `PVE_TOKEN_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`) and encrypted secret stores. Plaintext credentials must never be committed to source control.
+| Path | Purpose |
+|---|---|
+| [`iac/`](iac/README.md) | Inventory, Ansible, OpenTofu, secrets, runner-class policy |
+| [`scripts/hyperv/`](scripts/hyperv/README.md) | Windows side: create and operate the `pve01` VM, isolation layer 1 |
+| `scripts/iac/` | Wrappers: `ansible.sh`, `tofu.sh`, `render-ssh-config.sh`, `cache-writer-secret.sh` |
+| `scripts/bootstrap/` | `operator-toolchain.sh`: pinned, hash-verified tools for WSL |
+| `scripts/ci/build_cache/` | Build-cache client (domain, application, adapters) |
+| `scripts/evidence/` | `publish.py`: sanitized evidence publisher and checker |
+| `scripts/apps/` | Affected-test selector for the .NET sample solution |
+| `tests/` | Isolation and template tests (`tests/isolation/`), cache client tests (`tests/cache/`), evidence tests, selector harness |
+| `apps/` | Sample workloads that the CI runs (see [`apps/README.md`](apps/README.md)) |
+| `.github/workflows/` | CI: IaC gate, cache client, evidence gate, secret scan, SDET pipeline |
+| `docs/adr/` | Architecture decision records, 0001 to 0053 |
+| `docs/platform/requirements.md` | Requirements, measured constraints, decision log |
+| `docs/evidence/` | Sanitized run transcripts per phase, each with an `INDEX.md` |
+| `docs/knowledge/` | Defects only the real host exposed, and the test catalogue |
+| `docs/handoff/` | What is not built and how to continue |
+| `wiki/` | Pages mirrored to the GitHub wiki |
 
-#### Production Password Standards (NIST SP 800-63B / CIS Benchmark)
-When deploying beyond an isolated development sandbox, generate passwords and secrets compliant with the following standards:
-- **Length:** Minimum **16 to 24+ characters** for root/administrative accounts; minimum **32+ characters** for CI/CD API tokens and service keys.
-- **Character Composition:** Must contain a balanced mixture of four character classes:
-  - Uppercase letters (`A-Z`)
-  - Lowercase letters (`a-z`)
-  - Decimal digits (`0-9`)
-  - Special symbols (`!@#$%^&*()-_+=[{]}|:;,.<>?~`)
-- **Entropy & Pattern Defense:** Zero dictionary words, no sequential strings (`123456`, `qwerty`), and no homelab, project, or personal identifiers (`booth`, `minio`, `proxmox`).
-- **Role-Based Least Privilege:** Never reuse root administrative credentials (`minioadmin`) across pipeline jobs. Provision dedicated IAM Service Accounts with granular policies (e.g., Read-Only for PR builds, Write for master releases).
+## Get started
 
----
+Operator toolchain, in WSL Debian, as root:
 
-## 📊 Performance Benchmarks (Live Ground Truth)
-
-| Pipeline Stage | Target Runner | Cold Run (First Boot) | Warm Run (MinIO Cache Hit) | Performance Gain |
-| :--- | :--- | :--- | :--- | :--- |
-| **Telemetry & Health** | `pve-runner-01` (CT 102) | 9s | 9s | Baseline |
-| **.NET Build & Restore** | `pve-runner-01` (CT 102) | 4,630 ms | **16s** (includes toolchain boot) | Incremental |
-| **.NET Affected Tests** | `pve-runner-01` (CT 102) | 3,100 ms | **2,175 ms** (6/6 tests pass) | **~30% faster** |
-| **Angular Jest Tests** | `pve-runner-angular` (CT 103) | 103,003 ms (npm install) | **4,090 ms** (MinIO hit) | **96% faster** |
-| **Total CI Pipeline** | Dual-Runner Parallel | **2m 24s** | **~35s** (All jobs green) | **~75% reduction** |
-
-*Verified in live runs: [`Run #37233575350`](https://github.com/ugritchaichana/booth-homelab/actions/runs/37233575350) and [`Run #37235401356`](https://github.com/ugritchaichana/booth-homelab/actions/runs/37235401356).*
-
----
-
-## 📁 Repository Directory Structure
-
-```text
-Booth-homelab/
-├── .github/
-│   ├── actions/                       # Composite actions
-│   │   ├── minio-cache/               # MinIO S3 restore and save routines
-│   │   ├── run-affected-tests/        # .NET transitive affected test runner
-│   │   └── run-angular-jest/          # Angular Jest suite & cache integration
-│   └── workflows/
-│       ├── pr-labeler.yml             # Auto-labeler for area and application PRs
-│       ├── pr-reviewer-guard.yml      # Strips unneeded Copilot reviewers from PRs
-│       ├── reusable-sdet-pipeline.yml # Modular 6-stage parallel DAG pipeline
-│       ├── sdet-ci.yml                # Top-level orchestrator calling reusable pipeline
-│       └── wiki-sync.yml              # Autonomous wiki synchronization engine
-│
-├── apps/                              # Application Workloads & Test Suites
-│   ├── backend/                       # .NET 8 Multi-Project Testing Solution
-│   │   ├── SdetTestingRig.sln
-│   │   ├── Directory.Build.props      # Enforces /p:Deterministic=true
-│   │   ├── src/                       # Domain, Application, Billing.Api, Order.Api
-│   │   └── tests/                     # Billing.Api.UnitTests, Order.Api.UnitTests, Order.Api.IntegrationTests
-│   └── frontend/                      # Angular 18/19 Standalone Jest Rig
-│       ├── package.json               # Dependencies & Jest configuration
-│       ├── jest.config.js             # Headless jsdom preset configuration
-│       └── src/app/                   # Billing & Order components and spec tests
-│
-├── iac/                               # Infrastructure as Code
-│   ├── tofu/                          # OpenTofu Provisioning (bpg/proxmox)
-│   │   ├── flavors.json               # Multi-Cloud Instance Catalog (AWS, GCP, Azure, Hetzner, DO)
-│   │   ├── main.tf                    # LXC / VM resources & cloud flavor mapping
-│   │   └── modules/                   # Reusable lxc_runner & minio_cache modules
-│   ├── ansible/                       # Ansible Configuration & Idempotent Playbooks
-│   │   ├── playbooks/site.yml         # Master playbook (host, cache, runners)
-│   │   ├── roles/                     # enterprise_firewall, minio_cache, runner_dotnet, runner_angular
-│   │   └── inventory/hosts.ini        # Target node and container inventory
-│   └── bootstrap/                     # Baremetal Debian-to-PVE host bootstrapping suite (00..06)
-│
-├── scripts/                           # Developer & CI Helper Scripts
-│   ├── apps/                          # Workload test runners (dotnet-affected-test, run-angular-jest)
-│   ├── ci/                            # CI utilities (cache-save, cache-restore, sync_wiki)
-│   ├── hyperv/                        # Hyper-V Gen2 VM deployment scripts
-│   └── proxmox/                       # Proxmox CLI operational & firewall verification scripts
-│
-├── sandbox/                           # Docker MinIO S3 Local Sandbox (CREEP Hardened)
-├── wiki/                              # Markdown documentation auto-synced to GitHub Wiki
-├── AGENTS.md                          # Universal machine-readable AI agent operating guide
-├── AI_CONTEXT.md                      # Comprehensive ground truth specification for AI agents
-├── HANDOFF.md                         # Current system state & operational handoff log
-├── RUNBOOK.md                         # Operations, maintenance, and troubleshooting runbooks
-└── README.md                          # Project documentation (this file)
+```sh
+bash scripts/bootstrap/operator-toolchain.sh
 ```
 
----
+Create the VM, from an elevated Windows prompt: [`scripts/hyperv/README.md`](scripts/hyperv/README.md). Then configure and provision from WSL:
 
-## 🛠️ Quick Start & Common Operations
-
-### 1. Accessing the Proxmox Hypervisor
-- **Tailscale Mesh IP:** `https://100.121.209.85:8006/` (or `https://pve:8006/`)
-- **Credentials:** Username `root`, password configured in local credentials vault.
-
-### 2. Inspecting Runner Container Status
-```bash
-# Connect to Proxmox Host via SSH
-ssh root@100.121.209.85
-
-# List active containers
-pct list
-
-# Check runner systemd services
-pct exec 102 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-01.service
-pct exec 103 -- systemctl status actions.runner.ugritchaichana-booth-homelab.gha-runner-angular.service
+```sh
+bash scripts/iac/ansible.sh bootstrap.yml -e ansible_user=root
+bash scripts/iac/ansible.sh site.yml
+bash scripts/iac/tofu.sh proxmox-host pve01 init-passphrase
+bash scripts/iac/tofu.sh proxmox-host pve01 init
+bash scripts/iac/tofu.sh proxmox-host pve01 apply
 ```
 
-### 3. Inspecting MinIO S3 Remote Cache
-```bash
-# Connect to runner container and query MinIO client
-pct exec 102 -- mc ls minio/build-cache/branches/master/
-pct exec 102 -- mc ls minio/build-cache/npm/
+Templates, the R15 probe and the cache follow [`RUNBOOK.md`](RUNBOOK.md). A reader who was not part of this work should start with `docs/handoff/README.md`.
+
+## Tests
+
+Without a host (the same checks CI runs):
+
+```sh
+for t in tests/isolation/test-*.sh; do bash "$t"; done
+python3 -m unittest discover -s tests/cache -p 'test_*.py'
+python3 -m unittest discover -s tests/evidence -v
+tofu -chdir=iac/tofu/stacks/<stack> test
 ```
 
-### 4. Running Local Tests
-- **.NET 8 Transitive Affected Tests:**
-  ```powershell
-  pwsh -File ./scripts/apps/dotnet-affected-test.ps1 -BaseRef origin/master -HeadRef HEAD
-  ```
-- **Angular Jest Suite:**
-  ```bash
-  python scripts/ci/run_ct103_tests.py
-  ```
+[`docs/knowledge/test-catalogue.md`](docs/knowledge/test-catalogue.md) lists every test with what it proves, its command and its CI job. A claim that only the real host can prove is marked there and backed by `docs/evidence/`.
 
-### 5. AI-Native Implementation & Agent Onboarding
+## Project rules
 
-This repository is optimized for autonomous AI coding assistants (Antigravity, Claude Code, Cursor, Copilot Workspace, Gemini CLI). More than 80% to 100% of implementation can be safely executed by an AI agent:
-
-- **Universal Agent Guide:** [`AGENTS.md`](AGENTS.md) — Authoritative machine-readable operational guide covering commands, empirical traps, and topology.
-- **Agent Handover Prompt:** [`HANDOFF.md`](HANDOFF.md) — Turnkey prompt to paste directly into any new AI session to resume immediately.
-- **Deep Technical Context:** [`AI_CONTEXT.md`](AI_CONTEXT.md) — Architectural invariants, security policies, and debugging heuristics.
-- **Engineering Standards:** [`GEMINI.md`](GEMINI.md) — The 8 Core Engineering Pillars governing clean code, deterministic verification, and zero-trust security.
-- **Hardware-Free Local Sandbox:** Launch the complete local S3 cache sandbox with:
-  ```powershell
-  docker compose -f sandbox/docker-compose.sandbox.yml up -d
-  pwsh -File sandbox/verify-sandbox.ps1
-  ```
-
----
-
-## 📚 Documentation & Project Tracking
-
-- **Universal AI Agent Guide:** [AGENTS.md](AGENTS.md) (Standard entrypoint for all AI coding agents)
-- **AI Handover Prompt:** [HANDOFF.md](HANDOFF.md) (Turnkey session handover prompt)
-- **AI Machine Context:** [AI_CONTEXT.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/AI_CONTEXT.md) (Architectural invariants)
-- **Online Knowledge Base:** [GitHub Wiki](https://github.com/ugritchaichana/booth-homelab/wiki) (Auto-synced from `wiki/`)
-- **Operations Runbook:** [RUNBOOK.md](file:///c:/Users/Booth/Desktop/MyProjects/Booth-homelab/RUNBOOK.md) (Bootstrapping and maintenance procedures)
-- **Project Tracking Board:** [GitHub Project #4 (Booth Homelab - SDET & IaC Testing Rig)](https://github.com/users/ugritchaichana/projects/4)
-
----
-
-## ⚖️ License & Governance
-
-Open-source project maintained under standard dual-identity governance. Built for reproducible, deterministic, and enduring engineering excellence.
+Contribution and agent rules are in [`AGENTS.md`](AGENTS.md). In short: neutral, English-only artifacts (ADR 0002), one decision per ADR, no secrets on a command line, and every measured claim linked to a raw log or a run.

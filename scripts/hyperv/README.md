@@ -6,6 +6,7 @@ Creates one nested-virtualization VM, `pve01`, on a Windows 11 Pro (or Server 20
 |---|---|
 | `New-PveHost.ps1` | Elevated, one-time setup: host rights (optional), folder + ACL, switch, NAT, VM, isolation, optional unattended install. `-PlanOnly`, `-Uninstall`, `-ShowPrefixes`. Never reboots, never self-elevates. |
 | `Invoke-PveVm.ps1` | Day-to-day, non-elevated: `-Action Start`, `Stop`, `Status`, `Refresh`, `Checkpoint`. |
+| `Test-R15Controls.ps1` | Windows-side paired controls for the R15 proof: reaches the same targets from the host while the guest is blocked (`tests/isolation/README.md`). |
 | `HomelabHyperV.psm1` | Shared functions (config loading, CIDR math, port ACL plan and sync, firewall rule, rights checks). |
 | `pve01.psd1` | All names, sizes, addresses, MAC, ports, thresholds. Another host gets its own `.psd1` via `-ConfigPath`. |
 
@@ -129,7 +130,7 @@ Hyper-V extended port ACLs on the VM's network adapter, applied before the adapt
 | 4' | Outbound | Deny | `0.0.0.0/0` (replaces row 4 when a default route `0/0`, `0/1` or `128/1` sits on another interface) | fail closed: no egress through a tunnel |
 | 5 | Inbound | Deny | `0.0.0.0/0` | default deny in |
 
-Measured on this host (probe run, Windows 11 build 26200): the switch rejects, at the moment it applies the rules (`Connect-VMNetworkAdapter`), a stateful rule with no protocol, protocol `ANY`, or ICMP (`1`), a stateful Deny, and a weight of 100000 (65535 is accepted). **Stateful rules must therefore be TCP or UDP.** The plan refuses anything else before it is applied. Consequence: ICMP echo replies and inbound ICMP errors (including path-MTU 'fragmentation needed') hit the default deny, so `ping` to the internet from the guest fails and a lower-MTU path behind a VPN can stall TCP (fail closed; see `icmp-and-pmtu` below). `Add-VMNetworkAdapterExtendedAcl` accepts such a rule and the read-back lists it: only the connect step proves a rule shape.
+Measured on this host (probe run, Windows 11 build 26200): the switch rejects, at the moment it applies the rules (`Connect-VMNetworkAdapter`), a stateful rule with no protocol, protocol `ANY`, or ICMP (`1`), a stateful Deny, and a weight of 100000 (65535 is accepted). **Stateful rules must therefore be TCP or UDP.** The plan refuses anything else before it is applied. Consequence: ICMP echo replies and inbound ICMP errors (including path-MTU 'fragmentation needed') hit the default deny, so `ping` to the internet from the guest fails and a lower-MTU path behind a VPN can stall TCP (fail closed; the inbound ICMP allow is listed under Not covered). `Add-VMNetworkAdapterExtendedAcl` accepts such a rule and the read-back lists it: only the connect step proves a rule shape.
 
 Windows Defender Firewall: one inbound Block rule, all profiles, remote `10.99.0.0/24`, any local address, scoped to the homelab vEthernet. Block rules beat allow rules; replies to host-initiated sessions stay allowed because the filter is stateful. `Start` refuses unless the rule exists, is enabled, blocks and is inbound.
 
@@ -140,7 +141,7 @@ Limits to know:
 - Hyper-V drops frames from MAC addresses other than the adapter's (spoofing off). Containers or VMs inside PVE must be routed or NATed by PVE, not bridged with their own MACs.
 - Paths between guests inside PVE and PVE's own management are not visible to host-side rules.
 - Prefixes reachable only through `EgressInterfaceAlias` are not blocked (for example a non-private network directly attached to it).
-- Hyper-V sockets (guest to host over VMBus) are outside both planes; harden inside PVE.
+- Hyper-V sockets (guest to host over VMBus) are outside both planes; the Ansible role `hyperv_guest` blocks `hv_sock` inside PVE (ADR 0028).
 - **Hyper-V Administrators membership is not filtered by UAC. Any process running as this user can change or remove the VM's network isolation, read the VM disk, and is widely reported to be able to reach host-administrator rights. Only the Windows Firewall rule stays outside that reach.** Set `AddOwnerToHyperVAdministrators` to `$false` to decline it.
 - Setup writes through paths under `C:\HyperV`. It refuses reparse points (links) and folders not owned by Administrators or SYSTEM, but a user-created `C:\HyperV` must be deleted first.
 
@@ -153,12 +154,22 @@ Limits to know:
 - Well-known SIDs (`S-1-5-32-578`, `S-1-5-83-0`): https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers
 - Per-VM account on VM files: https://learn.microsoft.com/en-us/troubleshoot/windows-server/virtualization/hyper-v-virtual-machine-not-start-0x80070005
 
-## Unverified / next (needs a first elevated run, then tests from inside PVE)
+## Measured on this host
 
-- Still a hypothesis until tested from inside PVE: that the stateful inbound allows carry replies past the outbound deny of `10.0.0.0/8`. Measured and no longer open: `::/0` and `ANY` or omitted local addresses are accepted; the read-back lists one entry per rule with `ANY` for an omitted protocol or port; rules can be added to a disconnected adapter; `New-VM` without a switch yields one disconnected adapter; the plan's TCP/UDP form is accepted at connect time.
-- NAT egress for the guest, and host-initiated sessions to guest ports 22 and 8006 still answering, while the host firewall block rule (now without a local-address scope) is active.
-- Per-VM file ACEs: the script checks them after the VM exists and grants them with `icacls` if missing.
-- Boot-order read-back (device types), Hyper-V Administrators add by SID through `Add-LocalGroupMember`, and the ADSI fallback.
-- Graceful `Stop` needs the guest to answer Hyper-V's shutdown request. Exit code 2 path (features already enabled on the reference host).
-- Deferred, not implemented: ACL key including direction, protocol, port and stateful now that the read-back shape is known (one entry per rule, `ANY` for omitted values); an outbound allow fallback (TCP 22 and 8006 to the host, non-stateful) only if the stateful reply test fails; narrowing the folder ACE for `S-1-5-83-0` from Modify (kept for the first run); inbound ICMP allow (path MTU) if measured to matter; home WAN address reflection through router port-forwards; Hyper-V socket plane (blacklist `hv_sock` inside PVE).
-- The refresh scheduled task (see Run it) is required before any runner registers and is not part of these scripts.
+Rows are in `docs/platform/requirements.md` section 3; transcripts are in `docs/evidence/phase1/` and `docs/evidence/phase2/`.
+
+| Result | Row |
+|---|---|
+| Unattended install of PVE 9.1 finished in 459 s and powered the VM off; checkpoint `post-install` taken while Off; first cold start answered TCP 22 after 18.1 s | 35 |
+| The switch rejects a stateful rule that is not TCP or UDP, a stateful Deny and weight 100000; weight 65535 is accepted | 37 |
+| Guest to host (445, 135, 139), the home router, the host's own addresses and the VPN DNS are dropped, each paired with Windows reaching the same target; HTTPS and DNS through a public resolver work | 38 |
+| After the host reboot: 18 ACL rules read back, none outside the weight range, IPv6 binding off, MAC spoofing drops traffic; with the Windows Firewall rule disabled the port ACLs alone still block guest to host 445 | 42 |
+| The checkpoint action refuses a running VM and a duplicate name; cold starts after a restore answered SSH in 15.7 to 16 s | 45 |
+| After the laptop reboot: the VM starts non-elevated, SSH answers 15.8 s after start, 18 ACL rules read back | 53 |
+
+## Not covered
+
+- A host inside a harvested VPN prefix: nothing there answers even from Windows, so the row cannot be told from an absent service (rows 38, 42).
+- UDP from the guest to the host.
+- The scheduled task that runs `Refresh` on a network change (see Run it). It must exist before any runner registers; it is a hand-off item in `docs/handoff/README.md`.
+- Deferred: inbound ICMP allow for path-MTU discovery, home WAN address reflection through router port-forwards, and an ACL key that includes direction, protocol, port and stateful.
