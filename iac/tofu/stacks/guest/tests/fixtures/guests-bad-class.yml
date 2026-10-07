@@ -1,7 +1,0 @@
----
-guests:
-  pve01:
-    runner-x:
-      flavor: aws/t3.medium
-      template_class: windows-server
-      slot: 1

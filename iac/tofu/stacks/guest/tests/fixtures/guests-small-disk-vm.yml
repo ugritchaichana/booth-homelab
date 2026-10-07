@@ -1,7 +1,0 @@
----
-guests:
-  pve01:
-    small-vm:
-      flavor: aws/t3.nano
-      template_class: vm-docker
-      slot: 1

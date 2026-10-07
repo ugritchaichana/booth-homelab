@@ -67,8 +67,9 @@ override_data {
 }
 
 variables {
-  host        = "pve01"
-  guests_file = "tests/fixtures/guests-two.yml"
+  host           = "pve01"
+  guests_file    = "tests/fixtures/guests.yml"
+  inventory_file = "tests/fixtures/hosts.yml"
 }
 
 run "aws_t3_medium_sizes_both_template_classes" {
@@ -122,7 +123,7 @@ run "tag_is_proxmox_valid_for_a_mixed_case_flavor" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-mixed-case-flavor.yml"
+    host = "case-mixed-case-flavor"
   }
 
   assert {
@@ -231,7 +232,7 @@ run "a_pin_selects_that_template_version" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-pinned.yml"
+    host = "case-pinned"
   }
 
   assert {
@@ -249,7 +250,7 @@ run "unknown_flavor_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-unknown-flavor.yml"
+    host = "case-unknown-flavor"
   }
 
   expect_failures = [output.guests]
@@ -259,7 +260,7 @@ run "malformed_flavor_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-malformed-flavor.yml"
+    host = "case-malformed-flavor"
   }
 
   expect_failures = [output.guests]
@@ -321,7 +322,7 @@ run "flavor_disk_smaller_than_the_vm_template_disk_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-small-disk-vm.yml"
+    host = "case-small-disk-vm"
   }
 
   expect_failures = [proxmox_virtual_environment_vm.guest["small-vm"]]
@@ -331,7 +332,7 @@ run "flavor_disk_larger_than_the_container_template_disk_is_accepted" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-small-disk-lxc.yml"
+    host = "case-small-disk-lxc"
   }
 
   assert {
@@ -344,7 +345,7 @@ run "two_guests_with_one_slot_are_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-duplicate-slot.yml"
+    host = "case-duplicate-slot"
   }
 
   expect_failures = [output.guests]
@@ -354,7 +355,7 @@ run "slot_outside_one_to_ninety_nine_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-slot-out-of-range.yml"
+    host = "case-slot-out-of-range"
   }
 
   expect_failures = [output.guests]
@@ -364,7 +365,7 @@ run "unknown_template_class_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-bad-class.yml"
+    host = "case-bad-class"
   }
 
   expect_failures = [output.guests]
@@ -374,7 +375,7 @@ run "guest_name_that_is_not_a_hostname_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-bad-name.yml"
+    host = "case-bad-name"
   }
 
   expect_failures = [output.guests]
@@ -384,7 +385,7 @@ run "role_that_makes_the_name_longer_than_63_characters_is_rejected" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-role-too-long.yml"
+    host = "case-role-too-long"
   }
 
   expect_failures = [output.guests]
@@ -394,7 +395,7 @@ run "role_that_makes_the_name_exactly_63_characters_is_accepted" {
   command = plan
 
   variables {
-    guests_file = "tests/fixtures/guests-role-at-the-limit.yml"
+    host = "case-role-at-the-limit"
   }
 
   assert {

@@ -1,7 +1,0 @@
----
-guests:
-  pve01:
-    small-lxc:
-      flavor: aws/t3.nano
-      template_class: lxc-runner
-      slot: 1

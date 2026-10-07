@@ -1,7 +1,0 @@
----
-guests:
-  pve01:
-    demo:
-      flavor: t3.medium
-      template_class: lxc-runner
-      slot: 1

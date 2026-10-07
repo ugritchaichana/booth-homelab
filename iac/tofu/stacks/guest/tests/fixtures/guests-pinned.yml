@@ -1,8 +1,0 @@
----
-guests:
-  pve01:
-    pinned-lxc:
-      flavor: aws/t3.medium
-      template_class: lxc-runner
-      slot: 1
-      template_version: 1
