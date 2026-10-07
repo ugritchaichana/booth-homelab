@@ -21,7 +21,7 @@ on:
     outputs:
       cache_hit:
         description: 'Cache hit status'
-        value: ${{ jobs.dotnet-build.outputs.cache_hit }}
+        value: ${{ jobs.dotnet-build.outputs.cache_hit_dotnet_outputs }}
       build_duration_ms:
         description: 'Build duration in ms'
         value: ${{ jobs.dotnet-build.outputs.build_duration_ms }}
@@ -48,7 +48,10 @@ on:
         description: 'Force execution on GitHub-hosted ubuntu-latest runners'
         required: false
         type: boolean
-        default: false
+        default: true
+
+permissions:
+  contents: read
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
@@ -56,13 +59,44 @@ env:
   BUILD_CACHE_RUNNER_CLASS: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'lxc-runner' || '' }}
 
 jobs:
-  # Stage 1: Runner Telemetry
+  select-runner:
+    name: Select Runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      hosted: ${{ steps.decide.outputs.hosted }}
+      dotnet_labels: ${{ steps.decide.outputs.dotnet_labels }}
+      angular_labels: ${{ steps.decide.outputs.angular_labels }}
+      runner_label: ${{ steps.decide.outputs.runner_label }}
+    steps:
+      - name: Decide Runner Class
+        id: decide
+        shell: bash
+        env:
+          HOSTED: ${{ inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab' }}
+        run: |
+          if [ "$HOSTED" = true ]; then
+            {
+              echo 'hosted=true'
+              echo 'dotnet_labels=["ubuntu-latest"]'
+              echo 'angular_labels=["ubuntu-latest"]'
+              echo 'runner_label=GitHub-Hosted (ubuntu-latest)'
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo 'hosted=false'
+              echo 'dotnet_labels=["self-hosted", "linux", "proxmox", "dotnet"]'
+              echo 'angular_labels=["self-hosted", "linux", "proxmox", "angular"]'
+              echo 'runner_label=Proxmox VE Self-Hosted (LXC)'
+            } >> "$GITHUB_OUTPUT"
+          fi
+          echo "Runner class: hosted=$HOSTED"
+
   telemetry:
     name: Telemetry
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
+    needs: [select-runner]
+    timeout-minutes: 5
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     steps:
       - name: Inspect Runner Telemetry
         shell: bash
@@ -70,7 +104,7 @@ jobs:
           echo "=========================================================="
           echo "           RUNNER SYSTEM TELEMETRY                       "
           echo "=========================================================="
-          echo "Runner Mode: ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest fallback)' || 'Proxmox VE Self-Hosted (LXC)' }}"
+          echo "Runner Mode: ${{ needs.select-runner.outputs.runner_label }}"
           echo "Hostname:    $(hostname)"
           echo "Kernel:      $(uname -r)"
           echo "CPU Cores:   $(nproc)"
@@ -87,16 +121,12 @@ jobs:
           fi
           echo "=========================================================="
 
-  # Stage 2: .NET Solution Build & Build Cache Restore
   dotnet-build:
     name: Build (.NET)
-    needs: [telemetry]
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
+    needs: [select-runner, telemetry]
+    timeout-minutes: 15
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     outputs:
-      cache_hit: ${{ steps.restore-outputs.outputs.hit }}
       cache_hit_nuget: ${{ steps.restore-nuget.outputs.hit }}
       cache_hit_dotnet_outputs: ${{ steps.restore-outputs.outputs.hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
@@ -107,14 +137,10 @@ jobs:
           fetch-depth: 0
 
       - name: Setup .NET 8 SDK (Fallback Runner)
-        if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
+        if: needs.select-runner.outputs.hosted == 'true'
         uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: '8.0.x'
-
-      - name: Ensure Executable Permissions
-        shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Restore NuGet Cache
         id: restore-nuget
@@ -178,14 +204,11 @@ jobs:
             PYTHONPATH=scripts/ci python3 -m build_cache report --stats-file "$RUNNER_TEMP/build-cache-stats.jsonl"
           fi
 
-  # Stage 3: .NET Unit & Integration Tests
   dotnet-test:
     name: Test (.NET)
-    needs: [dotnet-build]
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
+    needs: [select-runner, dotnet-build]
+    timeout-minutes: 20
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     outputs:
       test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
     steps:
@@ -196,14 +219,10 @@ jobs:
           clean: false
 
       - name: Setup .NET 8 SDK (Fallback Runner)
-        if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
+        if: needs.select-runner.outputs.hosted == 'true'
         uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: '8.0.x'
-
-      - name: Ensure Executable Permissions
-        shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Execute Transitive Affected Tests (Unit & Integration)
         id: run-tests
@@ -221,16 +240,13 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Stage 4: .NET Cache Update (writer job: no third-party code runs here)
   dotnet-cache-save:
     name: Cache (.NET)
-    needs: [dotnet-build, dotnet-test]
+    needs: [select-runner, dotnet-build, dotnet-test]
+    timeout-minutes: 10
     environment: cache-writer
-    if: always() && needs.dotnet-build.result == 'success' && !inputs.force_ubuntu_runner && github.repository == 'ugritchaichana/booth-homelab' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
+    if: always() && needs.dotnet-build.result == 'success' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -246,7 +262,19 @@ jobs:
       - name: Unpack Cache Payloads
         shell: bash
         run: |
+          verify_members() {
+            if ! tar -tf "$1" | awk -v allowed="$2" '/^\// || /(^|\/)\.\.(\/|$)/ || $0 !~ allowed {bad=1} END {exit bad}'; then
+              echo "::error::$1 holds a member outside $2, an absolute path or a parent reference"
+              exit 1
+            fi
+            if ! tar -tvf "$1" | awk '/^[lh]/ {bad=1} END {exit bad}'; then
+              echo "::error::$1 holds a link member"
+              exit 1
+            fi
+          }
           mkdir -p "$NUGET_PACKAGES"
+          verify_members "$RUNNER_TEMP/cache-payload/nuget.tar" '^[.]/'
+          verify_members "$RUNNER_TEMP/cache-payload/dotnet-outputs.tar" '^apps/(backend|fixtures)/'
           tar -C "$NUGET_PACKAGES" -xf "$RUNNER_TEMP/cache-payload/nuget.tar"
           tar -xf "$RUNNER_TEMP/cache-payload/dotnet-outputs.tar"
 
@@ -268,16 +296,13 @@ jobs:
           mode: save
           kind: dotnet-outputs
 
-  # Stage 4b: Angular dependency cache update (writer job: no third-party code runs here)
   angular-cache-save:
     name: Cache (Angular)
-    needs: [angular-jest]
+    needs: [select-runner, angular-jest]
+    timeout-minutes: 10
     environment: cache-writer
-    if: always() && needs.angular-jest.result == 'success' && !inputs.force_ubuntu_runner && github.repository == 'ugritchaichana/booth-homelab' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
+    if: always() && needs.angular-jest.result == 'success' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -292,7 +317,19 @@ jobs:
 
       - name: Unpack Cache Payload
         shell: bash
-        run: tar -C apps/frontend -xf "$RUNNER_TEMP/cache-payload/node_modules.tar"
+        run: |
+          verify_members() {
+            if ! tar -tf "$1" | awk -v allowed="$2" '/^\// || /(^|\/)\.\.(\/|$)/ || $0 !~ allowed {bad=1} END {exit bad}'; then
+              echo "::error::$1 holds a member outside $2, an absolute path or a parent reference"
+              exit 1
+            fi
+            if ! tar -tvf "$1" | awk '/^[lh]/ {bad=1} END {exit bad}'; then
+              echo "::error::$1 holds a link member"
+              exit 1
+            fi
+          }
+          verify_members "$RUNNER_TEMP/cache-payload/node_modules.tar" '^node_modules(/|$)'
+          tar -C apps/frontend -xf "$RUNNER_TEMP/cache-payload/node_modules.tar"
 
       - name: Save node_modules Cache
         uses: ./.github/actions/build-cache
@@ -303,13 +340,11 @@ jobs:
           mode: save
           kind: node_modules
 
-  # Stage 5: Angular Jest Unit Tests
   angular-jest:
     name: Test (Angular)
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "angular"]') }}
+    needs: [select-runner]
+    timeout-minutes: 20
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
       cache_hit_node_modules: ${{ steps.run-angular.outputs.cache_hit_node_modules }}
@@ -320,14 +355,10 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js 22 (Fallback Runner)
-        if: inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab'
+        if: needs.select-runner.outputs.hosted == 'true'
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: '22.x'
-
-      - name: Ensure Executable Permissions
-        shell: bash
-        run: chmod +x ./scripts/ci/*.sh ./scripts/apps/*.sh 2>/dev/null || true
 
       - name: Execute Angular Jest Suite
         id: run-angular
@@ -358,15 +389,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Stage 6: Performance & Quality Summary Report
   summary:
     name: Report
-    needs: [telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-cache-save, angular-jest]
-    if: ${{ !cancelled() }}
-    runs-on: >
-      ${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab')
-          && fromJSON('["ubuntu-latest"]')
-          || fromJSON('["self-hosted", "linux", "proxmox", "dotnet"]') }}
+    needs: [select-runner, telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-cache-save, angular-jest]
+    timeout-minutes: 5
+    if: ${{ !cancelled() && needs.select-runner.result == 'success' }}
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     steps:
       - name: Generate Pipeline Summary Report
         shell: bash
@@ -377,7 +405,7 @@ jobs:
           BUILD_MS="${{ needs.dotnet-build.outputs.build_duration_ms }}"
           DOTNET_TEST_MS="${{ needs.dotnet-test.outputs.test_duration_ms }}"
           ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
-          RUNNER_LABEL="${{ (inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'GitHub-Hosted (ubuntu-latest)' || 'Proxmox VE Self-Hosted (LXC)' }}"
+          RUNNER_LABEL="${{ needs.select-runner.outputs.runner_label }}"
 
           if [ -n "$CACHE_URL" ]; then CACHE_ENDPOINT="Build cache service"; CACHE_STATE="Enabled"; else CACHE_ENDPOINT="Disabled (no CACHE_URL)"; CACHE_STATE="Off"; echo "Build Cache: disabled (no CACHE_URL)"; fi
 
