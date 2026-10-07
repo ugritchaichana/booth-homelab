@@ -1,0 +1,35 @@
+== rollback (one command) lxc-runner
+class=lxc-runner current=v4 vmid=9203 name=tmpl-lxc-runner-v4 previous=v3 last_build=2026-10-07T05:25:47Z
+homelab-template: TAGS vmid=9203 v4 -> homelab-template;lxc-runner;v4
+homelab-template: TAGS vmid=9202 v3 -> current;homelab-template;lxc-runner;v3
+homelab-template: ROLLBACK class=lxc-runner current v4 -> v3 previous=v4 vmid=9202
+rollback rc=0
+class=lxc-runner current=v3 vmid=9202 name=tmpl-lxc-runner-v3 previous=v4 last_build=2026-10-07T05:25:47Z
+9202 tags: current;homelab-template;lxc-runner;v3
+homelab-template: TAGS vmid=9202 v3 -> homelab-template;lxc-runner;v3
+homelab-template: TAGS vmid=9203 v4 -> current;homelab-template;lxc-runner;v4
+homelab-template: ROLLBACK class=lxc-runner current v3 -> v4 previous=v3 vmid=9203
+roll-forward rc=0
+class=lxc-runner current=v4 vmid=9203 name=tmpl-lxc-runner-v4 previous=v3 last_build=2026-10-07T05:25:47Z
+== kickoff proof: storage content + template configs
+local-lvm:base-9202-disk-0 9202 8.0 GiB
+local-lvm:base-9203-disk-0 9203 8.0 GiB
+local-lvm:base-9302-disk-0 9302 20.0 GiB
+local-lvm:base-9303-disk-0 9303 20.0 GiB
+local-lvm:vm-9302-cloudinit 9302 0.0 GiB
+local-lvm:vm-9303-cloudinit 9303 0.0 GiB
+lxc 9202: description: class=lxc-runner version=3 built=2026-10-07T05%3A16%3A20Z manifest_sha256=0f164d607fac0cf0bfdaadcd34e63efdd619808a19d9846b980cbb33a0a76f2e%0A net0: name=eth0,bridge=guests,firewall=1,hwaddr=BC:24:11:EE:06:9C,type=veth tags: homelab-template;lxc-runner;v3 template: 1 
+lxc 9203: description: class=lxc-runner version=4 built=2026-10-07T05%3A25%3A29Z manifest_sha256=d291bedf7970d6458f8ae193b4af3bdba3551fbca61816cab16df98422c769ad%0A net0: name=eth0,bridge=guests,firewall=1,hwaddr=BC:24:11:9D:79:14,type=veth tags: current;homelab-template;lxc-runner;v4 template: 1 
+qm 9302: agent: enabled=0 cpu: x86-64-v2-AES net0: virtio=BC:24:11:FB:05:E7,bridge=guests,firewall=1 tags: homelab-template;v4;vm-docker template: 1 
+qm 9303: agent: enabled=0 cpu: x86-64-v2-AES net0: virtio=BC:24:11:8E:24:05,bridge=guests,firewall=1 tags: current;homelab-template;v5;vm-docker template: 1 
+pools templates members:
+[9202, 9203, 9302, 9303]
+clone_vmfw_conf:
+/usr/share/perl5/PVE/API2/Qemu.pm:1
+/usr/share/perl5/PVE/API2/LXC.pm:1
+== provisioner token: delete/tag a template, clone it
+DELETE template 9202: 403 {"data":null,"message":"Permission check failed (/vms/9202, VM.Allocate)\n"}
+PUT tags on 9202: 403 {"data":null,"message":"Permission check failed (/vms/9202, VM.Config.Disk|VM.Config.CPU|VM.Config.Memory|VM.Config.Network|VM.Config.Options)\n"}
+clone 9202 -> 9298 into pool homelab: 200 {"data":"UPID:pve01:0000F25A:0005CBB6:6AC5D9B0:vzclone:9202:tofu@pve!provisioner:"}
+clone exists: 2
+purging CT 9298 from related configurations..

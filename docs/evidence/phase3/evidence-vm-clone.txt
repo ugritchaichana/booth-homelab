@@ -1,0 +1,17 @@
+== vm-docker clone checks through the probe channel
+Plan: 3 to add, 0 to change, 0 to destroy.
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+Warning: Permanently added '10.99.16.22' (ED25519) to the list of known hosts.
+template=r15-probe-vm
+Hello from Docker!
+svm_vmx=0
+ls: cannot access '/opt/actions-runner/.runner': No such file or directory
+ls: cannot access '/opt/actions-runner/.credentials': No such file or directory
+tcp2375=0
+User runner is not allowed to run sudo on r15-probe-vm.
+ls: cannot open directory '/etc/sudoers.d/': Permission denied
+Plan: 0 to add, 0 to change, 3 to destroy.
+      9303 tmpl-vm-docker-v5    stopped    2048              20.00 0         
+      9304 tmpl-vm-docker-v6    stopped    2048              20.00 0         
+9202       stopped                 tmpl-lxc-runner-v6  
+9204       stopped                 tmpl-lxc-runner-v5  

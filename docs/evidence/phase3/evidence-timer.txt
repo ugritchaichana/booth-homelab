@@ -1,0 +1,17 @@
+== timer unit and schedule
+# /etc/systemd/system/homelab-template-weekly.timer
+[Unit]
+Description=Weekly rebuild of every golden template class
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=15min
+Unit=homelab-template-weekly.service
+
+[Install]
+WantedBy=timers.target
+NEXT                          LEFT LAST PASSED UNIT                          ACTIVATES
+Mon 2026-10-12 00:13:36 +07 4 days -         - homelab-template-weekly.timer homelab-template-weekly.service
+
+1 timers listed.

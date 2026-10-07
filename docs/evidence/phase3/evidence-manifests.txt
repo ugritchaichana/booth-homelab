@@ -1,0 +1,11 @@
+== manifests
+lxc-runner/v2.json bytes=11643
+lxc-runner/v4.json bytes=11643
+lxc-runner/v5.json bytes=11643
+vm-docker/v4.json bytes=14538
+vm-docker/v5.json bytes=14538
+== template descriptions
+lxc 9203: description: class=lxc-runner version=4 built=2026-10-07T05%3A25%3A29Z manifest_sha256=d291bedf7970d6458f8ae193b4af3bdba3551fbca61816cab16df98422c769ad%0A tags: homelab-template;lxc-runner;v4 template: 1 
+lxc 9204: description: class=lxc-runner version=5 built=2026-10-07T05%3A39%3A31Z manifest_sha256=dc7593801d65f3a9ac16a3be25f0f016568aab6421b250b5e21c972f1ec9f4cf%0A tags: current;homelab-template;lxc-runner;v5 template: 1 
+qm 9302: description: class=vm-docker version=4 built=2026-10-07T05%3A28%3A49Z manifest_sha256=b42e8b613cf908ff0fb1a7c42025651af5f6b989edd72791fdb0cec8aff2356b tags: homelab-template;v4;vm-docker template: 1 
+qm 9303: description: class=vm-docker version=5 built=2026-10-07T05%3A32%3A13Z manifest_sha256=648ce8997b1d87c32b1c82f3ec298c019b4412e9258baecf2c53b624a97f6321 tags: current;homelab-template;v5;vm-docker template: 1 
