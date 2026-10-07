@@ -13,13 +13,24 @@ cat > "$work/vars.json" <<'JSON'
 {"management_source": "10.99.0.1", "pve_firewall_host_routed_prefixes": ["198.51.100.0/24", "203.0.113.0/24"]}
 JSON
 
-ANSIBLE_LOCALHOST_WARNING=False ANSIBLE_INVENTORY_UNPARSED_WARNING=False ANSIBLE_NOCOLOR=1 \
-  ansible localhost -c local -m ansible.builtin.template \
-    -a "src=$role/templates/cluster.fw.j2 dest=$work/cluster.fw" \
-    -e "@$role/defaults/main.yml" -e "@$work/vars.json" > "$work/ansible.log" 2>&1 \
-  || { cat "$work/ansible.log" >&2; echo "FAIL: the template did not render" >&2; exit 1; }
+cat > "$work/vars-cache.json" <<'JSON'
+{"management_source": "10.99.0.1", "pve_firewall_host_routed_prefixes": ["198.51.100.0/24", "203.0.113.0/24"],
+ "guest_network": {"vnet": "guests", "cidr": "10.99.16.0/24", "gateway": "10.99.16.1"},
+ "cache_network": {"vnet": "cache", "cidr": "10.99.17.0/24", "gateway": "10.99.17.1"},
+ "cache_endpoint": {"address": "10.99.17.10", "port": 8080}}
+JSON
 
-python3 -I - "$work/cluster.fw" <<'PY'
+render() {
+  ANSIBLE_LOCALHOST_WARNING=False ANSIBLE_INVENTORY_UNPARSED_WARNING=False ANSIBLE_NOCOLOR=1 \
+    ansible localhost -c local -m ansible.builtin.template \
+      -a "src=$role/templates/cluster.fw.j2 dest=$work/$2" \
+      -e "@$role/defaults/main.yml" -e "@$work/$1" > "$work/ansible.log" 2>&1 \
+    || { cat "$work/ansible.log" >&2; echo "FAIL: the template did not render" >&2; exit 1; }
+}
+render vars.json cluster.fw
+render vars-cache.json cluster-cache.fw
+
+python3 -I - "$work/cluster.fw" "$work/cluster-cache.fw" <<'PY'
 import ipaddress
 import sys
 
@@ -51,17 +62,22 @@ PUBLIC_SAMPLES = [
 MANAGEMENT = {"10.99.0.1"}
 HOST_ROUTED = {"198.51.100.0/24", "203.0.113.0/24"}
 
-sections = {}
-current = None
-for raw in open(sys.argv[1], encoding="utf-8"):
-    line = raw.strip()
-    if not line or line.startswith("#"):
-        continue
-    if line.startswith("[") and line.endswith("]"):
-        current = line[1:-1].strip().lower()
-        sections.setdefault(current, [])
-        continue
-    sections[current].append(line)
+def parse(path):
+    parsed = {}
+    current = None
+    for raw in open(path, encoding="utf-8"):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current = line[1:-1].strip().lower()
+            parsed.setdefault(current, [])
+            continue
+        parsed[current].append(line)
+    return parsed
+
+sections = parse(sys.argv[1])
+with_cache = parse(sys.argv[2])
 
 errors = []
 
@@ -107,6 +123,20 @@ if rules is None:
     fail("security group guest-egress is missing")
 elif rules != expected_rules:
     fail("guest-egress rules are %r, expected %r in this order" % (rules, expected_rules))
+
+CACHE_ACCEPT = "OUT ACCEPT -dest 10.99.17.10 -p tcp -dport 8080"
+cache_rules = with_cache.get("group guest-egress")
+if cache_rules != [CACHE_ACCEPT] + expected_rules:
+    fail("guest-egress with a cache endpoint is %r, expected the cache accept first and then %r" % (cache_rules, expected_rules))
+elif cache_rules.index(CACHE_ACCEPT) > min(i for i, r in enumerate(cache_rules) if r.startswith("OUT DROP")):
+    fail("the cache accept must precede every DROP in guest-egress")
+expected_ingress = ["IN ACCEPT -source 10.99.16.0/24 -p tcp -dport 8080", "IN ACCEPT -source 10.99.17.1 -p tcp -dport 22"]
+if with_cache.get("group cache-ingress") != expected_ingress:
+    fail("cache-ingress is %r, expected %r" % (with_cache.get("group cache-ingress"), expected_ingress))
+if "group cache-ingress" in sections:
+    fail("a host with no cache endpoint must not render the cache-ingress group")
+if any("10.99.17" in rule for rule in sections.get("group guest-egress", [])):
+    fail("a host with no cache endpoint must render no cache line in guest-egress")
 
 if {str(net) for net, _ in entries("host-routed")} != HOST_ROUTED:
     fail("ipset host-routed does not hold the configured prefixes")

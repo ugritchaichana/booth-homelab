@@ -7,6 +7,11 @@
   vars_files:
     - ../../tofu/stacks/r15-probe/probe.yml
   tasks:
+    - name: Forget the guest host keys of the previous probe generation
+      ansible.builtin.file:
+        path: "{{ r15_known_hosts }}"
+        state: absent
+
     - name: Generate the throwaway control key on the host
       ansible.builtin.command:
         argv: [ssh-keygen, -q, -t, ed25519, -N, "", -C, r15-probe, -f, "{{ r15_control_key }}"]
@@ -62,6 +67,14 @@
     r15_guard_unit: homelab-r15-firewall-guard
     r15_guard_minutes: 10
     r15_probe_timeout: 300
+    r15_cache_vmid: 9050
+    r15_cache_endpoint: "{{ cache_endpoint | default({}) }}"
+    r15_cache_enabled: "{{ r15_cache_endpoint.address is defined }}"
+    r15_cache_env: >-
+      {{ ('env CACHE_ADDR=' ~ r15_cache_endpoint.address ~ ' CACHE_PORT=' ~ r15_cache_endpoint.port ~ ' ') if r15_cache_enabled else '' }}
+    r15_red_first_allowed_vmids: "{{ [r15_cache_vmid | int] if r15_cache_enabled | bool else [] }}"
+    r15_cache_stage_dir: "{{ r15_work_dir }}/cache-stage"
+    r15_cache_guest_dir: /tmp/r15
     r15_ssh_base:
       - ssh
       - -i
@@ -79,7 +92,7 @@
       - -o
       - StrictHostKeyChecking=accept-new
       - -o
-      - "UserKnownHostsFile={{ r15_work_dir }}/known_hosts"
+      - "UserKnownHostsFile={{ r15_known_hosts }}"
   tasks:
     - name: Require one host, a known phase and an output directory
       ansible.builtin.assert:
@@ -115,7 +128,7 @@
 
     - name: Forget guest host keys left by an earlier apply
       ansible.builtin.file:
-        path: "{{ r15_work_dir }}/known_hosts"
+        path: "{{ r15_known_hosts }}"
         state: absent
       when: r15_phase == 'baseline'
 
@@ -430,8 +443,17 @@
         that:
           - >-
             (r15_resources.stdout | from_json) | selectattr('status', 'eq', 'running') | map(attribute='vmid') | map('int')
-            | difference(r15_guests.values() | map(attribute='vm_id') | map('int') | list) | list | length == 0
-        fail_msg: Stopping the node firewall would expose a guest that is not a probe; stop it first
+            | difference((r15_guests.values() | map(attribute='vm_id') | map('int') | list) + (r15_red_first_allowed_vmids | map('int') | list))
+            | list | length == 0
+        fail_msg: Stopping the node firewall would expose a guest that is neither a probe nor in r15_red_first_allowed_vmids; stop it first
+      when: r15_phase == 'red-first'
+
+    - name: Show which allowed guest stays up during the red-first run
+      ansible.builtin.debug:
+        msg: >-
+          guests left running with the node firewall stopped:
+          {{ (r15_resources.stdout | from_json) | selectattr('status', 'eq', 'running') | map(attribute='vmid') | map('int')
+          | select('in', r15_red_first_allowed_vmids | map('int') | list) | list }}
       when: r15_phase == 'red-first'
 
     - name: Clear a failed guard unit from an earlier red-first run
@@ -465,7 +487,7 @@
           ansible.builtin.command:
             argv: >-
               {{ r15_ssh_base + [r15_guest.value.login_user ~ '@' ~ r15_guest.value.address,
-              ('' if r15_guest.value.login_user == 'root' else 'sudo -n ') ~ 'bash ' ~ r15_guest_dir ~ '/r15-probe.sh --guest '
+              ('' if r15_guest.value.login_user == 'root' else 'sudo -n ') ~ r15_cache_env ~ 'bash ' ~ r15_guest_dir ~ '/r15-probe.sh --guest '
               ~ r15_guest.key ~ ' --phase ' ~ r15_phase ~ ' --targets ' ~ r15_guest_dir ~ '/targets.env'] }}
           loop: "{{ r15_guests | dict2items }}"
           loop_control:
@@ -476,6 +498,75 @@
           changed_when: false
           timeout: "{{ r15_probe_timeout }}"
 
+        - name: Run the probe inside the cache container and remove every trace of it
+          when: r15_cache_enabled | bool
+          block:
+            - name: Require the cache container to be running
+              ansible.builtin.command:
+                argv: [pct, status, "{{ r15_cache_vmid }}"]
+              register: r15_cache_status
+              changed_when: false
+              failed_when: "r15_cache_status.stdout | trim != 'status: running'"
+
+            - name: Create the staging directory on the host
+              ansible.builtin.file:
+                path: "{{ r15_cache_stage_dir }}"
+                state: directory
+                mode: "0700"
+                owner: root
+                group: root
+              changed_when: false
+
+            - name: Stage the probe and the targets on the host
+              ansible.builtin.copy:
+                content: "{{ item.content }}"
+                dest: "{{ r15_cache_stage_dir }}/{{ item.name }}"
+                mode: "0600"
+                owner: root
+                group: root
+              loop:
+                - { name: r15-probe.sh, content: "{{ lookup('ansible.builtin.file', r15_probe_script) }}" }
+                - { name: targets.env, content: "{{ r15_targets_text | default(lookup('ansible.builtin.file', r15_targets_file)) }}" }
+              loop_control:
+                label: "{{ item.name }}"
+              changed_when: false
+              no_log: true
+
+            - name: Copy the probe and the targets into the cache container
+              ansible.builtin.command:
+                argv: >-
+                  {{ ['pct', 'exec', r15_cache_vmid | string, '--', 'mkdir', '-p', r15_cache_guest_dir] if item == 'mkdir'
+                  else ['pct', 'push', r15_cache_vmid | string, r15_cache_stage_dir ~ '/' ~ item, r15_cache_guest_dir ~ '/' ~ item,
+                  '--perms', '0755' if item == 'r15-probe.sh' else '0600'] }}
+              loop: [mkdir, r15-probe.sh, targets.env]
+              changed_when: false
+
+            - name: Run the probe in the cache container
+              ansible.builtin.command:
+                argv: >-
+                  {{ ['pct', 'exec', r15_cache_vmid | string, '--', 'bash', r15_cache_guest_dir ~ '/r15-probe.sh', '--guest', 'cache',
+                  '--phase', r15_phase, '--targets', r15_cache_guest_dir ~ '/targets.env'] }}
+              loop: "{{ [{'key': 'cache'}] }}"
+              loop_control:
+                loop_var: r15_guest
+                label: "{{ r15_guest.key }}"
+              register: r15_cache_runs
+              failed_when: false
+              changed_when: false
+              timeout: "{{ r15_probe_timeout }}"
+          always:
+            - name: Remove the probe and the targets from the cache container
+              ansible.builtin.command:
+                argv: [pct, exec, "{{ r15_cache_vmid }}", --, rm, -rf, "{{ r15_cache_guest_dir }}"]
+              changed_when: false
+              failed_when: false
+
+            - name: Remove the staged copies from the host
+              ansible.builtin.file:
+                path: "{{ r15_cache_stage_dir }}"
+                state: absent
+              changed_when: false
+
         - name: Keep each probe output on the host
           ansible.builtin.copy:
             content: "{{ r15_run.stdout }}\n{{ r15_run.stderr }}\nEXIT {{ r15_run.rc }}\n"
@@ -483,7 +574,7 @@
             mode: "0600"
             owner: root
             group: root
-          loop: "{{ r15_runs.results }}"
+          loop: "{{ r15_runs.results + (r15_cache_runs.results | default([])) }}"
           loop_control:
             loop_var: r15_run
             label: "{{ r15_run.r15_guest.key }}"
@@ -534,14 +625,14 @@
         src: "{{ r15_work_dir }}/r15-{{ r15_phase }}-{{ r15_name }}.txt"
         dest: "{{ r15_output_dir }}/"
         flat: true
-      loop: "{{ (r15_guests.keys() | list) + ['control'] }}"
+      loop: "{{ (r15_guests.keys() | list) + ['control'] + (['cache'] if r15_cache_enabled | bool else []) }}"
       loop_control:
         loop_var: r15_name
 
     - name: Show each summary line
       ansible.builtin.debug:
         msg: "{{ r15_summary.r15_guest.key }}: {{ r15_summary.stdout_lines | select('match', '^SUMMARY') | list }}"
-      loop: "{{ r15_runs.results }}"
+      loop: "{{ r15_runs.results + (r15_cache_runs.results | default([])) }}"
       loop_control:
         loop_var: r15_summary
         label: "{{ r15_summary.r15_guest.key }}"
@@ -553,7 +644,7 @@
           The {{ r15_run_check.r15_guest.key }} probe exited {{ r15_run_check.rc }};
           read {{ r15_output_dir }}/r15-{{ r15_phase }}-{{ r15_run_check.r15_guest.key }}.txt
         quiet: true
-      loop: "{{ r15_runs.results }}"
+      loop: "{{ r15_runs.results + (r15_cache_runs.results | default([])) }}"
       loop_control:
         loop_var: r15_run_check
         label: "{{ r15_run_check.r15_guest.key }}"

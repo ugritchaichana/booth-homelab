@@ -5,6 +5,7 @@
 - Deciders: operator
 - Decision log: D65 in docs/platform/requirements.md
 - Refines: ADR 0026, ADR 0027
+- Amended by: ADR 0047 (the guard takes a per-vnet policy file and examines guests on every bridge)
 
 ## Context
 

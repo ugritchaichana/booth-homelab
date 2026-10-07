@@ -89,12 +89,21 @@ pve_firewall_deadman_dir: /var/lib/homelab/deadman-firewall
 
 pve_firewall_guest_vnet: "{{ (guest_network | default({})).vnet | default('guests') }}"
 pve_firewall_guest_gateway: "{{ (guest_network | default({})).gateway | default('') }}"
+pve_firewall_guest_cidr: "{{ (guest_network | default({})).cidr | default('') }}"
+pve_firewall_cache_group: cache-ingress
+pve_firewall_cache_network: "{{ cache_network | default({}) }}"
+pve_firewall_cache_endpoint: "{{ cache_endpoint | default({}) }}"
+pve_firewall_guard_policy_file: /etc/homelab/guest-firewall-guard-policy.json
+pve_firewall_guard_vnets: >-
+  {{ {pve_firewall_guest_vnet: {'groups': [pve_firewall_group], 'allow_gateway_ssh': pve_firewall_guest_gateway}}
+  | combine({pve_firewall_cache_network.vnet: {'groups': [pve_firewall_group, pve_firewall_cache_group], 'allow_gateway_ssh': none}}
+  if pve_firewall_cache_endpoint.address is defined else {}) }}
 pve_firewall_guard_script: /usr/local/sbin/homelab-guest-firewall-guard
 pve_firewall_guard_unit: homelab-guest-firewall-guard
 pve_firewall_guard_unverified_limit: 3
 pve_firewall_guard_args: >-
-  --node {{ pve_firewall_node_name }} --vnet {{ pve_firewall_guest_vnet }}
-  --group {{ pve_firewall_group }} --gateway {{ pve_firewall_guest_gateway }} --unverified-limit {{ pve_firewall_guard_unverified_limit }}
+  --node {{ pve_firewall_node_name }} --policy {{ pve_firewall_guard_policy_file }}
+  --unverified-limit {{ pve_firewall_guard_unverified_limit }}
 pve_firewall_ipv6_sysctl_file: /etc/sysctl.d/90-homelab-guest-ipv6.conf
 pve_firewall_ipv6_sysctls:
   net.ipv6.conf.default.accept_ra: "0"

@@ -4,6 +4,7 @@
 |---|---|
 | `test-cluster-fw-render.sh` | Renders `cluster.fw.j2` and checks the deny set against an RFC list (CI, no host). |
 | `r15-probe.sh` | Runs inside a probe guest: one `PROBE` line per target, one `SUMMARY`, exit 0 only if every measured row holds. |
+| `test-r15-verify-cache.sh` | Syntax-checks `r15-verify.yml` and renders its commands: the cache address reaches both runner probes, the probe runs inside the cache container, and the cleanup that removes the script and targets sits in an `always` section (CI, no host). |
 | `test-r15-probe.sh` | Runs `r15-probe.sh` with a stubbed `timeout`, `curl`, `id` and `ip`, plus real sockets and a real timeout (CI, no host). |
 | `test-template-build.sh` | Runs the template orchestrator against fakes of `pvesh`, `qm`, `pct`, `lvs` and `systemctl` (`lib/fake-pve.py`): one case per pre-start attribute, promotion, rollback, retention, the pass-marker gate, the thresholds (CI, no host). |
 | `test-template-guest-step.sh` | Runs the non-root guest step against a fake `ssh`: the connection options, the size and marker checks, the seal as the last connection, the manifest diff, the key cleanup (CI, no host). |
@@ -15,8 +16,8 @@
 
 One row per target: `label=scope kind host port expect expect_red control`.
 
-- `scope`: `all`, `lxc` or `vm`, the guest that runs the row. `kind`: `tcp`, `tcp6`, or `tcpvia` (the peer is routed through the gateway first, which needs root; it is the path that bypasses port isolation).
-- `expect` applies with the firewall on, `expect_red` in phase `red-first`: `open` or `blocked`.
+- `scope`: `all`, `runner` (lxc and vm, never the cache container), `lxc`, `vm` or `cache`, the guest that runs the row (`cache` runs only inside the cache container, which `r15-verify.yml` probes when the host entry has `cache_endpoint`; `CACHE_ADDR` and `CACHE_PORT` add the two cache rows for the runner guests). `kind`: `tcp`, `tcp6`, or `tcpvia` (the peer is routed through the gateway first, which needs root; it is the path that bypasses port isolation).
+- `expect` applies with the firewall on (`open` or `blocked`), `expect_red` in phase `red-first` (`open`, `blocked` or `refused`). `refused` means the path is open but nothing listens, an immediate reset: a row that is dropped with the firewall on and refused with it off proves a filter, not an absent service.
 - `control` is `True` when a working connection to the same target was measured from somewhere else: `scripts/hyperv/Test-R15Controls.ps1` from Windows (`CONTROL <label> <target> True`), the `red-first` run for rows only the Proxmox layer blocks, or `channel:<guest>`, which `r15-verify.yml` replaces with `True` or `False` from the host's own connection to that guest in the same run (the guest-to-guest rows).
 
 ## Reading the output
