@@ -24,7 +24,7 @@ Create an internal switch and a `New-NetNat` object named `homelab-pve01` on `10
 ## Rationale and trade-offs
 
 - NAT works over Wi-Fi without bridging and gives a fixed range to write rules against. The operator chose the range (D22) because the measured routes and addresses leave it free, and re-checked the routes before the setup script ran.
-- With spoofing off, Hyper-V drops frames from MAC addresses other than the adapter's. Containers or VMs inside PVE must therefore be routed or NATed by PVE, not bridged with their own MACs (`scripts/hyperv/README.md:122`). Accepted cost: bridged guests with their own MACs are not supported on this VM.
+- With spoofing off, Hyper-V drops frames from MAC addresses other than the adapter's. Containers or VMs inside PVE must therefore be routed or NATed by PVE, not bridged with their own MACs (`scripts/hyperv/README.md`, Isolation layer, Limits to know). Accepted cost: bridged guests with their own MACs are not supported on this VM.
 - The host reaches the guest directly; WSL does not (measured: TCP 22 from WSL times out, path via the Windows SSH client works; see ADR 0011).
 - Accepted cost: the guest has no inbound reachability from the LAN and depends on the host being awake. That is intended for a lab that overflows to hosted runners when the VM is stopped.
 - Revisit if the uplink becomes wired or the platform moves to a host where an external switch is reliable.

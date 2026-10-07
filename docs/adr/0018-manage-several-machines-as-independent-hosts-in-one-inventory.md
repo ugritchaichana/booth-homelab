@@ -9,7 +9,7 @@
 
 "Several machines" has to cover Proxmox hosts, rented VPSs and plain Linux machines, and the platform is meant to be taken to other hosts later (R10). Today there is exactly one machine, a laptop running Proxmox as a nested guest. Runner registration on a personal account is per repository, and a token needs Administration permission for that repository (`scripts/proxmox/ephemeral/homelab-ephemeral-runner.sh:47`), so the set of repositories served decides the token's reach.
 
-The tree has the pieces of a per-host layout: one host config file with a `-ConfigPath` switch for another host (`scripts/hyperv/README.md:10`), one secrets file per host (`iac/secrets/hosts/pve01.sops.yaml`, selected by the path rule in `.sops.yaml:2`), and an Ansible inventory with host groups (`iac/ansible/inventory/hosts.ini.example`).
+The tree has the pieces of a per-host layout: one host config file with a `-ConfigPath` switch for another host (`scripts/hyperv/README.md`, file table, `pve01.psd1` row), one secrets file per host (`iac/secrets/hosts/pve01.sops.yaml`, selected by the path rule in `.sops.yaml:2`), and an Ansible inventory with host groups (`iac/ansible/inventory/hosts.ini.example`, removed, ADR 0020).
 
 ## Options considered
 
