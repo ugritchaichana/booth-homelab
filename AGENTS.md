@@ -4,13 +4,13 @@ Guidance for any AI coding agent or human contributor working in this repository
 
 ## What this repository is
 
-A neutral homelab CI platform: Proxmox VE 9 as a Hyper-V VM on a Windows workstation, built from code (OpenTofu + Ansible, SOPS + age), with two-layer guest isolation, golden templates and a build cache. Phases 0 to 4 are built and measured. The runner pool controller, workflow cutover, observability and backups, and the rebuild-from-zero and portability proofs are **not built**: they are handed off in `docs/handoff/README.md`. Overview: `README.md`. Operations: `RUNBOOK.md`.
+A neutral homelab CI platform built for learning: Proxmox VE 9 as a Hyper-V VM on a Windows workstation, built from code (OpenTofu + Ansible, SOPS + age), with two-layer guest isolation, golden templates, a build cache and flavor-sized guests. What is built and what is handed off: the phase table in `docs/handoff/README.md`. Overview: `README.md`. Operations: `RUNBOOK.md`.
 
 ## Sources of truth
 
 | Question | Read |
 |---|---|
-| What is required, what was measured, which decision was taken | `docs/platform/requirements.md` (requirements `R1`..., measured rows, decisions `D1`...) |
+| What is required, what was measured, which decision was taken | `docs/platform/requirements.md` (requirements `R1`..., measured rows, decisions `D1`... each with its topic) |
 | Why a choice was made | `docs/adr/` (index in `docs/adr/README.md`) |
 | What a run proved | `docs/evidence/<phase>/INDEX.md` |
 | Defects the real host exposed, what each test proves | `docs/knowledge/` |
@@ -65,20 +65,9 @@ python3 -c "import subprocess,re,sys;p=re.compile('['+chr(3584)+'-'+chr(3711)+']
 
 ## Running the tests
 
-Run from the repository root in WSL Debian after `scripts/bootstrap/operator-toolchain.sh`. Full list with what each proves: `docs/knowledge/test-catalogue.md`.
+The command list is `RUNBOOK.md` 4.1, "Offline suites (no host)", run from the repository root in WSL Debian after `scripts/bootstrap/operator-toolchain.sh`. What each test proves, its command and its CI job: `docs/knowledge/test-catalogue.md`. The sample solution runs with `dotnet test apps/backend/SdetTestingRig.sln` and `npm ci && npm test --prefix apps/frontend`.
 
-| Area | Command | CI job |
-|---|---|---|
-| Isolation and template shell tests | `for t in tests/isolation/test-*.sh; do bash "$t"; done` | Ansible Lint, Syntax & Molecule |
-| Ansible static checks | `ansible-lint --profile production iac/ansible` | same |
-| Ansible role (needs Docker) | `cd iac/ansible/roles/base && molecule test` | same |
-| OpenTofu | `tofu fmt -check -recursive iac/tofu`, then per stack `tofu -chdir=iac/tofu/stacks/<stack> init -backend=false` and `... test` with `TF_VAR_state_passphrase` set to a throwaway 32+ character value | OpenTofu Lint & Validate |
-| Cache client | `python3 -m unittest discover -s tests/cache -p 'test_*.py'`; `bash tests/cache/test_stale_binaries.sh` needs .NET SDK 8 | Cache client CI |
-| Evidence tooling | `python3 -m unittest discover -s tests/evidence -v` | Evidence Publisher Gate |
-| Affected-test selector | `bash tests/verify-affected-graph.sh` and `pwsh -File tests/verify-affected-graph.ps1` | Affected Test Selector CI |
-| Sample solution | `dotnet test apps/backend/SdetTestingRig.sln`; `npm ci && npm test --prefix apps/frontend` | SDET Homelab CI Pipeline |
-
-During an iteration run only the test of the file you changed; run the whole set once at the end.
+During an iteration run only the test of the file you changed; run the whole set once at the end. Every new test gets a catalogue row.
 
 ## Working on the host
 
