@@ -47,3 +47,7 @@ terraform.tfvars
 
 # Isolation test targets
 tests/isolation/targets.env
+
+# Python
+__pycache__/
+*.pyc
