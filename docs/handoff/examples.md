@@ -87,12 +87,12 @@ The certificate is the host's own, so the browser warns once ([ADR 0029](../adr/
 | Where | What you see | Evidence |
 |---|---|---|
 | Node summary | `pve-manager` 9.2.21 | `docs/evidence/phase2/host-facts.txt:3` `pve-manager: 9.2.21 (running version: 9.2.21/4f6e0ac86f9e8c7f)` |
-| Templates | `tmpl-<class>-v<N>`, stopped | `docs/evidence/closeout/rename-final-state.txt:7` `tmpl-lxc-runner-v6` |
+| Templates | `tmpl-<class>-v<N>`, stopped | `docs/evidence/closeout/rename-final-state.txt:12` `tmpl-lxc-runner-v6` |
 | Datacenter, SDN | zone `hlab`, vnet `guests` 10.99.16.0/24, vnet `cache` 10.99.17.0/24 | `docs/evidence/phase4/tofu-proxmox-host-apply1.txt:5` `id=hlab`; `:8` `hlab-10.99.16.0-24`; `:53` `hlab-10.99.17.0-24` |
 | Firewall, Security Group | `guest-egress` and `cache-ingress` | `docs/evidence/phase4/fw-after-sdn.txt:1` `[group guest-egress]`; `:6` `[group cache-ingress]` |
-| Guests | cache container | `docs/evidence/closeout/rename-final-state.txt:5` `build-cache-debian-13` |
-| Guests | probe container, probe VM | `docs/evidence/closeout/rename-final-state.txt:6` `r15-probe-lxc-runner-v6`; `docs/evidence/closeout/rename-apply.txt:14` `r15-probe-vm-docker-v7` |
-| Guests | demo container, demo VM | `docs/evidence/closeout/rename-final-state.txt:9` `demo-lxc-runner-v6`; `docs/evidence/closeout/guest-plan-vm.txt:77` `"demo-vm-docker-v7"` |
+| Guests | cache container | `docs/evidence/closeout/rename-final-state.txt:10` `build-cache-debian-13` |
+| Guests | probe container, probe VM | `docs/evidence/closeout/rename-final-state.txt:11` `r15-probe-lxc-runner-v6`; `docs/evidence/closeout/rename-final-state.txt:16` `r15-probe-vm-docker-v7` |
+| Guests | demo container, demo VM | `docs/evidence/closeout/rename-final-state.txt:14` `demo-lxc-runner-v6`; `docs/evidence/closeout/rename-final-state.txt:19` `demo-vm-docker-v7` |
 
 What to check: node `pve01`, every guest tagged as in example 1, and `homelab-guest-firewall-guard.service` reports `ok`. Set TOTP on `root@pam` before regular remote use (ADR 0008).
 
@@ -107,8 +107,8 @@ $pve sudo pct exec 9101 -- curl -s http://10.99.17.10:8080/status
 
 Expected output, from the recorded run:
 
-- `docs/evidence/closeout/rename-final-state.txt:2` `"NumFiles": 7,`
-- `docs/evidence/closeout/rename-final-state.txt:3` `"GitTags": "v2.6.2",`
+- `docs/evidence/closeout/rename-final-state.txt:6` `"NumFiles": 7,`
+- `docs/evidence/closeout/rename-final-state.txt:7` `"GitTags": "v2.6.2",`
 
 Why a laptop fails: the cache group admits only the guest subnet, and the probes record the path as open from a guest.
 
