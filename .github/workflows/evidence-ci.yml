@@ -38,4 +38,4 @@ jobs:
         run: python -m unittest discover -s tests/evidence -v
 
       - name: Check Published Evidence and Knowledge Text
-        run: python scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac --allow-addresses-from tests
+        run: python scripts/evidence/publish.py --check docs/evidence docs/knowledge --allow-addresses-from iac
