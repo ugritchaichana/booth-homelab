@@ -126,7 +126,7 @@ def build(work):
     if not isinstance(manifest, dict):
         raise SystemExit("guest-step: the manifest is not a JSON object")
     print_manifest_diff(params, manifest)
-    sealed = subprocess.run(ssh_command(params, privileged(params, "sh %s/seal.sh" % REMOTE_BUNDLE)), capture_output=True, timeout=120, check=False)
+    sealed = subprocess.run(ssh_command(params, privileged(params, "sh %s/seal.sh %s" % (REMOTE_BUNDLE, params["LOGIN_USER"]))), capture_output=True, timeout=120, check=False)
     if "SEAL-OK" not in sealed.stdout.decode("ascii", "replace").splitlines():
         raise SystemExit("guest-step: the guest was not sealed: %s" % clean(sealed.stdout.decode("ascii", "replace")))
     with open(os.path.join(out, "manifest.json"), "wb") as handle:
