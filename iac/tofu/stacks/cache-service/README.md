@@ -6,7 +6,7 @@ The unprivileged container that hosts the build cache (ADR 0048). The service it
 
 | Object | Value |
 |---|---|
-| Container | id 9050 (variable `vm_id`, validated outside the template blocks and the probe ids), pool `homelab`, unprivileged, `start_on_boot`, created stopped and `ignore_changes = [started]`: `cache.yml` starts it after reading the firewall back |
+| Container | hostname `build-cache-<image>` (today `build-cache-debian-13`, from the template file's distribution and major version), tags `build-cache` and `src-<image>`, id 9050 (variable `vm_id`, validated outside the template blocks and the probe ids), pool `homelab`, unprivileged, `start_on_boot`, created stopped and `ignore_changes = [started]`: `cache.yml` starts it after reading the firewall back |
 | Source | the Debian 13 standard template the template role fetches (read from `pve_templates_classes` in the role defaults), not a clone |
 | Size | 1 core, 1024 MB, no swap, root 4 GiB, mount point `mp0` of 10 GiB at the role's data mount, both on `local-lvm` |
 | NIC | `eth0` on the `cache` vnet, firewall flag on, static address and gateway from `cache_endpoint` and `cache_network` of the host entry in `iac/inventory/hosts.yml` |
@@ -28,11 +28,6 @@ bash scripts/iac/tofu.sh cache-service pve01 apply
 
 ## Checks without a host
 
-```sh
-export TF_VAR_state_passphrase=local-test-only-passphrase-not-a-secret-0123
-tofu -chdir=iac/tofu/stacks/cache-service init -backend=false
-tofu -chdir=iac/tofu/stacks/cache-service validate
-tofu -chdir=iac/tofu/stacks/cache-service test
-```
+The shared steps (`fmt`, `tflint`, the throwaway state passphrase) are in [RUNBOOK.md, Offline suites (no host)](../../../../RUNBOOK.md#41-offline-suites-no-host). This stack alone: `tofu -chdir=iac/tofu/stacks/cache-service init -backend=false && tofu -chdir=iac/tofu/stacks/cache-service test`.
 
 `tests/cache.tftest.hcl` reads `tests/fixtures/hosts.yml` and asserts the shape with literal values: the NIC, address, size, template, mount point, reserved ids, firewall options and the exact two rule groups. It also rejects a private key, an id inside a template block, a data volume the cache limit does not fit, a host without the cache keys and the gateway as the address.

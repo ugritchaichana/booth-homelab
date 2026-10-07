@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-07
 - Deciders: operator
-- Decision log: not yet recorded in docs/platform/requirements.md
+- Decision log: D83 in docs/platform/requirements.md
 - Builds on: ADR 0017, ADR 0030, ADR 0044, ADR 0047
 
 ## Context

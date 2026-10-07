@@ -120,16 +120,16 @@ Removes the VM (with its checkpoints), the NAT, the switch and the firewall rule
 
 Hyper-V extended port ACLs on the VM's network adapter, applied before the adapter is connected and refreshed on every `Start` and `Refresh`. Rules live in the weight range `AclWeightMin`-`AclWeightMax`; a refresh adds missing rules and removes stale ones only in that range. Any extended ACL outside the range makes `Start` and the setup run refuse. Larger weight applies first, and once a rule matches, lower ones are ignored.
 
-| Order | Direction | Action | Match | Why |
+| Rule | Direction | Action | Match | Why |
 |---|---|---|---|---|
-| 1 | Inbound | Allow, stateful | from host `10.99.0.1`, TCP 22 and 8006 | management from the host; stateful so replies flow |
-| 2 | both | Deny | IPv6 `::/0` | no IPv6 (the host vEthernet also has its IPv6 binding disabled) |
-| 3 | Outbound | Deny | `0.0.0.0/8`, `10/8`, `100.64/10`, `127/8`, `169.254/16`, `172.16/12`, `192.168/16`, `224/4`, `240/4` | private, CGNAT, link-local, multicast, reserved |
-| 3 | Outbound | Deny | every IPv4 prefix routed on an interface other than `EgressInterfaceAlias` and the homelab vEthernet, unioned with everything stored in the local override | catches VPN routes that are not private ranges, and keeps them after the VPN is gone |
-| 4 | Outbound | Allow, stateful, TCP | `0.0.0.0/0` (weight 4010) | internet out, replies flow |
-| 4 | Outbound | Allow, stateful, UDP | `0.0.0.0/0` (weight 4009) | internet out (DNS, NTP), replies flow |
-| 4' | Outbound | Deny | `0.0.0.0/0` (replaces row 4 when a default route `0/0`, `0/1` or `128/1` sits on another interface) | fail closed: no egress through a tunnel |
-| 5 | Inbound | Deny | `0.0.0.0/0` | default deny in |
+| Allow management | Inbound | Allow, stateful | from host `10.99.0.1`, TCP 22 and 8006 | management from the host; stateful so replies flow |
+| Deny IPv6 | both | Deny | IPv6 `::/0` | no IPv6 (the host vEthernet also has its IPv6 binding disabled) |
+| Deny private ranges | Outbound | Deny | `0.0.0.0/8`, `10/8`, `100.64/10`, `127/8`, `169.254/16`, `172.16/12`, `192.168/16`, `224/4`, `240/4` | private, CGNAT, link-local, multicast, reserved |
+| Deny other routed prefixes | Outbound | Deny | every IPv4 prefix routed on an interface other than `EgressInterfaceAlias` and the homelab vEthernet, unioned with everything stored in the local override | catches VPN routes that are not private ranges, and keeps them after the VPN is gone |
+| Allow internet TCP | Outbound | Allow, stateful, TCP | `0.0.0.0/0` (weight 4010) | internet out, replies flow |
+| Allow internet UDP | Outbound | Allow, stateful, UDP | `0.0.0.0/0` (weight 4009) | internet out (DNS, NTP), replies flow |
+| Deny internet, fail closed | Outbound | Deny | `0.0.0.0/0` (replaces the two allow-internet rules when a default route `0/0`, `0/1` or `128/1` sits on another interface) | fail closed: no egress through a tunnel |
+| Default deny in | Inbound | Deny | `0.0.0.0/0` | default deny in |
 
 Measured on this host (probe run, Windows 11 build 26200): the switch rejects, at the moment it applies the rules (`Connect-VMNetworkAdapter`), a stateful rule with no protocol, protocol `ANY`, or ICMP (`1`), a stateful Deny, and a weight of 100000 (65535 is accepted). **Stateful rules must therefore be TCP or UDP.** The plan refuses anything else before it is applied. Consequence: ICMP echo replies and inbound ICMP errors (including path-MTU 'fragmentation needed') hit the default deny, so `ping` to the internet from the guest fails and a lower-MTU path behind a VPN can stall TCP (fail closed; the inbound ICMP allow is listed under Not covered). `Add-VMNetworkAdapterExtendedAcl` accepts such a rule and the read-back lists it: only the connect step proves a rule shape.
 
@@ -157,16 +157,7 @@ Limits to know:
 
 ## Measured on this host
 
-Rows are in `docs/platform/requirements.md` section 3; transcripts are in `docs/evidence/phase1/` and `docs/evidence/phase2/`.
-
-| Result | Row |
-|---|---|
-| Unattended install of PVE 9.1 finished in 459 s and powered the VM off; checkpoint `post-install` taken while Off; first cold start answered TCP 22 after 18.1 s | 35 |
-| The switch rejects a stateful rule that is not TCP or UDP, a stateful Deny and weight 100000; weight 65535 is accepted | 37 |
-| Guest to host (445, 135, 139), the home router, the host's own addresses and the VPN DNS are dropped, each paired with Windows reaching the same target; HTTPS and DNS through a public resolver work | 38 |
-| After the host reboot: 18 ACL rules read back, none outside the weight range, IPv6 binding off, MAC spoofing drops traffic; with the Windows Firewall rule disabled the port ACLs alone still block guest to host 445 | 42 |
-| The checkpoint action refuses a running VM and a duplicate name; cold starts after a restore answered SSH in 15.7 to 16 s | 45 |
-| After the laptop reboot: the VM starts non-elevated, SSH answers 15.8 s after start, 18 ACL rules read back | 53 |
+Results with their evidence files: `docs/handoff/results.md` (sections Isolation (R15) and Host, reboots and cold starts). The rows are in `docs/platform/requirements.md` section 3; transcripts are in `docs/evidence/phase1/` and `docs/evidence/phase2/`.
 
 ## Not covered
 

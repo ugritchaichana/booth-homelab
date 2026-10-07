@@ -11,7 +11,7 @@ The repository is public and owned by a personal account, so runners register pe
 
 Measured baselines (job-level data, 2026-10): hosted full suite, cold cache, 71 s (run 37355482969); the old self-hosted setup, 174 s (run 37341728563, second attempt), of which the Report job queued 64 s because the `dotnet` label had one runner.
 
-Routing today picks hosted runners only for a forced override or a different repository (`.github/workflows/reusable-sdet-pipeline.yml:60-63`). A fork pull request runs in the base repository, so it lands on self-hosted runners; GitHub documents this at https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows. The host is attached to a VPN, a tailnet and the home LAN, so untrusted code must not run on long-lived runners there.
+Routing today picks hosted runners only for a forced override or a different repository (`.github/workflows/reusable-sdet-pipeline.yml`, job `select-runner`, step `Decide Runner Class`). A fork pull request runs in the base repository, so it lands on self-hosted runners; GitHub documents this at https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows. The host is attached to a VPN, a tailnet and the home LAN, so untrusted code must not run on long-lived runners there.
 
 Scope note: whether the controller is built or adopted (D10) and in which language (D11) is still OPEN. This ADR does not decide it; it only states what any controller must do.
 
