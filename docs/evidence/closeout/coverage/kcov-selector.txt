@@ -1,0 +1,10 @@
+kcov 43+dfsg-1+b4 from apt on Debian 13 (WSL), bash 5.2.37
+
+kcov --include-path=$PWD/scripts/apps/dotnet-affected-test.sh out tests/verify-affected-graph.sh
+
+==========================================================
+   ALL 7 SCENARIOS PASSED (EXACT SETS MATCH THE GRAPH)    
+==========================================================
+exit=0
+file dotnet-affected-test.sh percent_covered=80.68 covered_lines=71 total_lines=88
+total percent_covered=80.68 covered_lines=71 total_lines=88

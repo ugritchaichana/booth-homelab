@@ -34,8 +34,25 @@ jobs:
           rm gitleaks.tar.gz
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: Scorecard unit tests
-        run: python3 standard/tests/test_scorecard.py
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install coverage.py
+        run: python3 -m pip install --require-hashes -r tests/requirements-coverage-ci.txt
+
+      - name: Scorecard unit tests, measured through the scorer subprocess
+        run: |
+          printf '[run]\nbranch = True\npatch = subprocess\n' > "$RUNNER_TEMP/coveragerc"
+          export COVERAGE_RCFILE="$RUNNER_TEMP/coveragerc"
+          coverage run --branch --source=standard --omit='standard/tests/*' standard/tests/test_scorecard.py
+          coverage combine
+          coverage report -m --precision=2 --fail-under=89
+
+      - name: Print the Line and Branch Split
+        run: |
+          coverage json -o - | python3 -c 'import json,sys; t=json.load(sys.stdin)["totals"]; print("lines %.2f%% (%d of %d), branches %.2f%% (%d of %d)" % (100*t["covered_lines"]/t["num_statements"], t["covered_lines"], t["num_statements"], 100*t["covered_branches"]/t["num_branches"], t["covered_branches"], t["num_branches"]))'
 
       - name: Run checks, read the ledger, write the scorecard
         env:
