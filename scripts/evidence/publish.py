@@ -40,12 +40,20 @@ LINE_RULES: dict[str, re.Pattern[str]] = {
     "github-token": re.compile(r"(?<![A-Za-z0-9])(?:ghp_|gho_|ghs_|ghu_|ghr_|github_pat_)"),
     "thai-char": re.compile("[\u0e00-\u0e7f]"),
     "masked-marker": re.compile(re.escape("<MASKED:")),
+    "ci-writer-credential": re.compile(r"ci-writer:(?![\s\"'<*]|\$\{|\$[A-Za-z_]|$)\S"),
+    "bcrypt-hash": re.compile(r"\$2[aby]\$"),
 }
+IPV6_CANDIDATE = re.compile(r"(?<![0-9A-Za-z:.])[0-9A-Fa-f]*(?::[0-9A-Fa-f]*){2,}(?![0-9A-Za-z:])")
+GLOBAL_V6 = ipaddress.ip_network("2000::/3")
+DOCUMENTATION_V6 = tuple(ipaddress.ip_network(n) for n in ("2001:db8::/32", "3fff::/20"))
+# The IPv6 addresses of the same public resolvers whose IPv4 addresses are allowed above.
+ALLOWED_V6 = frozenset(ipaddress.IPv6Address(a) for a in ("2606:4700:4700::1111", "2606:4700:4700::1001"))
 SOFT_RULES = ("version-like", "non-ascii")
 UNIT_TYPES = frozenset(
     ("service", "socket", "timer", "target", "mount", "automount", "path", "slice", "scope", "device", "swap")
 )
 SECRETS_PREFIX = "iac/secrets/"
+EXCLUDED_PREFIXES = (SECRETS_PREFIX, "tests/evidence/")
 NON_ASCII = re.compile(r"[^\x00-\x7f]")
 
 
@@ -85,6 +93,14 @@ def _quad_address(token: str) -> ipaddress.IPv4Address | None:
     return None
 
 
+def _global_ipv6(token: str) -> bool:
+    try:
+        address = ipaddress.IPv6Address(token)
+    except ValueError:
+        return False
+    return address in GLOBAL_V6 and address not in ALLOWED_V6 and not any(address in net for net in DOCUMENTATION_V6)
+
+
 def _rule_hits(rule: str, pattern: re.Pattern[str], line: str) -> bool:
     if rule != "email":
         return pattern.search(line) is not None
@@ -103,7 +119,7 @@ def tracked_addresses(repo: Path, dirs: list[str]) -> frozenset[ipaddress.IPv4Ad
             ["git", "-C", str(repo), "ls-files", "-z", "--", directory], capture_output=True, check=True
         ).stdout
         for name in filter(None, listing.decode("utf-8").split(chr(0))):
-            if name.startswith(SECRETS_PREFIX):
+            if name.startswith(EXCLUDED_PREFIXES):
                 continue
             path = repo / name
             if not path.is_file():
@@ -156,6 +172,8 @@ def scan_text(
                 findings.append(Finding(number, rule))
         if deny and any(word in line.lower() for word in deny):
             findings.append(Finding(number, "deny-list"))
+        if any(_global_ipv6(m.group()) for m in IPV6_CANDIDATE.finditer(line)):
+            findings.append(Finding(number, "ipv6-global"))
         if NON_ASCII.search(line) and not LINE_RULES["thai-char"].search(line):
             findings.append(Finding(number, "non-ascii", soft=True))
         for match in DOTTED.finditer(line):
