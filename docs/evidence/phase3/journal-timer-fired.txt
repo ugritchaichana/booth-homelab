@@ -1,0 +1,84 @@
+2026-10-07T12:58:04+07:00 pve01 systemd[1]: Started homelab-template-timer-proof.timer - [systemd-run] /usr/bin/systemctl start homelab-template-weekly.service.
+2026-10-07T12:58:26+07:00 pve01 systemd[1]: Started homelab-template-timer-proof.service - [systemd-run] /usr/bin/systemctl start homelab-template-weekly.service.
+2026-10-07T12:58:26+07:00 pve01 systemd[1]: Starting homelab-template-weekly.service - Rebuild every golden template class in turn...
+2026-10-07T12:58:26+07:00 pve01 systemd[1]: Starting homelab-template-build@lxc-runner.service - Build the golden template of class lxc-runner...
+2026-10-07T12:58:29+07:00 pve01 homelab-template[86284]: homelab-template: PREFLIGHT ok data_percent=20.06 metadata_percent=2.01 local_free_gib=32.5
+2026-10-07T12:58:30+07:00 pve01 homelab-template[86284]: homelab-template: BUILD start class=lxc-runner version=v6 vmid=9202 build_id=lxc-runner-v6-20261007T055830Z-b88833e6
+2026-10-07T12:58:31+07:00 pve01 pct[86309]: <root@pam> starting task UPID:pve01:0001512A:000813B4:6AC5DF87:vzcreate:9202:root@pam:
+2026-10-07T12:58:35+07:00 pve01 pct[86314]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T12:58:35+07:00 pve01 pct[86309]: <root@pam> end task UPID:pve01:0001512A:000813B4:6AC5DF87:vzcreate:9202:root@pam: WARNINGS: 1
+2026-10-07T12:58:41+07:00 pve01 homelab-template[86284]: homelab-template: READBACK ok vmid=9202 kind=lxc before first start: bridge=guests only, firewall on, options and rules exact, shape ok
+2026-10-07T12:58:41+07:00 pve01 homelab-template[86284]: homelab-template: START vmid=9202
+2026-10-07T12:58:42+07:00 pve01 pct[86466]: <root@pam> starting task UPID:pve01:000151C3:000817D1:6AC5DF92:vzstart:9202:root@pam:
+2026-10-07T12:58:42+07:00 pve01 pct[86467]: starting CT 9202: UPID:pve01:000151C3:000817D1:6AC5DF92:vzstart:9202:root@pam:
+2026-10-07T12:58:44+07:00 pve01 pct[86467]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T12:58:44+07:00 pve01 pct[86466]: <root@pam> end task UPID:pve01:000151C3:000817D1:6AC5DF92:vzstart:9202:root@pam: WARNINGS: 1
+2026-10-07T13:00:30+07:00 pve01 homelab-template[86284]: homelab-template: GATE ok build_id=lxc-runner-v6-20261007T055830Z-b88833e6 manifest_sha256=19101150eb83c8872fc4f88399d06f129313a159878ce6392df50dc6ee9b6c2d
+2026-10-07T13:00:33+07:00 pve01 pct[91083]: <root@pam> starting task UPID:pve01:000163CF:0008433D:6AC5E001:vzshutdown:9202:root@pam:
+2026-10-07T13:00:33+07:00 pve01 pct[91087]: shutdown CT 9202: UPID:pve01:000163CF:0008433D:6AC5E001:vzshutdown:9202:root@pam:
+2026-10-07T13:00:35+07:00 pve01 pct[91083]: <root@pam> end task UPID:pve01:000163CF:0008433D:6AC5E001:vzshutdown:9202:root@pam: OK
+2026-10-07T13:00:41+07:00 pve01 homelab-template[86284]: homelab-template: READBACK ok vmid=9202 template: no key, no build address, no inbound rule
+2026-10-07T13:00:42+07:00 pve01 pct[91266]: <root@pam> starting task UPID:pve01:00016484:0008469E:6AC5E00A:vztemplate:9202:root@pam:
+2026-10-07T13:00:42+07:00 pve01 pct[91266]: <root@pam> end task UPID:pve01:00016484:0008469E:6AC5E00A:vztemplate:9202:root@pam: OK
+2026-10-07T13:00:43+07:00 pve01 pct[91327]: <root@pam> starting task UPID:pve01:000164C5:00084711:6AC5E00B:vzclone:9202:root@pam:
+2026-10-07T13:00:44+07:00 pve01 pct[91333]: Systemd 257 detected. You may need to enable nesting.
+2026-10-07T13:00:44+07:00 pve01 pct[91327]: <root@pam> end task UPID:pve01:000164C5:00084711:6AC5E00B:vzclone:9202:root@pam: WARNINGS: 1
+2026-10-07T13:00:45+07:00 pve01 homelab-template[86284]: homelab-template: VERIFY ok clone=9201 is a linked clone of 9202 (origin vm-9201-disk-0)
+2026-10-07T13:00:48+07:00 pve01 pct[91467]: <root@pam> starting task UPID:pve01:0001654E:0008490B:6AC5E010:vzdestroy:9201:root@pam:
+2026-10-07T13:00:48+07:00 pve01 pct[91467]: <root@pam> end task UPID:pve01:0001654E:0008490B:6AC5E010:vzdestroy:9201:root@pam: OK
+2026-10-07T13:00:53+07:00 pve01 homelab-template[86284]: homelab-template: READBACK ok vmid=9202 template: no key, no build address, no inbound rule
+2026-10-07T13:00:54+07:00 pve01 homelab-template[86284]: homelab-template: TAGS vmid=9204 v5 -> homelab-template;lxc-runner;v5
+2026-10-07T13:00:55+07:00 pve01 homelab-template[86284]: homelab-template: TAGS vmid=9202 v6 -> current;homelab-template;lxc-runner;v6
+2026-10-07T13:00:55+07:00 pve01 homelab-template[86284]: homelab-template: PROMOTED class=lxc-runner v5 -> v6 vmid=9202 manifest_sha256=19101150eb83c8872fc4f88399d06f129313a159878ce6392df50dc6ee9b6c2d previous=5
+2026-10-07T13:00:57+07:00 pve01 pct[91630]: <root@pam> starting task UPID:pve01:000165EF:00084C76:6AC5E019:vzdestroy:9203:root@pam:
+2026-10-07T13:00:57+07:00 pve01 pct[91630]: <root@pam> end task UPID:pve01:000165EF:00084C76:6AC5E019:vzdestroy:9203:root@pam: OK
+2026-10-07T13:00:57+07:00 pve01 homelab-template[86284]: homelab-template: RETENTION destroyed vmid=9203 v4
+2026-10-07T13:00:57+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Deactivated successfully.
+2026-10-07T13:00:57+07:00 pve01 systemd[1]: Finished homelab-template-build@lxc-runner.service - Build the golden template of class lxc-runner.
+2026-10-07T13:00:57+07:00 pve01 systemd[1]: homelab-template-build@lxc-runner.service: Consumed 39.731s CPU time, 765.4M memory peak.
+2026-10-07T13:00:57+07:00 pve01 systemd[1]: Starting homelab-template-build@vm-docker.service - Build the golden template of class vm-docker...
+2026-10-07T13:00:59+07:00 pve01 homelab-template[91647]: homelab-template: PREFLIGHT ok data_percent=20.02 metadata_percent=2.01 local_free_gib=32.5
+2026-10-07T13:01:01+07:00 pve01 homelab-template[91647]: homelab-template: BUILD start class=vm-docker version=v6 vmid=9304 build_id=vm-docker-v6-20261007T060101Z-211df575
+2026-10-07T13:01:02+07:00 pve01 qm[91691]: <root@pam> starting task UPID:pve01:0001662F:00084E7E:6AC5E01E:qmcreate:9304:root@pam:
+2026-10-07T13:01:07+07:00 pve01 qm[91691]: <root@pam> end task UPID:pve01:0001662F:00084E7E:6AC5E01E:qmcreate:9304:root@pam: OK
+2026-10-07T13:01:08+07:00 pve01 qm[91829]: <root@pam> starting task UPID:pve01:000166B8:000850C6:6AC5E024:resize:9304:root@pam:
+2026-10-07T13:01:08+07:00 pve01 qm[91832]: <root@pam> update VM 9304: resize --disk scsi0 --size 20G
+2026-10-07T13:01:08+07:00 pve01 qm[91829]: <root@pam> end task UPID:pve01:000166B8:000850C6:6AC5E024:resize:9304:root@pam: OK
+2026-10-07T13:01:16+07:00 pve01 homelab-template[91647]: homelab-template: READBACK ok vmid=9304 kind=qemu before first start: bridge=guests only, firewall on, options and rules exact, shape ok
+2026-10-07T13:01:16+07:00 pve01 homelab-template[91647]: homelab-template: START vmid=9304
+2026-10-07T13:01:17+07:00 pve01 qm[92008]: start VM 9304: UPID:pve01:00016768:0008546C:6AC5E02D:qmstart:9304:root@pam:
+2026-10-07T13:01:17+07:00 pve01 qm[92007]: <root@pam> starting task UPID:pve01:00016768:0008546C:6AC5E02D:qmstart:9304:root@pam:
+2026-10-07T13:01:18+07:00 pve01 qm[92008]: VM 9304 started with PID 92032 using pve-qemu-kvm_11.0.3-4.
+2026-10-07T13:01:18+07:00 pve01 qm[92007]: <root@pam> end task UPID:pve01:00016768:0008546C:6AC5E02D:qmstart:9304:root@pam: OK
+2026-10-07T13:03:26+07:00 pve01 homelab-template[91647]: homelab-template: GATE ok build_id=vm-docker-v6-20261007T060101Z-211df575 manifest_sha256=a61301a6be0d53c44e497535d029da9ef01e5a0da817483b58e15f6ed7f96f57
+2026-10-07T13:03:28+07:00 pve01 qm[93850]: shutdown VM 9304: UPID:pve01:00016E9A:000887C0:6AC5E0B0:qmshutdown:9304:root@pam:
+2026-10-07T13:03:28+07:00 pve01 qm[93847]: <root@pam> starting task UPID:pve01:00016E9A:000887C0:6AC5E0B0:qmshutdown:9304:root@pam:
+2026-10-07T13:03:31+07:00 pve01 qm[93847]: <root@pam> end task UPID:pve01:00016E9A:000887C0:6AC5E0B0:qmshutdown:9304:root@pam: OK
+2026-10-07T13:03:35+07:00 pve01 qm[93911]: <root@pam> update VM 9304: -delete ciuser,ipconfig0,nameserver,sshkeys -description class=vm-docker version=6 built=2026-10-07T06:03:31Z manifest_sha256=a61301a6be0d53c44e497535d029da9ef01e5a0da817483b58e15f6ed7f96f57 -name tmpl-vm-docker-v6
+2026-10-07T13:03:38+07:00 pve01 homelab-template[91647]: homelab-template: READBACK ok vmid=9304 template: no key, no build address, no inbound rule
+2026-10-07T13:03:39+07:00 pve01 qm[94024]: <root@pam> starting task UPID:pve01:00016F4A:00088BDC:6AC5E0BB:qmtemplate:9304:root@pam:
+2026-10-07T13:03:39+07:00 pve01 qm[94024]: <root@pam> end task UPID:pve01:00016F4A:00088BDC:6AC5E0BB:qmtemplate:9304:root@pam: OK
+2026-10-07T13:03:40+07:00 pve01 qm[94083]: <root@pam> starting task UPID:pve01:00016F85:00088C40:6AC5E0BC:qmclone:9304:root@pam:
+2026-10-07T13:03:41+07:00 pve01 qm[94083]: <root@pam> end task UPID:pve01:00016F85:00088C40:6AC5E0BC:qmclone:9304:root@pam: OK
+2026-10-07T13:03:42+07:00 pve01 homelab-template[91647]: homelab-template: VERIFY ok clone=9301 is a linked clone of 9304 (origin vm-9301-disk-0)
+2026-10-07T13:03:44+07:00 pve01 qm[94156]: <root@pam> starting task UPID:pve01:00016FED:00088E0F:6AC5E0C0:qmdestroy:9301:root@pam:
+2026-10-07T13:03:44+07:00 pve01 qm[94189]: destroy VM 9301: UPID:pve01:00016FED:00088E0F:6AC5E0C0:qmdestroy:9301:root@pam:
+2026-10-07T13:03:45+07:00 pve01 qm[94156]: <root@pam> end task UPID:pve01:00016FED:00088E0F:6AC5E0C0:qmdestroy:9301:root@pam: OK
+2026-10-07T13:03:46+07:00 pve01 qm[94238]: <root@pam> update VM 9304: -tags homelab-template;v6;vm-docker
+2026-10-07T13:03:50+07:00 pve01 homelab-template[91647]: homelab-template: READBACK ok vmid=9304 template: no key, no build address, no inbound rule
+2026-10-07T13:03:51+07:00 pve01 qm[94296]: <root@pam> update VM 9303: -tags homelab-template;v5;vm-docker
+2026-10-07T13:03:51+07:00 pve01 homelab-template[91647]: homelab-template: TAGS vmid=9303 v5 -> homelab-template;v5;vm-docker
+2026-10-07T13:03:52+07:00 pve01 qm[94297]: <root@pam> update VM 9304: -tags current;homelab-template;v6;vm-docker
+2026-10-07T13:03:52+07:00 pve01 homelab-template[91647]: homelab-template: TAGS vmid=9304 v6 -> current;homelab-template;v6;vm-docker
+2026-10-07T13:03:52+07:00 pve01 homelab-template[91647]: homelab-template: PROMOTED class=vm-docker v5 -> v6 vmid=9304 manifest_sha256=a61301a6be0d53c44e497535d029da9ef01e5a0da817483b58e15f6ed7f96f57 previous=5
+2026-10-07T13:03:53+07:00 pve01 qm[94300]: <root@pam> starting task UPID:pve01:0001705F:00089191:6AC5E0C9:qmdestroy:9302:root@pam:
+2026-10-07T13:03:53+07:00 pve01 qm[94303]: destroy VM 9302: UPID:pve01:0001705F:00089191:6AC5E0C9:qmdestroy:9302:root@pam:
+2026-10-07T13:03:54+07:00 pve01 qm[94300]: <root@pam> end task UPID:pve01:0001705F:00089191:6AC5E0C9:qmdestroy:9302:root@pam: OK
+2026-10-07T13:03:54+07:00 pve01 homelab-template[91647]: homelab-template: RETENTION destroyed vmid=9302 v4
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Deactivated successfully.
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: Finished homelab-template-build@vm-docker.service - Build the golden template of class vm-docker.
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: homelab-template-build@vm-docker.service: Consumed 43.564s CPU time, 1G memory peak.
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: homelab-template-weekly.service: Deactivated successfully.
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: Finished homelab-template-weekly.service - Rebuild every golden template class in turn.
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: homelab-template-timer-proof.service: Deactivated successfully.
+2026-10-07T13:03:54+07:00 pve01 systemd[1]: homelab-template-timer-proof.timer: Deactivated successfully.

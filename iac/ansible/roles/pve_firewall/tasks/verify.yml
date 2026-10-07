@@ -1,0 +1,86 @@
+---
+- name: Wait until the firewall is enabled and has applied the files
+  ansible.builtin.command: pve-firewall status
+  register: pve_firewall_status
+  until: "pve_firewall_status.stdout == 'Status: enabled/running'"
+  retries: "{{ pve_firewall_status_retries }}"
+  delay: "{{ pve_firewall_status_delay }}"
+  changed_when: false
+
+- name: Compile the firewall files as the host parses them
+  ansible.builtin.command: pve-firewall compile
+  register: pve_firewall_compile
+  changed_when: false
+  no_log: true
+
+- name: Assert the host parsed every line
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_compile.rc == 0
+      - (pve_firewall_compile.stdout_lines + pve_firewall_compile.stderr_lines)
+        | select('search', pve_firewall_compile_error_patterns | join('|')) | list | length == 0
+    fail_msg: The host skipped or rejected a firewall line; run pve-firewall compile on the host to see which
+  no_log: true
+
+- name: Read the management ipset
+  ansible.builtin.command: ipset save PVEFW-0-management-v4
+  register: pve_firewall_management_set
+  changed_when: false
+
+- name: Read the host-routed ipset
+  ansible.builtin.command: ipset save PVEFW-0-{{ pve_firewall_ipset_host_routed }}-v4
+  register: pve_firewall_host_routed_set
+  changed_when: false
+  no_log: true
+
+- name: Read the host input chain
+  ansible.builtin.command: iptables -S PVEFW-HOST-IN
+  register: pve_firewall_host_in
+  changed_when: false
+
+- name: Assert the kernel holds exactly the intended sets and management rules
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_management_set.stdout_lines | select('match', '^add ') | map('split', ' ') | map(attribute=2)
+        | map('regex_replace', '/32$', '') | sort | list
+        == pve_firewall_management_sources | map('regex_replace', '/32$', '') | unique | sort | list
+      - pve_firewall_host_routed_set.stdout_lines | select('match', '^add ') | list | length
+        == pve_firewall_host_routed_prefixes | unique | list | length
+      - pve_firewall_host_in.stdout_lines
+        | select('search', 'match-set PVEFW-0-management-v4 src.* --dport ' ~ item ~ ' ') | list | length == 1
+      - pve_firewall_host_in.stdout_lines
+        | select('search', '--dport ' ~ item ~ ' ') | reject('search', 'match-set PVEFW-0-management-v4 src') | list | length == 0
+    fail_msg: The management ipset or the SSH and API input rules are not as intended
+  loop: "{{ pve_firewall_management_ports }}"
+  no_log: true
+
+- name: Test addresses that must be outside the public egress set
+  ansible.builtin.command: ipset test PVEFW-0-{{ pve_firewall_ipset_public }}-v4 {{ item }}
+  loop: "{{ pve_firewall_probe_not_matched }}"
+  register: pve_firewall_probe_blocked
+  changed_when: false
+  failed_when: pve_firewall_probe_blocked.rc != 1
+
+- name: Test addresses that must be inside the public egress set
+  ansible.builtin.command: ipset test PVEFW-0-{{ pve_firewall_ipset_public }}-v4 {{ item }}
+  loop: "{{ pve_firewall_probe_matched }}"
+  register: pve_firewall_probe_allowed
+  changed_when: false
+  failed_when: pve_firewall_probe_allowed.rc != 0
+
+- name: Check that the management console answers on the host loopback
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --silent
+      - --insecure
+      - --max-time
+      - "10"
+      - --output
+      - /dev/null
+      - --write-out
+      - "%{http_code}"
+      - https://127.0.0.1:8006/
+  register: pve_firewall_console
+  changed_when: false
+  failed_when: pve_firewall_console.stdout != '200'

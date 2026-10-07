@@ -1,0 +1,40 @@
+{
+  "phase": "phase1",
+  "entries": [
+    {
+      "src": "logs:New-PveHost-20261006-155339.log",
+      "dest": "docs/evidence/phase1/New-PveHost-20261006-155339.log",
+      "proves": "Row 35: elevated install run 2, ACL read-back, unattended install, checkpoint and first cold start"
+    },
+    {
+      "src": "logs:acl-probe-20261006-152843.log",
+      "dest": "docs/evidence/phase1/acl-probe-20261006-152843.log",
+      "proves": "Row 37: Hyper-V extended port ACL acceptance rules measured on a throwaway VM"
+    },
+    {
+      "src": "plans:booth-homelab-phase1-2/j8-results.md",
+      "dest": "docs/evidence/phase1/j8-results.md",
+      "proves": "Rows 38 and 39: host-side R15 layer measured from PVE; WSL reaches the host only through the ProxyCommand hop"
+    },
+    {
+      "src": "plans:booth-homelab-phase1-2/j9-gate.md",
+      "dest": "docs/evidence/phase1/j9-gate.md",
+      "proves": "Row 40: regression gate with the VM running"
+    },
+    {
+      "src": "plans:booth-homelab-phase1-2/p2j1-report.md",
+      "dest": "docs/evidence/phase1/p2j1-report.md",
+      "proves": "Row 41: pve_repos role applied from WSL, upgrade to the current 9.x release"
+    },
+    {
+      "src": "plans:booth-homelab-phase1-2/r15-after-reboot-results.md",
+      "dest": "docs/evidence/phase1/r15-after-reboot-results.md",
+      "proves": "Row 42: R15 after the host reboot with the ACL read-back and paired controls"
+    },
+    {
+      "src": "logs:r15-test5-elevated-20261007-002415.txt",
+      "dest": "docs/evidence/phase1/r15-test5-elevated-20261007-002415.txt",
+      "proves": "Row 42: port ACLs alone block the host rows while the Windows Firewall rule is disabled"
+    }
+  ]
+}

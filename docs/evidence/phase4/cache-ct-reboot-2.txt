@@ -1,0 +1,10 @@
+cache6 rc=0 elapsed=21s
+cache01                    : ok=23   changed=2    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+active
+Task finished with 1 warning(s)!
+status: running
+active
+wait-for-address: 10.99.17.10 is configured after 1 seconds
+verify-cas: checked=4 quarantined=0 deleted=0 skipped=0 unreadable=0 seconds=1
+2026/10/07 08:30:24 Loaded 7 existing disk cache items.
+2026/10/07 08:30:24 Starting HTTP server on address 10.99.17.10:8080

@@ -1,0 +1,16 @@
+anon GET before write: 404 (want 404)
+anon PUT: 401 (want 401)
+wrong password PUT: 401 (want 401)
+writer PUT: 200 (want 200)
+anon GET after write: 200 (want 200)
+anon GET body matches: yes
+writer PUT with a wrong digest: 500 (want 4xx)
+anon GET of the wrong digest: 404 (want 404)
+anon DELETE: 401 (want 401 or 405)
+bazel_remote_disk_cache_size_bytes_limit{type="evict"} 8.589934592e+09
+bazel_remote_incoming_requests_total{kind="ac",method="get",status="hit"} 0
+bazel_remote_incoming_requests_total{kind="ac",method="get",status="miss"} 0
+bazel_remote_incoming_requests_total{kind="cas",method="contains",status="hit"} 0
+bazel_remote_incoming_requests_total{kind="cas",method="contains",status="miss"} 0
+bazel_remote_incoming_requests_total{kind="cas",method="get",status="hit"} 2
+bazel_remote_incoming_requests_total{kind="cas",method="get",status="miss"} 2

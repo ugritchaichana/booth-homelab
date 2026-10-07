@@ -1,0 +1,11 @@
+killed main pid
+PUT during kill: 100
+active
+GET after restart: 404
+stray temp files: 0
+2026/10/07 08:17:07 Loaded 7 existing disk cache items.
+bazel-remote.service: Main process exited, code=killed, status=9/KILL
+bazel-remote.service: Failed with result 'signal'.
+verify-cas: quarantined 1686370ed71a size=56229888 content=2d07b6e5667d
+verify-cas: checked=5 quarantined=1 deleted=0 skipped=0 unreadable=0 seconds=1
+2026/10/07 08:17:27 Loaded 7 existing disk cache items.

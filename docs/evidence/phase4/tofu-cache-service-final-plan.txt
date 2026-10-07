@@ -1,0 +1,7 @@
+Acquiring state lock. This may take a few moments...
+[0m[1mproxmox_virtual_environment_container.cache: Refreshing state... [id=9050][0m
+[0m[1mproxmox_virtual_environment_firewall_options.cache: Refreshing state... [id=options-3574008921][0m
+[0m[1mproxmox_virtual_environment_firewall_rules.cache: Refreshing state... [id=rule-4030446864][0m
+
+[0m[1m[32mNo changes.[0m[1m Your infrastructure matches the configuration.[0m
+[0m

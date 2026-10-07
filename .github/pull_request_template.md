@@ -1,24 +1,18 @@
 ## Description
-<!-- Provide a concise description of the changes, architectural decisions, and motivation. -->
+<!-- What changes and why. Link the requirement row or decision (D<n>) and the ADR. -->
 
-## Type of Change
-- [ ] 🐛 Bug fix (non-breaking change fixing an issue)
-- [ ] ✨ New feature (non-breaking change adding functionality)
-- [ ] ⚡ Performance optimization (latency/throughput improvements)
-- [ ] 🔒 Security hardening (firewall, isolation, secrets hygiene)
-- [ ] 🏗️ Infrastructure-as-Code (OpenTofu, Ansible, Proxmox topology)
-- [ ] 🧪 Testing & SDET (DAG diffing, unit/integration suites)
+## Blast radius
+<!-- What breaks and how many; furthest environment reached; time to detect; time to roll back. N/A is an answer. -->
 
-## Verification & Ground Truth Evidence
-<!-- Cite automated test outputs, exit codes, and verification commands. -->
-- [ ] `.NET Tests`: `dotnet test apps/backend/SdetTestingRig.sln` passed
-- [ ] `Angular Jest Tests`: `python scripts/ci/run_ct103_tests.py` passed
-- [ ] `AST Graph Diff Runner`: `bash tests/verify-affected-graph.sh` and `pwsh ./tests/verify-affected-graph.ps1` passed
-- [ ] `Enterprise Zero-Trust Firewall`: `python scripts/proxmox/verify-enterprise-firewall.py` (10/10 assertions) passed
-- [ ] `IaC CI Quality Gate`: `tofu validate` and `ansible-playbook --syntax-check` passed
-- [ ] `Language Compliance`: 0 Thai characters in repository code and documentation
+## Evidence
+<!-- Paste real output: CI run URL, converge/plan result, R15 summary. Host changes cannot run in hosted CI. Never paste a secret or a non-lab address. -->
 
 ## Checklist
-- [ ] My code adheres to the 8 Core Engineering Pillars (GEMINI.md / AGENTS.md).
-- [ ] No plaintext secrets or private VPN IPs committed.
-- [ ] Documentation and wiki mirrored if relevant.
+- [ ] Title matches `^(feat|maintenance|refactor|fix|config|infra|chore|e2e|test): <subject>` (no scope in parentheses)
+- [ ] At most 30 changed files
+- [ ] Each new decision has an ADR and an index line; the decision log is updated
+- [ ] A new check was shown red before green
+- [ ] Tests for the area pass (`AGENTS.md`, section "Running the tests")
+- [ ] No secret in the diff or on a command line; published evidence went through `scripts/evidence/publish.py`
+- [ ] English only, no employer, organization or person names, lab addresses only
+- [ ] Documentation updated where behavior changed

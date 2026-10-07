@@ -1,0 +1,348 @@
+state copy: <user-home>/AppData/Local/homelab/tofu-state
+Acquiring state lock. This may take a few moments...
+[0m[1mproxmox_download_file.lxc_template: Refreshing state... [id=local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst][0m
+[0m[1mproxmox_download_file.image: Refreshing state... [id=local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2][0m
+
+OpenTofu used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  [32m+[0m create[0m
+
+OpenTofu will perform the following actions:
+
+[1m  # proxmox_virtual_environment_container.probe[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_container" "probe" {
+      [32m+[0m[0m delete_unreferenced_disks_on_destroy = false
+      [32m+[0m[0m description                          = <<-EOT
+            Throwaway R15 isolation probe
+        EOT
+      [32m+[0m[0m id                                   = (known after apply)
+      [32m+[0m[0m ipv4                                 = (known after apply)
+      [32m+[0m[0m ipv6                                 = (known after apply)
+      [32m+[0m[0m node_name                            = "pve01"
+      [32m+[0m[0m pool_id                              = "homelab"
+      [32m+[0m[0m protection                           = false
+      [32m+[0m[0m purge_on_destroy                     = true
+      [32m+[0m[0m start_on_boot                        = true
+      [32m+[0m[0m started                              = false
+      [32m+[0m[0m template                             = false
+      [32m+[0m[0m timeout_clone                        = 1800
+      [32m+[0m[0m timeout_create                       = 1800
+      [32m+[0m[0m timeout_delete                       = 60
+      [32m+[0m[0m timeout_start                        = 300
+      [32m+[0m[0m timeout_update                       = 1800
+      [32m+[0m[0m unprivileged                         = true
+      [32m+[0m[0m vm_id                                = 9101
+
+      [32m+[0m[0m cpu {
+          [32m+[0m[0m architecture = "amd64"
+          [32m+[0m[0m cores        = 1
+          [32m+[0m[0m limit        = 0
+          [32m+[0m[0m units        = (known after apply)
+        }
+
+      [32m+[0m[0m disk {
+          [32m+[0m[0m acl               = false
+          [32m+[0m[0m datastore_id      = "local-lvm"
+          [32m+[0m[0m path_in_datastore = (known after apply)
+          [32m+[0m[0m quota             = false
+          [32m+[0m[0m replicate         = false
+          [32m+[0m[0m size              = 2
+        }
+
+      [32m+[0m[0m initialization {
+          [32m+[0m[0m hostname = "r15-probe-lxc"
+
+          [32m+[0m[0m dns {
+              [32m+[0m[0m servers = [
+                  [32m+[0m[0m "1.1.1.1",
+                ]
+            }
+
+          [32m+[0m[0m ip_config {
+              [32m+[0m[0m ipv4 {
+                  [32m+[0m[0m address = "10.99.16.21/24"
+                  [32m+[0m[0m gateway = "10.99.16.1"
+                }
+            }
+
+          [32m+[0m[0m user_account {
+              [32m+[0m[0m keys = [
+                  [32m+[0m[0m "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAS0INlBhdRs9KFm6xgvr+AnrIAb/q/2RDkLUfL1/+2x r15-probe",
+                ]
+            }
+        }
+
+      [32m+[0m[0m memory {
+          [32m+[0m[0m dedicated = 256
+          [32m+[0m[0m swap      = 0
+        }
+
+      [32m+[0m[0m network_interface {
+          [32m+[0m[0m bridge       = "guests"
+          [32m+[0m[0m enabled      = true
+          [32m+[0m[0m firewall     = true
+          [32m+[0m[0m host_managed = false
+          [32m+[0m[0m mac_address  = (known after apply)
+          [32m+[0m[0m mtu          = 0
+          [32m+[0m[0m name         = "eth0"
+          [32m+[0m[0m rate_limit   = 0
+          [32m+[0m[0m vlan_id      = 0
+        }
+
+      [32m+[0m[0m operating_system {
+          [32m+[0m[0m template_file_id = "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
+          [32m+[0m[0m type             = "debian"
+        }
+    }
+
+[1m  # proxmox_virtual_environment_firewall_ipset.vm_ipfilter[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_firewall_ipset" "vm_ipfilter" {
+      [32m+[0m[0m comment   = "Source address the VM may use"
+      [32m+[0m[0m id        = (known after apply)
+      [32m+[0m[0m name      = "ipfilter-net0"
+      [32m+[0m[0m node_name = "pve01"
+      [32m+[0m[0m vm_id     = 9102
+
+      [32m+[0m[0m cidr {
+          [32m+[0m[0m name    = "10.99.16.22"
+          [32m+[0m[0m nomatch = false
+        }
+    }
+
+[1m  # proxmox_virtual_environment_firewall_options.lxc[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_firewall_options" "lxc" {
+      [32m+[0m[0m container_id  = 9101
+      [32m+[0m[0m dhcp          = false
+      [32m+[0m[0m enabled       = true
+      [32m+[0m[0m id            = (known after apply)
+      [32m+[0m[0m input_policy  = "DROP"
+      [32m+[0m[0m ipfilter      = true
+      [32m+[0m[0m log_level_in  = "nolog"
+      [32m+[0m[0m log_level_out = "info"
+      [32m+[0m[0m macfilter     = true
+      [32m+[0m[0m ndp           = true
+      [32m+[0m[0m node_name     = "pve01"
+      [32m+[0m[0m output_policy = "DROP"
+      [32m+[0m[0m radv          = false
+    }
+
+[1m  # proxmox_virtual_environment_firewall_options.vm[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_firewall_options" "vm" {
+      [32m+[0m[0m dhcp          = false
+      [32m+[0m[0m enabled       = true
+      [32m+[0m[0m id            = (known after apply)
+      [32m+[0m[0m input_policy  = "DROP"
+      [32m+[0m[0m ipfilter      = true
+      [32m+[0m[0m log_level_in  = "nolog"
+      [32m+[0m[0m log_level_out = "info"
+      [32m+[0m[0m macfilter     = true
+      [32m+[0m[0m ndp           = true
+      [32m+[0m[0m node_name     = "pve01"
+      [32m+[0m[0m output_policy = "DROP"
+      [32m+[0m[0m radv          = false
+      [32m+[0m[0m vm_id         = 9102
+    }
+
+[1m  # proxmox_virtual_environment_firewall_rules.lxc[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_firewall_rules" "lxc" {
+      [32m+[0m[0m container_id = 9101
+      [32m+[0m[0m id           = (known after apply)
+      [32m+[0m[0m node_name    = "pve01"
+
+      [32m+[0m[0m rule {
+          [32m+[0m[0m action  = "ACCEPT"
+          [32m+[0m[0m comment = "Control channel from the host"
+          [32m+[0m[0m dport   = "22"
+          [32m+[0m[0m enabled = true
+          [32m+[0m[0m pos     = (known after apply)
+          [32m+[0m[0m proto   = "tcp"
+          [32m+[0m[0m source  = "10.99.16.1"
+          [32m+[0m[0m type    = "in"
+        }
+      [32m+[0m[0m rule {
+          [32m+[0m[0m comment        = "Egress policy"
+          [32m+[0m[0m enabled        = true
+          [32m+[0m[0m pos            = (known after apply)
+          [32m+[0m[0m security_group = "guest-egress"
+        }
+    }
+
+[1m  # proxmox_virtual_environment_firewall_rules.vm[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_firewall_rules" "vm" {
+      [32m+[0m[0m id        = (known after apply)
+      [32m+[0m[0m node_name = "pve01"
+      [32m+[0m[0m vm_id     = 9102
+
+      [32m+[0m[0m rule {
+          [32m+[0m[0m action  = "ACCEPT"
+          [32m+[0m[0m comment = "Control channel from the host"
+          [32m+[0m[0m dport   = "22"
+          [32m+[0m[0m enabled = true
+          [32m+[0m[0m pos     = (known after apply)
+          [32m+[0m[0m proto   = "tcp"
+          [32m+[0m[0m source  = "10.99.16.1"
+          [32m+[0m[0m type    = "in"
+        }
+      [32m+[0m[0m rule {
+          [32m+[0m[0m comment        = "Egress policy"
+          [32m+[0m[0m enabled        = true
+          [32m+[0m[0m pos            = (known after apply)
+          [32m+[0m[0m security_group = "guest-egress"
+        }
+    }
+
+[1m  # proxmox_virtual_environment_vm.probe[0m will be created
+[0m  [32m+[0m[0m resource "proxmox_virtual_environment_vm" "probe" {
+      [32m+[0m[0m acpi                                 = true
+      [32m+[0m[0m bios                                 = "seabios"
+      [32m+[0m[0m boot_order                           = (known after apply)
+      [32m+[0m[0m delete_unreferenced_disks_on_destroy = true
+      [32m+[0m[0m description                          = "Throwaway R15 isolation probe"
+      [32m+[0m[0m hotplug                              = (known after apply)
+      [32m+[0m[0m id                                   = (known after apply)
+      [32m+[0m[0m ipv4_addresses                       = (known after apply)
+      [32m+[0m[0m ipv6_addresses                       = (known after apply)
+      [32m+[0m[0m keyboard_layout                      = "en-us"
+      [32m+[0m[0m mac_addresses                        = (known after apply)
+      [32m+[0m[0m migrate                              = false
+      [32m+[0m[0m name                                 = "r15-probe-vm"
+      [32m+[0m[0m network_device                       = [
+          [32m+[0m[0m {
+              [32m+[0m[0m bridge      = "guests"
+              [32m+[0m[0m enabled     = true
+              [32m+[0m[0m firewall    = true
+              [32m+[0m[0m mac_address = (known after apply)
+              [32m+[0m[0m model       = "virtio"
+              [32m+[0m[0m mtu         = 0
+              [32m+[0m[0m queues      = 0
+              [32m+[0m[0m rate_limit  = 0
+              [32m+[0m[0m vlan_id     = 0
+            },
+        ]
+      [32m+[0m[0m network_interface_names              = (known after apply)
+      [32m+[0m[0m node_name                            = "pve01"
+      [32m+[0m[0m on_boot                              = true
+      [32m+[0m[0m pool_id                              = "homelab"
+      [32m+[0m[0m protection                           = false
+      [32m+[0m[0m purge_on_destroy                     = true
+      [32m+[0m[0m reboot                               = false
+      [32m+[0m[0m reboot_after_update                  = true
+      [32m+[0m[0m scsi_hardware                        = "virtio-scsi-pci"
+      [32m+[0m[0m started                              = false
+      [32m+[0m[0m stop_on_destroy                      = true
+      [32m+[0m[0m tablet_device                        = true
+      [32m+[0m[0m template                             = false
+      [32m+[0m[0m timeout_clone                        = 1800
+      [32m+[0m[0m timeout_create                       = 1800
+      [32m+[0m[0m timeout_migrate                      = 1800
+      [32m+[0m[0m timeout_move_disk                    = 1800
+      [32m+[0m[0m timeout_reboot                       = 1800
+      [32m+[0m[0m timeout_shutdown_vm                  = 1800
+      [32m+[0m[0m timeout_start_vm                     = 1800
+      [32m+[0m[0m timeout_stop_vm                      = 300
+      [32m+[0m[0m vm_id                                = 9102
+
+      [32m+[0m[0m agent {
+          [32m+[0m[0m enabled = false
+          [32m+[0m[0m timeout = "15m"
+          [32m+[0m[0m trim    = false
+          [32m+[0m[0m type    = "virtio"
+        }
+
+      [32m+[0m[0m cpu {
+          [32m+[0m[0m cores      = 1
+          [32m+[0m[0m hotplugged = 0
+          [32m+[0m[0m limit      = 0
+          [32m+[0m[0m numa       = false
+          [32m+[0m[0m sockets    = 1
+          [32m+[0m[0m type       = "x86-64-v2-AES"
+          [32m+[0m[0m units      = (known after apply)
+        }
+
+      [32m+[0m[0m disk {
+          [32m+[0m[0m aio               = "io_uring"
+          [32m+[0m[0m backup            = true
+          [32m+[0m[0m cache             = "none"
+          [32m+[0m[0m datastore_id      = "local-lvm"
+          [32m+[0m[0m discard           = "on"
+          [32m+[0m[0m file_format       = (known after apply)
+          [32m+[0m[0m import_from       = "local:import/debian-13-genericcloud-amd64-20261001-2618.qcow2"
+          [32m+[0m[0m interface         = "scsi0"
+          [32m+[0m[0m iothread          = false
+          [32m+[0m[0m path_in_datastore = (known after apply)
+          [32m+[0m[0m queues            = 0
+          [32m+[0m[0m replicate         = true
+          [32m+[0m[0m size              = 4
+          [32m+[0m[0m ssd               = false
+        }
+
+      [32m+[0m[0m initialization {
+          [32m+[0m[0m datastore_id         = "local-lvm"
+          [32m+[0m[0m file_format          = (known after apply)
+          [32m+[0m[0m meta_data_file_id    = (known after apply)
+          [32m+[0m[0m network_data_file_id = (known after apply)
+          [32m+[0m[0m type                 = (known after apply)
+          [32m+[0m[0m upgrade              = (known after apply)
+          [32m+[0m[0m user_data_file_id    = (known after apply)
+          [32m+[0m[0m vendor_data_file_id  = (known after apply)
+
+          [32m+[0m[0m dns {
+              [32m+[0m[0m servers = [
+                  [32m+[0m[0m "1.1.1.1",
+                ]
+            }
+
+          [32m+[0m[0m ip_config {
+              [32m+[0m[0m ipv4 {
+                  [32m+[0m[0m address = "10.99.16.22/24"
+                  [32m+[0m[0m gateway = "10.99.16.1"
+                }
+            }
+
+          [32m+[0m[0m user_account {
+              [32m+[0m[0m keys     = [
+                  [32m+[0m[0m "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAS0INlBhdRs9KFm6xgvr+AnrIAb/q/2RDkLUfL1/+2x r15-probe",
+                ]
+              [32m+[0m[0m username = "debian"
+            }
+        }
+
+      [32m+[0m[0m memory {
+          [32m+[0m[0m dedicated      = 512
+          [32m+[0m[0m floating       = 0
+          [32m+[0m[0m keep_hugepages = false
+          [32m+[0m[0m shared         = 0
+        }
+
+      [32m+[0m[0m operating_system {
+          [32m+[0m[0m type = "l26"
+        }
+
+      [32m+[0m[0m vga (known after apply)
+    }
+
+[1mPlan:[0m 7 to add, 0 to change, 0 to destroy.
+[0m[0m[1mproxmox_virtual_environment_container.probe: Creating...[0m[0m
+[0m[1mproxmox_virtual_environment_vm.probe: Creating...[0m[0m
+[0m[1mproxmox_virtual_environment_container.probe: Creation complete after 4s [id=9101][0m
+[0m[1mproxmox_virtual_environment_firewall_options.lxc: Creating...[0m[0m
+[0m[1mproxmox_virtual_environment_firewall_rules.lxc: Creating...[0m[0m
+[0m[1mproxmox_virtual_environment_firewall_options.lxc: Creation complete after 0s [id=options-1639451716][0m
+[0m[1mproxmox_virtual_environment_firewall_rules.lxc: Creation complete after 0s [id=rule-1169127148][0m
+[33m╷[0m[0m
+[33m│[0m [0m[1m[33mWarning: [0m[0m[1mContainer create[0m
+[33m│[0m [0m
+[33m│[0m [0m[0m  with proxmox_virtual_environment_container.probe,
+[33m│[0m [0m  on main.tf line 21, in resource "proxmox_virtual_environment_container" "probe":
+[33m│[0m [0m  21: resource "proxmox_virtual_environment_container" "probe" [4m{[0m[0m
+[33m│[0m [0m
+[33m│[0m [0mWARN: Systemd 257 detected. You may need to enable nesting.
+[33m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1merror get file local-lvm:vm-9102-disk-0 from datastore local-lvm: received an HTTP 403 response - Reason: Permission check failed (/storage/local-lvm, Datastore.Audit)[0m
+[31m│[0m [0m
+[31m│[0m [0m[0m  with proxmox_virtual_environment_vm.probe,
+[31m│[0m [0m  on main.tf line 84, in resource "proxmox_virtual_environment_vm" "probe":
+[31m│[0m [0m  84: resource "proxmox_virtual_environment_vm" "probe" [4m{[0m[0m
+[31m│[0m [0m
+[31m╵[0m[0m

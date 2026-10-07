@@ -1,0 +1,47 @@
+# Managed by the cache_service role
+[Unit]
+Description=bazel-remote build cache {{ cache_service_version }}
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor={{ cache_service_data_mount }}
+
+[Service]
+Type=simple
+User={{ cache_service_user }}
+Group={{ cache_service_group }}
+ExecStartPre={{ cache_service_install_dir }}/wait-for-address {{ cache_service_listen_address }} {{ cache_service_address_wait_seconds }}
+ExecStartPre={{ cache_service_install_dir }}/verify-cas {{ cache_service_data_dir }} {{ cache_service_quarantine_dir }} {{ cache_service_quarantine_keep }} {{ cache_service_quarantine_max_file_bytes }}
+ExecStart={{ cache_service_binary_link }} \
+  --dir {{ cache_service_data_dir }} \
+  --max_size {{ cache_service_max_size_gib }} \
+  --storage_mode {{ cache_service_storage_mode }} \
+  --http_address {{ cache_service_listen_address }}:{{ cache_service_listen_port }} \
+  --grpc_address none \
+  --htpasswd_file {{ cache_service_htpasswd_file }} \
+  --allow_unauthenticated_reads \
+  --disable_http_ac_validation \
+  --max_blob_size {{ cache_service_max_blob_size_bytes }} \
+  --enable_endpoint_metrics
+TimeoutStartSec={{ cache_service_start_timeout_seconds }}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={{ cache_service_data_mount }}
+PrivateTmp=true
+ProtectHome=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax={{ cache_service_memory_max }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+PrivateDevices=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

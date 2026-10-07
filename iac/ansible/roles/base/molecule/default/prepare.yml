@@ -1,0 +1,22 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Create the root SSH directory
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Seed a stale key and an unrestricted break-glass key
+      ansible.builtin.copy:
+        dest: /root/.ssh/authorized_keys
+        content: |
+          {{ base_root_authorized_keys_revoked[0] }}
+          {{ base_root_authorized_keys[0] }}
+        owner: root
+        group: root
+        mode: "0600"

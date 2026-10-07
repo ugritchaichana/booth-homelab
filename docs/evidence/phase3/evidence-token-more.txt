@@ -1,0 +1,5 @@
+== provisioner token: pool-add and base-volume delete
+clone template 9204 into pool templates (newid 9190): 403 {"message":"Permission check failed\n","data":null}
+add a member to pool templates: 403 {"data":null,"message":"Permission check failed (/pool/templates, Pool.Allocate)\n"}
+delete base volume of template 9204: 403 {"data":null,"message":"Permission check failed (/storage/local-lvm, Datastore.Allocate)\n"}
+guest 9190 exists: no

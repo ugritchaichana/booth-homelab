@@ -1,0 +1,49 @@
+name: 'Build Cache'
+description: 'Restores or saves one cache kind through the build-cache client'
+inputs:
+  mode:
+    description: 'restore or save'
+    required: true
+  kind:
+    description: 'nuget, node_modules or dotnet-outputs'
+    required: true
+  stats-file:
+    description: 'JSONL file the client appends its outcome to'
+    required: false
+    default: ''
+  root:
+    description: 'Workspace root'
+    required: false
+    default: ${{ github.workspace }}
+  default-branch:
+    description: 'Default branch name used by the save policy'
+    required: false
+    default: ${{ github.event.repository.default_branch }}
+outputs:
+  hit:
+    description: 'true when a restore found and verified the entry'
+    value: ${{ steps.run.outputs.hit }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Run build-cache client
+      id: run
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        KIND: ${{ inputs.kind }}
+        STATS_FILE: ${{ inputs.stats-file }}
+        ROOT: ${{ inputs.root }}
+        DEFAULT_BRANCH: ${{ inputs.default-branch }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        case "$MODE" in restore|save) ;; *) echo "::error::unknown mode: $MODE"; exit 1 ;; esac
+        export PYTHONPATH="$ACTION_PATH/../../../scripts/ci${PYTHONPATH:+:$PYTHONPATH}"
+        args=(--kind "$KIND" --root "$ROOT")
+        [ -n "$STATS_FILE" ] && args+=(--stats-file "$STATS_FILE")
+        [ "$MODE" = save ] && args+=(--default-branch "$DEFAULT_BRANCH")
+        out="$(mktemp)"
+        GITHUB_OUTPUT="$out" python3 -m build_cache "$MODE" "${args[@]}"
+        hit=false
+        grep -qx "cache_hit_${KIND//-/_}=true" "$out" && hit=true
+        echo "hit=$hit" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,6 @@
+[Service]
+{% for spec in pve_templates_classes.values() | sort(attribute='build_address') %}
+IPAddressAllow={{ spec.build_address }}/32
+{% endfor %}
+ReadWritePaths=-{{ pve_templates_work_dir }}/build/out -{{ pve_templates_work_dir }}/build/ssh
+InaccessiblePaths={{ pve_templates_state_dir }}

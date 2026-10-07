@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+dir="${1:-}"
+quarantine="${2:-}"
+keep="${3:-3}"
+max_bytes="${4:-67108864}"
+
+[ -d "$dir" ] || { echo "verify-cas: data dir '$dir' is missing" >&2; exit 1; }
+[ -n "$quarantine" ] || { echo "verify-cas: quarantine dir argument is missing" >&2; exit 1; }
+
+start=$SECONDS
+checked=0 moved=0 dropped=0 unreadable=0 skipped=0
+name_re='^([a-f0-9]{64})(-|$)'
+
+if [ -d "$dir/cas.v2" ]; then
+  while IFS= read -r -d '' file; do
+    name="${file##*/}"
+    if ! [[ "$name" =~ $name_re ]]; then
+      skipped=$((skipped + 1))
+      echo "verify-cas: skipped a file without a sha256 name prefix: ${name:0:24}"
+      continue
+    fi
+    want="${BASH_REMATCH[1]}"
+    size="$(stat -c %s -- "$file" 2>/dev/null)" || { unreadable=$((unreadable + 1)); echo "verify-cas: unreadable ${want:0:12}"; continue; }
+    got="$(sha256sum < "$file" 2>/dev/null)" || { unreadable=$((unreadable + 1)); echo "verify-cas: unreadable ${want:0:12}"; continue; }
+    got="${got%% *}"
+    checked=$((checked + 1))
+    [ "$got" = "$want" ] && continue
+    if [ "$size" -le "$max_bytes" ] && mkdir -p -m 0700 -- "$quarantine" && mv -f -- "$file" "$quarantine/$name"; then
+      moved=$((moved + 1))
+      echo "verify-cas: quarantined ${want:0:12} size=$size content=${got:0:12}"
+    elif rm -f -- "$file"; then
+      dropped=$((dropped + 1))
+      echo "verify-cas: deleted ${want:0:12} size=$size content=${got:0:12} (above $max_bytes bytes or quarantine unavailable)"
+    else
+      unreadable=$((unreadable + 1))
+      echo "verify-cas: could not remove ${want:0:12} size=$size"
+    fi
+  done < <(find "$dir/cas.v2" -type f -print0 2>/dev/null)
+fi
+
+if [ -d "$quarantine" ]; then
+  find "$quarantine" -maxdepth 1 -type f -printf '%T@ %f\n' 2>/dev/null | sort -rn | tail -n +$((keep + 1)) | cut -d' ' -f2- \
+    | while IFS= read -r old; do rm -f -- "$quarantine/$old"; done
+fi
+
+echo "verify-cas: checked=$checked quarantined=$moved deleted=$dropped skipped=$skipped unreadable=$unreadable seconds=$((SECONDS - start))"
+exit 0

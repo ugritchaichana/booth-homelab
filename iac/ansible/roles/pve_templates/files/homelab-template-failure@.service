@@ -1,0 +1,7 @@
+[Unit]
+Description=Record a failed golden template build of class %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/homelab-template record-failure %i
+NoNewPrivileges=yes

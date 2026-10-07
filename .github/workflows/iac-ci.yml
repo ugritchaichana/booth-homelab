@@ -5,11 +5,13 @@ on:
     branches: [ master, main ]
     paths:
       - 'iac/**'
+      - 'tests/isolation/**'
       - '.github/workflows/iac-ci.yml'
   pull_request:
     branches: [ master, main ]
     paths:
       - 'iac/**'
+      - 'tests/isolation/**'
       - '.github/workflows/iac-ci.yml'
   workflow_dispatch:
 
@@ -35,44 +37,82 @@ jobs:
           echo "==> Checking OpenTofu code formatting across all modules..."
           tofu fmt -check -recursive iac/tofu
 
-      - name: Initialize OpenTofu (Validation Mode)
+      - name: Install tflint v0.64.0
         run: |
-          echo "==> Initializing OpenTofu provider schema..."
-          tofu -chdir=iac/tofu init -backend=false
+          curl -fsSL --retry 3 -o tflint_linux_amd64.zip https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip
+          echo "cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537  tflint_linux_amd64.zip" | sha256sum -c -
+          unzip -q tflint_linux_amd64.zip tflint -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/tflint" --version
 
-      - name: Validate OpenTofu Syntax & Types
+      - name: Lint Every Stack (tflint)
+        working-directory: iac/tofu/stacks
+        run: '"$RUNNER_TEMP/tflint" --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"'
+
+      - name: Initialize, Validate and Test Every Root Module
+        env:
+          TF_VAR_state_passphrase: ci-test-only-passphrase-not-a-secret-0123456789
         run: |
-          echo "==> Validating OpenTofu syntax and provider schemas..."
-          tofu -chdir=iac/tofu validate
+          roots=$(find iac/tofu -name '*.tf' -not -path '*/modules/*' -not -path '*/.terraform/*' -printf '%h\n' | sort -u)
+          if [ -z "$roots" ]; then
+            echo "::error::no OpenTofu root module found under iac/tofu"
+            exit 1
+          fi
+          for dir in $roots; do
+            echo "==> Validating $dir"
+            tofu -chdir="$dir" init -backend=false
+            tofu -chdir="$dir" validate
+            tofu -chdir="$dir" test
+          done
 
   ansible-quality-gate:
-    name: Ansible Syntax & Schema Check
+    name: Ansible Lint, Syntax & Molecule
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: iac/ansible
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.13'
 
-      - name: Install Ansible Core
-        run: |
-          python -m pip install --upgrade pip
-          pip install ansible-core
+      - name: Install the Hash-Pinned Ansible Toolchain
+        run: python -m pip install --require-hashes -r iac/ansible/requirements-ci.txt
 
-      - name: Validate Master Playbook Syntax
-        run: |
-          echo "==> Validating Ansible playbook syntax for site.yml..."
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/site.yml
+      - name: Install Pinned Collections
+        run: ansible-galaxy collection install -r iac/ansible/requirements.yml
 
-      - name: Validate Component Playbooks Syntax
+      - name: Lint (production profile)
+        run: ansible-lint --profile production iac/ansible
+
+      - name: Syntax-Check Every Playbook
         run: |
-          echo "==> Validating individual playbook syntax..."
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/01-host-setup.yml
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/02-cache-storage.yml
-          ansible-playbook -i inventory/hosts.ini.example --syntax-check playbooks/03-runners.yml
+          count=0
+          for playbook in iac/ansible/playbooks/*.yml; do
+            [ -e "$playbook" ] || continue
+            echo "==> Syntax-checking $playbook"
+            ANSIBLE_CONFIG=iac/ansible/ansible.cfg ansible-playbook --syntax-check "$playbook"
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no playbook found under iac/ansible/playbooks"
+            exit 1
+          fi
+
+      - name: Run the Isolation Render Tests
+        run: |
+          count=0
+          for test in tests/isolation/test-*.sh; do
+            [ -e "$test" ] || continue
+            echo "==> Running $test"
+            bash "$test"
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no isolation test found under tests/isolation"
+            exit 1
+          fi
+
+      - name: Molecule Converge, Idempotence and Verify (base role)
+        working-directory: iac/ansible/roles/base
+        run: molecule test

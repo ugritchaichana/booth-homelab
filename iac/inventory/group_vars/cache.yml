@@ -1,0 +1,5 @@
+---
+cache_endpoint: "{{ hostvars['pve01'].cache_endpoint }}"
+cache_writer_secrets: "{{ lookup('community.sops.sops', inventory_dir ~ '/../secrets/hosts/pve01-cache.sops.yaml') | from_yaml }}"
+cache_writer_password: "{{ cache_writer_secrets.writer_password }}"
+cache_vmid: 9050

@@ -1,0 +1,9 @@
+cache5 rc=2 elapsed=50s
+cache01                    : ok=20   changed=2    unreachable=0    failed=1    skipped=1    rescued=0    ignored=0   
+WARN: Systemd 257 detected. You may need to enable nesting.
+Task finished with 1 warning(s)!
+status: running
+activating
+wait-for-address: 10.99.17.10 was not configured on any interface within 30 seconds
+bazel-remote.service: Failed with result 'exit-code'.
+Failed to start bazel-remote.service - bazel-remote build cache 2.6.2.

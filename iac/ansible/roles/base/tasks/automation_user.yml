@@ -1,0 +1,39 @@
+---
+- name: Assert the automation identity inputs
+  ansible.builtin.assert:
+    that:
+      - base_automation_user | length > 0
+      - base_automation_user != 'root'
+      - base_automation_authorized_keys | length > 0
+    fail_msg: Set base_automation_authorized_keys and a non-root base_automation_user
+
+- name: Install sudo
+  ansible.builtin.apt:
+    name: sudo
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the automation user
+  ansible.builtin.user:
+    name: "{{ base_automation_user }}"
+    shell: "{{ base_automation_shell }}"
+    password_lock: true
+    create_home: true
+    state: present
+
+- name: Authorize only the automation keys
+  ansible.posix.authorized_key:
+    user: "{{ base_automation_user }}"
+    key: "{{ base_automation_authorized_keys | join('\n') }}"
+    exclusive: true
+    state: present
+
+- name: Grant passwordless sudo through a validated drop-in
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-homelab-{{ base_automation_user }}"
+    content: "{{ base_automation_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

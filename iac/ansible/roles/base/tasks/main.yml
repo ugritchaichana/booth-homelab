@@ -1,0 +1,50 @@
+---
+- name: Assert test mode is a real boolean and only on a container connection
+  ansible.builtin.assert:
+    that:
+      - base_container_test_mode is boolean
+      - not (base_container_test_mode | bool) or (ansible_connection | default('')) in base_test_mode_connections
+    fail_msg: base_container_test_mode must be a boolean and may be true only on a container connection
+
+- name: Read the dead-man timer state
+  ansible.builtin.systemd_service:
+    name: "{{ base_deadman_unit }}.timer"
+  register: base_deadman_timer
+  when: not base_container_test_mode | bool
+
+- name: Refuse to run while a dead-man timer is armed
+  ansible.builtin.assert:
+    that:
+      - base_deadman_timer.status.ActiveState | default('inactive') not in ['active', 'activating']
+    fail_msg: A homelab-deadman-ssh timer is armed from an earlier run; check the host, then stop the timer
+  when: not base_container_test_mode | bool
+
+- name: Look for a stale dead-man marker
+  ansible.builtin.stat:
+    path: "{{ base_deadman_dir }}/armed"
+  register: base_deadman_armed
+  when: not base_container_test_mode | bool
+
+- name: Refuse to run with a stale dead-man marker and no timer
+  ansible.builtin.assert:
+    that:
+      - not base_deadman_armed.stat.exists
+    fail_msg: >-
+      {{ base_deadman_dir }}/armed exists but no timer is active, so the next boot would roll back SSH changes.
+      Check the host and journalctl -t homelab-deadman, then delete {{ base_deadman_dir }}/armed.
+  when: not base_container_test_mode | bool
+
+- name: Create the automation identity
+  ansible.builtin.import_tasks: automation_user.yml
+
+- name: Configure time synchronisation
+  ansible.builtin.import_tasks: chrony.yml
+
+- name: Cap the journal size
+  ansible.builtin.import_tasks: journald.yml
+
+- name: Apply pending handlers before the SSH change
+  ansible.builtin.meta: flush_handlers
+
+- name: Harden the SSH server
+  ansible.builtin.import_tasks: sshd_hardening.yml

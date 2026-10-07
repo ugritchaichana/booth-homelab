@@ -1,0 +1,38 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[ALIASES]
+local_network {{ pve_firewall_management_sources | first }}
+
+[IPSET management]
+{% for source in pve_firewall_management_sources | unique | sort %}
+{{ source }}
+{% endfor %}
+
+[IPSET {{ pve_firewall_ipset_host_routed }}]
+{% for prefix in pve_firewall_host_routed_prefixes | unique | sort %}
+{{ prefix }}
+{% endfor %}
+
+[IPSET {{ pve_firewall_ipset_public }}]
+{% for prefix in pve_firewall_public_halves %}
+{{ prefix }}
+{% endfor %}
+{% for prefix in pve_firewall_non_public_v4 | unique | sort %}
+!{{ prefix }}
+{% endfor %}
+
+[group {{ pve_firewall_group }}]
+{% if pve_firewall_cache_endpoint.address is defined %}
+OUT ACCEPT -dest {{ pve_firewall_cache_endpoint.address }} -p tcp -dport {{ pve_firewall_cache_endpoint.port }}
+{% endif %}
+OUT DROP -dest +dc/{{ pve_firewall_ipset_host_routed }} -log info
+OUT ACCEPT -dest +dc/{{ pve_firewall_ipset_public }}
+{% if pve_firewall_cache_endpoint.address is defined %}
+
+[group {{ pve_firewall_cache_group }}]
+IN ACCEPT -source {{ pve_firewall_guest_cidr }} -p tcp -dport {{ pve_firewall_cache_endpoint.port }}
+IN ACCEPT -source {{ pve_firewall_cache_network.gateway }} -p tcp -dport 22
+{% endif %}

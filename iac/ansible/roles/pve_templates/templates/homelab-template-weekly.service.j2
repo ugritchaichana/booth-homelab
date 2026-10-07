@@ -1,0 +1,13 @@
+[Unit]
+Description=Rebuild every golden template class in turn
+After=network-online.target pve-cluster.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec={{ pve_templates_weekly_timeout }}
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+NoNewPrivileges=yes
+{% for class_name in pve_templates_classes | sort %}
+ExecStart=-/usr/bin/systemctl start --wait homelab-template-build@{{ class_name }}.service
+{% endfor %}

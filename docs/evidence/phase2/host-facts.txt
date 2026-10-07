@@ -1,0 +1,231 @@
+== 1 pveversion
+proxmox-ve: 9.2.0 (running kernel: 7.0.14-20-pve)
+pve-manager: 9.2.21 (running version: 9.2.21/4f6e0ac86f9e8c7f)
+proxmox-kernel-helper: 9.2.0
+proxmox-kernel-7.0: 7.0.14-20
+proxmox-kernel-7.0.14-20-pve-signed: 7.0.14-20
+proxmox-kernel-6.17: 6.17.13-21
+proxmox-kernel-6.17.13-21-pve-signed: 6.17.13-21
+proxmox-kernel-6.17.2-1-pve-signed: 6.17.2-1
+amd64-microcode: 3.20251202.1~bpo13+1
+ceph-fuse: 19.2.6-pve4
+corosync: 3.1.10-pve3
+criu: 4.1.1-1
+frr-pythontools: 10.6.1-1+pve3
+ifupdown2: 3.3.0-1+pmx12
+ksm-control-daemon: 1.5-1
+libjs-extjs: 7.0.0-7
+libproxmox-acme-perl: 1.7.2
+libproxmox-backup-qemu0: 2.0.3
+libproxmox-rs-perl: 0.4.1
+libpve-access-control: 9.1.2
+rc=0
+== 2 apt sources
+-- /etc/apt/sources.list.d/ceph.sources
+Components: enterprise
+Enabled: no
+X-Repolib-Name: ceph
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+Suites: trixie
+Types: deb
+URIs: https://enterprise.proxmox.com/debian/ceph-squid
+-- /etc/apt/sources.list.d/debian.sources
+Types: deb
+URIs: http://deb.debian.org/debian/
+Suites: trixie trixie-updates
+Components: main contrib non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.debian.org/debian-security/
+Suites: trixie-security
+Components: main contrib non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+-- /etc/apt/sources.list.d/pve-enterprise.sources
+Components: pve-enterprise
+Enabled: no
+X-Repolib-Name: pve-enterprise
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+Suites: trixie
+Types: deb
+URIs: https://enterprise.proxmox.com/debian/pve
+-- /etc/apt/sources.list.d/pve-no-subscription.sources
+Components: pve-no-subscription
+Enabled: yes
+X-Repolib-Name: pve-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+Suites: trixie
+Types: deb
+URIs: http://download.proxmox.com/debian/pve
+rc=0
+== 3 sudo
+rc=0
+== 4 sshd effective config
+permitrootlogin yes
+pubkeyauthentication yes
+passwordauthentication yes
+kbdinteractiveauthentication no
+allowtcpforwarding yes
+authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2
+permitopen any
+rc=0
+== 5 authorized_keys fingerprints
+256 SHA256:VMjRLFwwWtHIOUAoY/3g8jKM62dMqiAaVWBVuB530EM pve01-operator-windows (ED25519)
+256 SHA256:Q2aLMaWGaL1sjYof35RFEtsSPskNzT9ouHakb5q72uQ pve01-automation-wsl (ED25519)
+4096 SHA256:SWrIdjA98v8t6e0Aa78tBLRoG4RdrIMth9f+n6d+wE4 root@pve01 (RSA)
+rc=0
+== 6 listening sockets
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                                                                                                   
+LISTEN 0      4096         0.0.0.0:111       0.0.0.0:*    users:(("rpcbind",pid=661,fd=4),("systemd",pid=1,fd=43))                                                                                 
+LISTEN 0      128          0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=925,fd=6))                                                                                                            
+LISTEN 0      100        127.0.0.1:25        0.0.0.0:*    users:(("master",pid=1061,fd=13))                                                                                                        
+LISTEN 0      4096       127.0.0.1:85        0.0.0.0:*    users:(("pvedaemon worke",pid=1123,fd=6),("pvedaemon worke",pid=1122,fd=6),("pvedaemon worke",pid=1120,fd=6),("pvedaemon",pid=1119,fd=6))
+LISTEN 0      100            [::1]:25           [::]:*    users:(("master",pid=1061,fd=14))                                                                                                        
+LISTEN 0      4096               *:8006            *:*    users:(("pveproxy worker",pid=1177,fd=6),("pveproxy worker",pid=1176,fd=6),("pveproxy worker",pid=1175,fd=6),("pveproxy",pid=1174,fd=6)) 
+LISTEN 0      4096               *:3128            *:*    users:(("spiceproxy work",pid=1185,fd=6),("spiceproxy",pid=1184,fd=6))                                                                   
+LISTEN 0      4096            [::]:111          [::]:*    users:(("rpcbind",pid=661,fd=6),("systemd",pid=1,fd=45))                                                                                 
+LISTEN 0      128             [::]:22           [::]:*    users:(("sshd",pid=925,fd=7))                                                                                                            
+rc=0
+== 7 hyper-v integration
+hv_balloon             45056  0
+hv_utils               45056  0
+hv_sock                24576  0
+hv_storvsc             28672  5
+hv_netvsc             118784  0
+hv_vmbus              176128  8 hv_balloon,hv_utils,hv_netvsc,hid_hyperv,hv_storvsc,hyperv_keyboard,hyperv_drm,hv_sock
+rc=1
+== 8 pveum users acl pools
++----------+---------+----------------------+--------+--------+-----------+--------+------+----------+------------+------------------+--------+-------------+
+| userid   | comment | email                | enable | expire | firstname | groups | keys | lastname | realm-type | tfa-locked-until | tokens | totp-locked |
++==========+=========+======================+========+========+===========+========+======+==========+============+==================+========+=============+
+| root@pam |         | root@pve01.home.arpa | 1      |      0 |           |        |      |          | pam        |                  |        |             |
++----------+---------+----------------------+--------+--------+-----------+--------+------+----------+------------+------------------+--------+-------------+
+rc=0
+== 9 firewall
+Status: disabled/running
+rc=2
+== 10 sdn and dnsmasq
+[]
+[]
+un  dnsmasq        <none>       <none>       (no description available)
+ii  libpve-network-perl 1.6.7        all          Proxmox VE's SDN (Software Defined Network) stack
+rc=0
+== 11 storage
+Name             Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
+local             dir     active        43807744         6932740        34617496   15.83%
+local-lvm     lvmthin     active        65531904               0        65531904    0.00%
+dir: local
+	path /var/lib/vz
+	content iso,vztmpl,backup,import
+
+lvmthin: local-lvm
+	thinpool data
+	vgname pve
+	content rootdir,images
+rc=0
+== 12 debian-13 templates
+system          debian-13-standard_13.6-1_amd64.tar.zst                      amd64
+system          debian-13-standard_13.6-1_arm64.tar.zst                      arm64
+rc=0
+== 13 api privileges per path
+-- /cluster/sdn
+-- /cluster/sdn/zones
+-- /cluster/sdn/vnets
+-- /cluster/firewall/groups
+-- /cluster/firewall/ipset
+-- /nodes/{node}/firewall/rules
+-- /nodes/{node}/storage/{storage}/download-url
+  --checksum <string>
+	     The expected checksum of the file.
+	     Requires option(s): checksum-algorithm
+  --checksum-algorithm <md5 | sha1 | sha224 | sha256 | sha384 | sha512>
+	     The algorithm to calculate the checksum of the file.
+	     Requires option(s): checksum
+-- /nodes/{node}/lxc
+	     Add the VM to the specified pool.
+	     The (unique) ID of the VM.
+-- /nodes/{node}/qemu
+	     Arbitrary arguments passed to kvm.
+	     Description for the VM. Shown in the web-interface VM's
+	     Allow to overwrite existing VM.
+	     Lock/unlock the VM.
+	     Set a name for the VM. Only used on the configuration web
+	     Add the VM to the specified pool.
+	     Sets the protection flag of the VM. This will disable the
+	     Tags of the VM. This is only meta information.
+	     The (unique) ID of the VM.
+-- /nodes/{node}/lxc/{vmid}/firewall/rules
+-- /pools
+  Update pool.
+	     Allow adding a guest even if already in another pool. The
+	     List of storage IDs to add or remove from this pool.
+	     List of guest VMIDs to add or remove from this pool.
+  Create new pool.
+  Delete pool.
+-- NOTE: pvesh usage prints no permission info; section below is read from the host's /usr/share/pve-docs/api-viewer/apidoc.js (the PVE API schema)
+-- /cluster/sdn
+  GET permissions: {"check": ["perm", "/sdn", ["SDN.Audit"]]}
+  PUT permissions: {"check": ["perm", "/sdn", ["SDN.Allocate"]]}
+-- /cluster/sdn/zones
+  GET permissions: {"description": "Only list entries where you have 'SDN.Audit' or 'SDN.Allocate' permissions on '/sdn/zones/<zone>'", "user": "all"}
+  POST permissions: {"check": ["perm", "/sdn/zones", ["SDN.Allocate"]]}
+-- /cluster/sdn/vnets
+  GET permissions: {"description": "Only list entries where you have 'SDN.Audit' or 'SDN.Allocate' permissions on '/sdn/zones/<zone>/<vnet>'", "user": "all"}
+  POST permissions: {"check": ["perm", "/sdn/zones/{zone}", ["SDN.Allocate"]]}
+-- /cluster/firewall/groups
+  GET permissions: {"user": "all"}
+  POST permissions: {"check": ["perm", "/", ["Sys.Modify"]]}
+-- /cluster/firewall/ipset
+  GET permissions: {"check": ["perm", "/", ["Sys.Audit"]]}
+  POST permissions: {"check": ["perm", "/", ["Sys.Modify"]]}
+-- /nodes/{node}/firewall/rules
+  GET permissions: {"check": ["perm", "/nodes/{node}", ["Sys.Audit"]]}
+  POST permissions: {"check": ["perm", "/nodes/{node}", ["Sys.Modify"]]}
+-- /nodes/{node}/storage/{storage}/download-url
+  POST permissions: {"check": ["and", ["perm", "/storage/{storage}", ["Datastore.AllocateTemplate"]], ["or", ["perm", "/", ["Sys.Audit", "Sys.Modify"]], ["perm", "/nodes/{node}", ["Sys.AccessNetwork"]]]], "description": "Requires allocation access on the storage and as this allows one to probe the (local!) host network indirectly it also requires one of Sys.Modify on / (for backwards compatibility) or the newer Sys.AccessNetwork privilege on the node."}
+-- /nodes/{node}/lxc
+  GET permissions: {"description": "Only list CTs where you have VM.Audit permission on /vms/<vmid>.", "user": "all"}
+  POST permissions: {"description": "You need 'VM.Allocate' permission on /vms/{vmid} or on the VM pool /pool/{pool}. For restore, it is enough if the user has 'VM.Backup' permission and the VM already exists. You also need 'Datastore.AllocateSpace' permissions on the storage. For privileged containers, 'Sys.Modify' permissions on '/' are required.", "user": "all"}
+-- /nodes/{node}/qemu
+  GET permissions: {"description": "Only list VMs where you have VM.Audit permissions on /vms/<vmid>.", "user": "all"}
+  POST permissions: {"description": "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. For restore (option 'archive'), it is enough if the user has 'VM.Backup' permission and the VM already exists. If you create disks you need 'Datastore.AllocateSpace' on any used storage.If you use a bridge/vlan, you need 'SDN.Use' on any used bridge/vlan.", "user": "all"}
+-- /nodes/{node}/lxc/{vmid}/firewall/rules
+  GET permissions: {"check": ["perm", "/vms/{vmid}", ["VM.Audit"]]}
+  POST permissions: {"check": ["perm", "/vms/{vmid}", ["VM.Config.Network"]]}
+-- /pools
+  GET permissions: {"description": "List all pools where you have Pool.Audit permissions on /pool/<pool>, or the pool specific with {poolid}", "user": "all"}
+  POST permissions: {"check": ["perm", "/pool/{poolid}", ["Pool.Allocate"]]}
+  PUT permissions: {"check": ["perm", "/pool/{poolid}", ["Pool.Allocate"]], "description": "You also need the right to modify permissions on any object you add/delete."}
+  DELETE permissions: {"check": ["perm", "/pool/{poolid}", ["Pool.Allocate"]], "description": "You can only delete empty pools (no members)."}
+rc=0
+== 14 nested virt
+1
+12
+7.0.14-20-pve
+rc=0
+== 15 time sync
+               Local time: Tue 2026-10-06 20:31:20 +07
+           Universal time: Tue 2026-10-06 13:31:20 UTC
+                 RTC time: n/a
+                Time zone: Asia/Bangkok (+07, +0700)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no
+Reference ID    : CB9F5FD9 (mail.furnu.org)
+Stratum         : 3
+Ref time (UTC)  : Tue Oct 06 13:30:30 2026
+System time     : 0.000200631 seconds slow of NTP time
+Last offset     : -0.000319887 seconds
+rc=0
+== 16 journal disk memory
+Archived and active journals take up 11.8M in the file system.
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/mapper/pve-root   42G  6.7G   34G  17% /
+  LV   VG  Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  data pve twi-a-tz-- <62.50g             0.00   1.60                            
+  root pve -wi-ao---- <42.75g                                                    
+  swap pve -wi-ao----   4.00g                                                    
+               total        used        free      shared  buff/cache   available
+Mem:              19           2          17           0           0          17
+Swap:              3           0           3
+rc=0

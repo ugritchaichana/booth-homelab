@@ -1,0 +1,30 @@
+before: 2026-10-07 14:29:01
+9050 running cache01 ;9101 running r15-probe-lxc ;9202 stopped tmpl-lxc-runner-v6 ;9204 stopped tmpl-lxc-runner-v5 ;
+pve01 ssh back after 43 s; booted 2026-10-07 15:18:19
+cache CT 9050: status: running (45 s after reboot)
+bazel-remote: active (49 s after reboot)
+verify-cas: checked=4 quarantined=0 deleted=0 skipped=0 unreadable=0 seconds=0
+2026/10/07 08:18:35 Loaded 7 existing disk cache items.
+verify-cas: checked=4 quarantined=0 deleted=0 skipped=0 unreadable=0 seconds=0
+2026/10/07 08:18:40 Loaded 7 existing disk cache items.
+probe guests: status: running status: running 
+status: running
+status: running
+guard after reboot: 
+thin pool:  data 26.08 
+2026/10/07 08:18:35 Failed to listen on address: "10.99.17.10:8080": listen tcp 10.99.17.10:8080: bind: cannot assign requested address
+bazel-remote.service: Main process exited, code=exited, status=1/FAILURE
+bazel-remote.service: Failed with result 'exit-code'.
+restore nuget:
+restore nuget:
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 3749, "op": "restore", "status": "hit"}
+  {"bytes": 71792850, "detail": "", "key": "9f526c135295", "kind": "nuget", "ms": 3749, "op": "restore", "status": "hit"}
+restore node_modules:
+restore node_modules:
+  {"bytes": 28739312, "detail": "", "key": "a23e839b209c", "kind": "node_modules", "ms": 5253, "op": "restore", "status": "hit"}
+  {"bytes": 28739312, "detail": "", "key": "a23e839b209c", "kind": "node_modules", "ms": 5253, "op": "restore", "status": "hit"}
+restore dotnet-outputs:
+restore dotnet-outputs:
+  {"bytes": 4782691, "detail": "", "key": "ef870a0597ea", "kind": "dotnet-outputs", "ms": 182, "op": "restore", "status": "hit"}
+  {"bytes": 4782691, "detail": "", "key": "ef870a0597ea", "kind": "dotnet-outputs", "ms": 182, "op": "restore", "status": "hit"}
+guest-firewall-guard: ok, 7 guest(s) checked on pve01

@@ -1,0 +1,11 @@
+[group guest-egress]
+OUT ACCEPT -dest 10.99.17.10 -p tcp -dport 8080
+OUT DROP -dest +dc/host-routed -log info
+OUT ACCEPT -dest +dc/public-v4
+
+[group cache-ingress]
+IN ACCEPT -source 10.99.16.0/24 -p tcp -dport 8080
+IN ACCEPT -source 10.99.17.1 -p tcp -dport 22
+guests forwarding=1
+cache forwarding=cat: /proc/sys/net/ipv4/conf/cache/forwarding: No such file or directory
+-A POSTROUTING -s 10.99.16.0/24 -o vmbr0 -j SNAT --to-source 10.99.0.2

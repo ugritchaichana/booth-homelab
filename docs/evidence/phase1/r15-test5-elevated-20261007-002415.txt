@@ -1,0 +1,23 @@
+[00:24:15.174] baseline (rule enabled): expect nc 445 timed out
+[00:24:15.186] pve> nc -zv -w3 10.99.0.1 445 2>&1; echo rc=$?
+[00:24:18.634] 10.99.0.1: inverse host lookup failed: Unknown host
+(UNKNOWN) [10.99.0.1] 445 (microsoft-ds) : Connection timed out
+rc=1
+[00:24:21.166] RULE-DISABLED START; rule now Enabled=False
+[00:24:21.171] row: port ACLs alone, plain probe (expect fail)
+[00:24:21.172] pve> nc -zv -w3 10.99.0.1 445 2>&1; echo rc=$?
+[00:24:24.313] 10.99.0.1: inverse host lookup failed: Unknown host
+(UNKNOWN) [10.99.0.1] 445 (microsoft-ds) : Connection timed out
+rc=1
+[00:24:24.316] row: stateful mirror with the rule disabled (expect first fail, second succeed)
+[00:24:24.329] pve> systemctl stop pveproxy; nc -zv -w3 -p 8006 10.99.0.1 445 2>&1; echo rc=$?; nc -zv -w3 -p 8006 1.1.1.1 443 2>&1; echo rc=$?; systemctl start pveproxy; systemctl is-active pveproxy
+[00:24:30.375] 10.99.0.1: inverse host lookup failed: Unknown host
+(UNKNOWN) [10.99.0.1] 445 (microsoft-ds) : Connection timed out
+rc=1
+one.one.one.one [1.1.1.1] 443 (https) open
+rc=0
+active
+[00:24:31.006] pve> systemctl start pveproxy; systemctl is-active pveproxy
+[00:24:31.149] active
+[00:24:31.719] RULE-DISABLED END; verify Enabled=True Action=Block Direction=Inbound
+[00:24:31.723] log written to <user-home>\AppData\Local\homelab\logs\r15-test5-elevated-20261007-002415.txt

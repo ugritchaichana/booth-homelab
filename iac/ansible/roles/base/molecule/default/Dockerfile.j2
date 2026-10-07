@@ -1,0 +1,8 @@
+FROM {{ item.image }}
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus python3 ca-certificates \
+    && apt-get clean
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/lib/systemd/systemd"]

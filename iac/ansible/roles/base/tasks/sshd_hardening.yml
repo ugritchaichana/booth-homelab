@@ -1,0 +1,327 @@
+---
+- name: Assert the SSH hardening inputs
+  ansible.builtin.assert:
+    that:
+      - base_root_authorized_keys | length > 0
+      - base_root_key_from | length > 0
+      - base_automation_authorized_keys | length > 0
+      - base_deadman_minutes | int > 0
+      - (base_root_authorized_keys | map('regex_replace', '^[^ ]+ +([^ ]+).*$', '\\1') | list)
+        | intersect(base_root_authorized_keys_revoked | map('regex_replace', '^[^ ]+ +([^ ]+).*$', '\\1') | list) | length == 0
+    fail_msg: Set base_root_authorized_keys, base_root_key_from and base_automation_authorized_keys; no key may be both kept and revoked
+
+- name: Install the SSH server
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Keep the SSH server enabled and running
+  ansible.builtin.service:
+    name: "{{ base_sshd_service }}"
+    enabled: true
+    state: started
+
+- name: Install the boot-time dead-man unit
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ base_deadman_boot_unit }}.service"
+    content: |
+      [Unit]
+      Description=Restore SSH access when an interrupted change left the dead-man armed
+      After={{ base_sshd_service }}.service pve-cluster.service pveproxy.service
+      ConditionPathExists={{ base_deadman_dir }}/armed
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ base_deadman_dir }}/restore.sh
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: "0644"
+  register: base_boot_unit_file
+
+- name: Enable the boot-time dead-man unit
+  ansible.builtin.systemd_service:
+    name: "{{ base_deadman_boot_unit }}.service"
+    enabled: true
+    daemon_reload: "{{ base_boot_unit_file.changed }}"
+
+- name: Read the current SSH drop-in
+  ansible.builtin.stat:
+    path: "{{ base_sshd_dropin_path }}"
+  register: base_dropin_stat
+
+- name: Read the current root authorized keys without following a link
+  ansible.builtin.stat:
+    path: "{{ base_root_authorized_keys_path }}"
+    follow: false
+  register: base_keys_stat
+
+- name: Resolve the root authorized keys file that holds the keys
+  ansible.builtin.set_fact:
+    base_root_keys_target: >-
+      {{ base_keys_stat.stat.lnk_source
+      if base_keys_stat.stat.islnk | default(false)
+      else base_root_authorized_keys_path }}
+
+- name: Preview the SSH drop-in change
+  ansible.builtin.template:
+    src: sshd-hardening.conf.j2
+    dest: "{{ base_sshd_dropin_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  check_mode: true
+  register: base_dropin_preview
+
+- name: Preview the root key restriction
+  ansible.builtin.lineinfile:
+    path: "{{ base_root_keys_target }}"
+    regexp: '^(\S+\s+)?{{ item.split()[0] | regex_escape }}\s+{{ item.split()[1] | regex_escape }}(\s|$)'
+    line: 'from="{{ base_root_key_from }}" {{ item }}'
+    create: true
+    mode: "{{ omit if base_keys_stat.stat.exists else '0600' }}"
+  loop: "{{ base_root_authorized_keys }}"
+  check_mode: true
+  register: base_rootkeys_preview
+
+- name: Preview the root key revocation
+  ansible.builtin.lineinfile:
+    path: "{{ base_root_keys_target }}"
+    regexp: '^(\S+\s+)?{{ item.split()[0] | regex_escape }}\s+{{ item.split()[1] | regex_escape }}(\s|$)'
+    state: absent
+  loop: "{{ base_root_authorized_keys_revoked }}"
+  check_mode: true
+  register: base_revoke_preview
+
+- name: Look for the root SSH directory
+  ansible.builtin.stat:
+    path: "{{ base_root_authorized_keys_path | dirname }}"
+  register: base_root_ssh_dir
+
+- name: Assert the root SSH directory exists before arming
+  ansible.builtin.assert:
+    that:
+      - base_root_ssh_dir.stat.isdir | default(false)
+    fail_msg: "{{ base_root_authorized_keys_path | dirname }} does not exist; create it before the role edits root keys"
+
+- name: Record whether an SSH change is pending
+  ansible.builtin.set_fact:
+    base_ssh_change_pending: >-
+      {{ base_dropin_preview.changed
+      or base_rootkeys_preview.changed
+      or base_revoke_preview.changed }}
+
+- name: Apply the SSH change behind the dead-man
+  when: base_ssh_change_pending | bool
+  block:
+    - name: Require a fresh automation session with sudo before any change
+      when: not base_container_test_mode | bool
+      become: false
+      vars:
+        ansible_user: "{{ base_automation_user }}"
+        ansible_ssh_extra_args: "{{ base_fresh_session_ssh_extra_args }}"
+      block:
+        - name: Log in as the automation user and run sudo
+          ansible.builtin.shell: printf '%s %s' "$(id -un)" "$(sudo -n id -un)"
+          register: base_precheck_session
+          changed_when: false
+          failed_when: base_precheck_session.stdout != (base_automation_user ~ ' root')
+
+    - name: Recreate the dead-man state directory
+      ansible.builtin.file:
+        path: "{{ base_deadman_dir }}"
+        state: "{{ item }}"
+        owner: root
+        group: root
+        mode: "0700"
+      loop:
+        - absent
+        - directory
+      when: not base_container_test_mode | bool
+
+    - name: Back up the current SSH drop-in
+      ansible.builtin.copy:
+        src: "{{ base_sshd_dropin_path }}"
+        dest: "{{ base_deadman_dir }}/sshd-dropin.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: not base_container_test_mode | bool and base_dropin_stat.stat.exists
+
+    - name: Back up the current root authorized keys
+      ansible.builtin.copy:
+        src: "{{ base_root_authorized_keys_path }}"
+        dest: "{{ base_deadman_dir }}/root-authorized_keys.bak"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: not base_container_test_mode | bool and base_keys_stat.stat.exists
+
+    - name: Write the dead-man restore script
+      ansible.builtin.template:
+        src: deadman-restore.sh.j2
+        dest: "{{ base_deadman_dir }}/restore.sh"
+        owner: root
+        group: root
+        mode: "0700"
+      when: not base_container_test_mode | bool
+
+    - name: Mark the dead-man as armed for the next boot
+      ansible.builtin.file:
+        path: "{{ base_deadman_dir }}/armed"
+        state: touch
+        owner: root
+        group: root
+        mode: "0600"
+      when: not base_container_test_mode | bool
+
+    - name: Clear any failed dead-man unit
+      ansible.builtin.command: systemctl reset-failed {{ base_deadman_unit }}.service
+      changed_when: false
+      failed_when: false
+      when: not base_container_test_mode | bool
+
+    - name: Arm the dead-man
+      ansible.builtin.command: >-
+        systemd-run --on-active={{ base_deadman_minutes }}min
+        --unit={{ base_deadman_unit }} {{ base_deadman_dir }}/restore.sh
+      changed_when: true
+      when: not base_container_test_mode | bool
+
+    - name: Restrict the break-glass root keys to the management source
+      ansible.builtin.lineinfile:
+        path: "{{ base_root_keys_target }}"
+        regexp: '^(\S+\s+)?{{ item.split()[0] | regex_escape }}\s+{{ item.split()[1] | regex_escape }}(\s|$)'
+        line: 'from="{{ base_root_key_from }}" {{ item }}'
+        create: true
+        mode: "{{ omit if base_keys_stat.stat.exists else '0600' }}"
+      loop: "{{ base_root_authorized_keys }}"
+
+    - name: Revoke the retired root keys
+      ansible.builtin.lineinfile:
+        path: "{{ base_root_keys_target }}"
+        regexp: '^(\S+\s+)?{{ item.split()[0] | regex_escape }}\s+{{ item.split()[1] | regex_escape }}(\s|$)'
+        state: absent
+      loop: "{{ base_root_authorized_keys_revoked }}"
+
+    - name: Read the root key file after the edit
+      ansible.builtin.slurp:
+        src: "{{ base_root_keys_target }}"
+      register: base_root_keys_after
+
+    - name: Assert each kept root key appears once with its source restriction
+      ansible.builtin.assert:
+        that:
+          - base_key_hits | length == 1
+          - base_key_hits | first is match('from="' ~ (base_root_key_from | regex_escape) ~ '" ')
+        fail_msg: A kept root key is missing, duplicated or has no from= restriction
+      vars:
+        base_key_hits: >-
+          {{ (base_root_keys_after.content | b64decode).splitlines()
+          | select('search', '(^| )' ~ (item.split()[1] | regex_escape) ~ '( |$)') | list }}
+      loop: "{{ base_root_authorized_keys }}"
+      loop_control:
+        label: "{{ item.split()[-1] }}"
+
+    - name: Assert no revoked root key remains
+      ansible.builtin.assert:
+        that:
+          - base_key_hits | length == 0
+        fail_msg: A revoked root key is still present
+      vars:
+        base_key_hits: >-
+          {{ (base_root_keys_after.content | b64decode).splitlines()
+          | select('search', '(^| )' ~ (item.split()[1] | regex_escape) ~ '( |$)') | list }}
+      loop: "{{ base_root_authorized_keys_revoked }}"
+      loop_control:
+        label: "{{ item.split()[-1] }}"
+
+    - name: Install the SSH hardening drop-in
+      ansible.builtin.template:
+        src: sshd-hardening.conf.j2
+        dest: "{{ base_sshd_dropin_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        validate: /usr/sbin/sshd -t -f %s
+
+    - name: Validate the merged SSH configuration
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false
+
+    - name: Reload the SSH server
+      ansible.builtin.service:
+        name: "{{ base_sshd_service }}"
+        state: reloaded
+
+    - name: Verify the change from fresh automation sessions
+      when: not base_container_test_mode | bool
+      vars:
+        ansible_user: "{{ base_automation_user }}"
+        ansible_ssh_extra_args: "{{ base_fresh_session_ssh_extra_args }}"
+      block:
+        - name: Log in again as the automation user and run sudo
+          ansible.builtin.shell: printf '%s %s' "$(id -un)" "$(sudo -n id -un)"
+          become: false
+          register: base_postcheck_session
+          changed_when: false
+          failed_when: base_postcheck_session.stdout != (base_automation_user ~ ' root')
+
+        - name: Read the effective SSH settings
+          ansible.builtin.command: /usr/sbin/sshd -T
+          become: true
+          register: base_effective_sshd
+          changed_when: false
+
+        - name: Assert the effective SSH settings
+          ansible.builtin.assert:
+            that:
+              - base_effective_sshd.stdout_lines | select('match', '^permitrootlogin (without|prohibit)-password$') | list | length == 1
+              - "'passwordauthentication no' in base_effective_sshd.stdout_lines"
+              - "'kbdinteractiveauthentication no' in base_effective_sshd.stdout_lines"
+              - "'pubkeyauthentication yes' in base_effective_sshd.stdout_lines"
+              - "'allowtcpforwarding yes' in base_effective_sshd.stdout_lines"
+            fail_msg: The hardening is not the effective SSH configuration
+
+        - name: Read the dead-man timer
+          ansible.builtin.systemd_service:
+            name: "{{ base_deadman_unit }}.timer"
+          become: true
+          register: base_deadman_before_cancel
+
+        - name: Look for the dead-man fired marker
+          ansible.builtin.stat:
+            path: "{{ base_deadman_dir }}/fired"
+          become: true
+          register: base_deadman_fired
+
+        - name: Assert the dead-man did not fire
+          ansible.builtin.assert:
+            that:
+              - base_deadman_before_cancel.status.ActiveState == 'active'
+              - not base_deadman_fired.stat.exists
+            fail_msg: The dead-man fired or is gone, so the previous SSH access was restored
+
+        - name: Remove the armed marker before cancelling the timer
+          ansible.builtin.file:
+            path: "{{ base_deadman_dir }}/armed"
+            state: absent
+          become: true
+
+        - name: Cancel the dead-man
+          ansible.builtin.systemd_service:
+            name: "{{ base_deadman_unit }}.timer"
+            state: stopped
+          become: true
+
+        - name: Remove the dead-man state
+          ansible.builtin.file:
+            path: "{{ base_deadman_dir }}"
+            state: absent
+          become: true

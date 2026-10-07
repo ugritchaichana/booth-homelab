@@ -1,0 +1,10 @@
+bazel_remote_disk_cache_evicted_bytes_total 0
+bazel_remote_disk_cache_size_bytes 1.05336832e+08
+bazel_remote_incoming_requests_total{kind="ac",method="get",status="hit"} 0
+bazel_remote_incoming_requests_total{kind="ac",method="get",status="miss"} 0
+bazel_remote_incoming_requests_total{kind="cas",method="contains",status="hit"} 0
+bazel_remote_incoming_requests_total{kind="cas",method="contains",status="miss"} 0
+bazel_remote_incoming_requests_total{kind="cas",method="get",status="hit"} 59
+bazel_remote_incoming_requests_total{kind="cas",method="get",status="miss"} 3
+bazel_remote_incoming_requests_total{kind="raw",method="get",status="hit"} 57
+bazel_remote_incoming_requests_total{kind="raw",method="get",status="miss"} 5

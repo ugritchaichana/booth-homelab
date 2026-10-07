@@ -1,65 +1,52 @@
-# 07. Infrastructure as Code (OpenTofu & Ansible)
+# 07. Infrastructure as Code (OpenTofu and Ansible)
 
-## 1. Overview & Architecture
+The Proxmox host and its guests are managed by declarative code (ADR 0012). The decisions behind each part are in `docs/adr/`; this page maps the layout.
 
-The **Booth-homelab** infrastructure is managed entirely through industry-standard declarative Infrastructure-as-Code (IaC) and configuration management:
+| Path | Purpose | Decision |
+| :--- | :--- | :--- |
+| `iac/inventory/hosts.yml` | The single host data file read by Ansible and OpenTofu, with `group_vars/` and `host_vars/` beside it; `cache.yml` adds the cache container | ADR 0021 |
+| `iac/ansible/` | Playbooks `bootstrap.yml`, `site.yml`, `cache.yml`, `r15-verify.yml`; roles `base`, `hyperv_guest`, `pve_host`, `pve_api_identity`, `pve_firewall`, `pve_templates`, `cache_service` | ADR 0023 to 0027, 0038, 0048 |
+| `iac/tofu/stacks/proxmox-host/` | Root module for every host in the inventory: SDN zone and the `guests` and `cache` vnets | ADR 0013, 0029, 0030, 0045 |
+| `iac/tofu/stacks/cache-service/` | The cache container `cache01` | ADR 0045, 0048 |
+| `iac/tofu/stacks/r15-probe/` | Throwaway probe guests, cloned from the golden templates, for the isolation proof | ADR 0031, 0032, 0044 |
+| `iac/tofu/modules/` | `proxmox/sdn`, `proxmox/template-source`, `flavor` | ADR 0017, 0030, 0044 |
+| `iac/policy/runner-class.yml` | Per-guest firewall policy of the runner class | ADR 0027, 0044 |
+| `iac/secrets/` | SOPS-encrypted host and OpenTofu secrets, one file per consumer and host | ADR 0009, 0033 |
+| `scripts/iac/` | Wrappers `ansible.sh`, `tofu.sh`, `render-ssh-config.sh`, `cache-writer-secret.sh` | ADR 0011, 0022, 0050 |
+| `scripts/bootstrap/operator-toolchain.sh` | Installs the pinned, hash-verified operator tools in WSL | ADR 0010 |
 
-1. **OpenTofu / Terraform (`iac/tofu/`):**
-   - Uses the modern `bpg/proxmox` provider (`~> 0.68.0`) to provision compute (LXC containers), network bridges, and storage volumes.
-   - Features a **Multi-Cloud Instance Flavor Catalog** (`flavors.json`) that abstracts hardware sizing to popular cloud VM tiers (AWS, GCP, Azure, Hetzner, DigitalOcean).
-2. **Ansible (`iac/ansible/`):**
-   - Manages idempotent OS configuration, software runtimes (.NET 8 SDK, Node.js 22 LTS, Docker), MinIO S3 caching daemon, and netfilter zero-trust firewalling.
-3. **Baremetal Bootstrapping (`iac/bootstrap/`):**
-   - Host transformation scripts converting minimal Debian 12 Bookworm into Proxmox VE 8.4 with kernel `6.8.12-9-pve` and Tailscale mesh.
+The bootstrap scripts, cache policies and Ansible content of the previous host were retired instead of ported (ADR 0020).
 
----
+## Who owns what
 
-## 2. Multi-Cloud Instance Flavor Catalog
+Ansible owns OS configuration, sshd, the host and cluster firewall files, the OpenTofu API identity, base images, snippets, the template build framework and the cache service. OpenTofu owns SDN, guests, guest firewall options and the template lookup. Storage definitions stay as the installer made them (ADR 0025, 0035).
 
-Instead of hardcoding memory and CPU allocations, OpenTofu maps public cloud instance tiers to Proxmox VE resources:
+## Instance flavor catalog
 
-```hcl
-# Select cloud provider catalog and instance flavors
-cloud_provider        = "aws"
-runner_dotnet_flavor  = "t3.medium"  # 2 vCPU, 4096 MiB RAM, 30 GB Disk
-runner_angular_flavor = "t3.small"   # 2 vCPU, 2048 MiB RAM, 20 GB Disk
-minio_cache_flavor    = "t3.small"   # 2 vCPU, 2048 MiB RAM, 20 GB Disk
-```
+`iac/tofu/flavors.json` maps public cloud instance tiers (AWS, GCP, Azure, Hetzner, DigitalOcean) to Proxmox sizes, so templates and guests are sized by a generic flavor name instead of hardcoded CPU and memory (ADR 0017). A test asserts every entry has positive `cores`, `memory_mb` and `disk_gb`, and that `aws/t3.medium` plans 2 cores, 4096 MB and 30 GB (row 60).
 
-### Supported Providers:
-- **AWS:** `t3.nano` to `t3.xlarge`, `c5.large`, `m5.large`
-- **GCP:** `e2-micro` to `e2-standard-4`, `c2-standard-4`
-- **Azure:** `Standard_B1s` to `Standard_D4s_v5`, `Standard_F2s_v2`
-- **Hetzner Cloud:** `cx22`, `cx32`, `cx42`, `cpx21`, `cpx31`
-- **DigitalOcean:** `s-1vcpu-1gb` to `s-2vcpu-4gb`, `c-2`, `c-4`
+## OpenTofu workflow
 
----
-
-## 3. OpenTofu Provisioning Workflow
+Run every stack through the wrapper. It opens the SSH forward to the Proxmox API, decrypts secrets into the `tofu` process only, and keeps encrypted state on the WSL filesystem, one state per stack and host (ADR 0013, 0051):
 
 ```bash
-cd iac/tofu
-
-# Initialize provider plugins
-tofu init
-
-# Plan deployment with AWS flavors
-tofu plan -var="cloud_provider=aws" -var="runner_dotnet_flavor=t3.medium"
-
-# Apply changes
-tofu apply -auto-approve
+bash scripts/iac/tofu.sh proxmox-host pve01 init-passphrase   # once
+bash scripts/iac/tofu.sh proxmox-host pve01 init
+bash scripts/iac/tofu.sh proxmox-host pve01 plan
+bash scripts/iac/tofu.sh proxmox-host pve01 apply
 ```
 
----
+After an apply, `plan -detailed-exitcode` must return 0 (row 49). Checks that need no host: `iac/tofu/README.md`.
 
-## 4. Ansible Configuration Management Workflow
+## Ansible workflow
 
 ```bash
-cd iac/ansible
-
-# Test connectivity to all managed nodes
-ansible -i inventory/hosts.ini all -m ping
-
-# Execute master orchestration playbook
-ansible-playbook -i inventory/hosts.ini playbooks/site.yml
+bash scripts/iac/ansible.sh bootstrap.yml -e ansible_user=root   # first contact, the only play that connects as root
+bash scripts/iac/ansible.sh site.yml                              # steady state, as the automation user
 ```
+
+`scripts/iac/ansible.sh` renders the SSH config from the inventory when it is missing and pins the host key (ADR 0022). A second `site.yml` run must report `changed=0` (rows 43, 46). Static checks and the Molecule scenario for the `base` role: `iac/ansible/README.md` (ADR 0024).
+
+## Identity and least privilege
+
+The OpenTofu token is created by Ansible, not by OpenTofu, and its secret goes straight into SOPS (ADR 0026). It is split into seven purpose roles, each granted only on its path, and it cannot create users, change the host or delete a template (row 48, 57).

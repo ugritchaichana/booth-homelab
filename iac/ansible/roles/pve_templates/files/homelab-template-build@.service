@@ -1,0 +1,11 @@
+[Unit]
+Description=Build the golden template of class %i
+After=network-online.target pve-cluster.service pve-firewall.service
+Wants=network-online.target
+OnFailure=homelab-template-failure@%i.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/homelab-template build %i
+TimeoutStartSec=3h
+NoNewPrivileges=yes

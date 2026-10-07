@@ -1,0 +1,11 @@
+Acquiring state lock. This may take a few moments...
+[0m[1mdata.proxmox_version.this: Reading...[0m[0m
+[0m[1mmodule.guest_network.proxmox_sdn_applier.finalizer: Refreshing state... [id=1791328786212][0m
+[0m[1mmodule.guest_network.proxmox_sdn_zone_simple.this: Refreshing state... [id=hlab][0m
+[0m[1mdata.proxmox_version.this: Read complete after 0s [id=version][0m
+[0m[1mmodule.guest_network.proxmox_sdn_vnet.this: Refreshing state... [id=guests][0m
+[0m[1mmodule.guest_network.proxmox_sdn_subnet.this: Refreshing state... [id=hlab-10.99.16.0-24][0m
+[0m[1mmodule.guest_network.proxmox_sdn_applier.this: Refreshing state... [id=1791328788567][0m
+
+[0m[1m[32mNo changes.[0m[1m Your infrastructure matches the configuration.[0m
+[0m

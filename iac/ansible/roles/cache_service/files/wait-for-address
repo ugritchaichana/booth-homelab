@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+address="${1:-}"
+limit="${2:-30}"
+fib_trie="${WAIT_FOR_ADDRESS_FIB_TRIE:-/proc/net/fib_trie}"
+
+[[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "wait-for-address: '$address' is not an IPv4 address" >&2; exit 2; }
+
+for ((i = 0; i < limit; i++)); do
+  awk -v want="$address" '
+    $1 == "|--" { prev = $2; next }
+    $1 == "/32" && $2 == "host" && $3 == "LOCAL" && prev == want { found = 1; exit }
+    END { exit found ? 0 : 1 }
+  ' "$fib_trie" 2>/dev/null
+  case $? in
+    0) echo "wait-for-address: $address is configured after $i seconds"; exit 0 ;;
+    1) ;;
+    *) echo "wait-for-address: cannot read $fib_trie" >&2; exit 2 ;;
+  esac
+  sleep 1
+done
+
+echo "wait-for-address: $address was not configured on any interface within $limit seconds" >&2
+exit 1

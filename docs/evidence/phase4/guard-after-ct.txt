@@ -1,0 +1,27 @@
+Job for homelab-guest-firewall-guard.service failed because the control process exited with error code.
+See "systemctl status homelab-guest-firewall-guard.service" and "journalctl -xeu homelab-guest-firewall-guard.service" for details.
+Finished homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet.
+homelab-guest-firewall-guard.service: Consumed 10.412s CPU time, 150.8M memory peak.
+Starting homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet...
+guest-firewall-guard: VIOLATION vmid=9050 type=lxc firewall not enabled; policy_out is not DROP; ipfilter is off; group rule cache-ingress missing or disabled; group rule guest-egress missing or disabled; already not running
+homelab-guest-firewall-guard.service: Main process exited, code=exited, status=3/NOTIMPLEMENTED
+homelab-guest-firewall-guard.service: Failed with result 'exit-code'.
+Failed to start homelab-guest-firewall-guard.service - Stop guests on the lab vnets whose firewall settings are not the policy of their vnet.
+homelab-guest-firewall-guard.service: Consumed 12.489s CPU time, 150.8M memory peak.
+{
+    "vnets": {
+        "cache": {
+            "allow_gateway_ssh": null,
+            "groups": [
+                "guest-egress",
+                "cache-ingress"
+            ]
+        },
+        "guests": {
+            "allow_gateway_ssh": "10.99.16.1",
+            "groups": [
+                "guest-egress"
+            ]
+        }
+    }
+} 
