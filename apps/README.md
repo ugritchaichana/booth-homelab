@@ -29,7 +29,7 @@ bash scripts/apps/dotnet-affected-test.sh <base-ref> <head-ref>
 bash tests/verify-affected-graph.sh
 ```
 
-On Windows use `scripts/apps/dotnet-affected-test.ps1` and `tests/verify-affected-graph.ps1`. See `wiki/04-SDET-Transitive-Affected-Testing.md`.
+The selector has one implementation, a shell script; on Windows run it in WSL (ADR 0056). See `wiki/04-SDET-Transitive-Affected-Testing.md`.
 
 ## Flaky tests
 

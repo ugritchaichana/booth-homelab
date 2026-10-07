@@ -19,6 +19,10 @@ locals {
   egress_group  = local.policy.runner_class_security_group
   nic_firewall  = local.policy.runner_class_nic_firewall == 1
   template_file = local.templates.pve_templates_classes["lxc-runner"].base
+  image_slug    = try(regex("^[a-z]+-[0-9]+", basename(local.template_file)), null)
+  name_pattern  = "^[a-z][a-z0-9-]{0,62}$"
+  hostname      = local.image_slug == null ? null : "build-cache-${local.image_slug}"
+  tags          = local.image_slug == null ? [] : sort(["build-cache", "src-${local.image_slug}"])
   data_mount    = local.service.cache_service_data_mount
   max_size_gib  = local.service.cache_service_max_size_gib
 
