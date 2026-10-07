@@ -1,4 +1,4 @@
-RUN guest=lxc phase=after-pve-reboot host=r15-probe-lxc utc=2026-10-07T08:20:55Z
+RUN guest=lxc phase=after-pve-reboot host=r15-probe-lxc utc=2026-10-07T09:39:01Z
 PROBE egress_public_https tcp 1.1.1.1:443 open open PASS
 PROBE gateway_ssh tcp 10.99.16.1:22 blocked dropped PASS
 PROBE gateway_web_console tcp 10.99.16.1:8006 blocked dropped PASS
@@ -6,7 +6,7 @@ PROBE management_ssh tcp 10.99.0.2:22 blocked dropped PASS
 PROBE management_web_console tcp 10.99.0.2:8006 blocked dropped PASS
 PROBE lxc_to_vm_direct tcp 10.99.16.22:22 blocked unreachable PASS
 PROBE lxc_to_vm_via_gateway tcpvia 10.99.16.22:22 blocked dropped PASS
-PROBE gateway_ssh_link_local_lxc tcp6 <target-gateway-ssh-link-local-lxc>%eth0:22 blocked dropped PASS
+PROBE gateway_ssh_link_local_lxc tcp6 <target-gateway-ssh-link-local-current>%eth0:22 blocked dropped PASS
 PROBE windows_host_smb tcp 10.99.0.1:445 blocked dropped PASS
 PROBE windows_host_lan_smb tcp <target-windows-host-lan-smb>:445 blocked dropped PASS
 PROBE windows_host_lan_netbios tcp <target-windows-host-lan-smb>:139 blocked dropped PASS
@@ -17,9 +17,12 @@ PROBE mesh_self_smb tcp <target-mesh-self-smb>:445 blocked dropped PASS
 PROBE vpn_peer_web tcp <target-mesh-self-smb>:80 blocked dropped NOT MEASURED
 PROBE mesh_dns tcp <target-mesh-dns>:53 blocked dropped PASS
 PROBE harvested_prefix_host tcp <target-harvested-prefix-host>:443 blocked dropped NOT MEASURED
+PROBE cache_gateway_ssh tcp 10.99.17.1:22 blocked dropped PASS
+PROBE cache_gateway_web_console tcp 10.99.17.1:8006 blocked dropped PASS
+PROBE cache_other_port tcp 10.99.17.10:9092 blocked dropped PASS
 PROBE cache_port_reachable tcp 10.99.17.10:8080 open open PASS
 PROBE cache_ssh_blocked tcp 10.99.17.10:22 blocked dropped PASS
 PROBE egress_https curl deb.debian.org:443 200 200 PASS
-SUMMARY negatives_blocked=16/16 positives_ok=2/2 egress_curl=200
+SUMMARY negatives_blocked=19/19 positives_ok=2/2 egress_curl=200
 
 EXIT 0

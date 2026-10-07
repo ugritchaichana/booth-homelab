@@ -179,17 +179,17 @@
     {
       "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-lxc.txt",
       "dest": "docs/evidence/phase4/r15-after-pve-reboot-lxc.txt",
-      "proves": "R15 isolation on the container probe after the host reboot"
+      "proves": "R15 after the second host reboot on the container runner probe: 19 of 19 negatives blocked, 2 of 2 positives open, including the three cache-vnet rows; reboot logged in pve-reboot-2.txt"
     },
     {
       "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-vm.txt",
       "dest": "docs/evidence/phase4/r15-after-pve-reboot-vm.txt",
-      "proves": "R15 isolation on the VM probe after the host reboot"
+      "proves": "R15 after the second host reboot on the VM runner probe: 19 of 19 negatives blocked, 2 of 2 positives open, including the three cache-vnet rows; reboot logged in pve-reboot-2.txt"
     },
     {
       "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-cache.txt",
       "dest": "docs/evidence/phase4/r15-after-pve-reboot-cache.txt",
-      "proves": "R15 isolation from the cache container after the host reboot"
+      "proves": "R15 from inside the cache container after the second host reboot: 12 of 12 negatives blocked, 1 of 1 positive open; reboot logged in pve-reboot-2.txt"
     },
     {
       "src": "plans:booth-homelab-phase4/r15/pre-cache-r15-baseline-lxc.txt",
@@ -220,6 +220,11 @@
       "src": "plans:booth-homelab-phase4/host-run/cache-sandbox.txt",
       "dest": "docs/evidence/phase4/cache-sandbox.txt",
       "proves": "Cache service systemd sandbox: nine extra directives and a systemd-analyze security exposure of 2.1"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/pve-reboot-2.txt",
+      "dest": "docs/evidence/phase4/pve-reboot-2.txt",
+      "proves": "Second host reboot timing: ssh returns after 29 s, the cache container runs after 34 s and the cache service is active after 40 s"
     }
   ]
 }
