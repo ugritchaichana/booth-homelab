@@ -2,6 +2,7 @@
 pve_api_identity_user: tofu@pve
 pve_api_identity_comment: OpenTofu provisioning identity
 pve_api_identity_pool: homelab
+pve_api_identity_template_pool: templates
 pve_api_identity_token: provisioner
 pve_api_identity_rotate: false
 
@@ -23,6 +24,9 @@ pve_api_identity_roles:
     - VM.Config.Network
     - VM.Config.Options
     - VM.PowerMgmt
+  HomelabTemplateClone:
+    - VM.Audit
+    - VM.Clone
   HomelabDisks:
     - Datastore.AllocateSpace
     - Datastore.Audit
@@ -41,6 +45,8 @@ pve_api_identity_roles:
 pve_api_identity_grants:
   - path: "/pool/{{ pve_api_identity_pool }}"
     role: HomelabGuests
+  - path: "/pool/{{ pve_api_identity_template_pool }}"
+    role: HomelabTemplateClone
   - path: "/storage/{{ pve_api_identity_images_storage }}"
     role: HomelabDisks
   - path: "/storage/{{ pve_api_identity_templates_storage }}"
