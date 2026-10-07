@@ -10,7 +10,6 @@ on:
       - 'tests/evidence/**'
       - '.github/workflows/evidence-ci.yml'
   pull_request:
-    branches: [ master, main ]
     paths:
       - 'docs/evidence/**'
       - 'docs/knowledge/**'
