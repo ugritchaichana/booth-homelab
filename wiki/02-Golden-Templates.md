@@ -42,7 +42,7 @@ A consumer never names a VMID. The OpenTofu module `iac/tofu/modules/proxmox/tem
 
 | Result | Row |
 |---|---|
-| Both classes build on `pve01`: about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | 55 |
+| Both classes build on `pve01`: about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | 55; [build log](../docs/evidence/phase3/build-weekly-3.txt), [timer-fired builds](../docs/evidence/phase3/journal-timer-fired.txt) |
 | After six builds each class holds exactly two versions; the weekly timer fired; rollback exit 0 on both classes | 56 |
 | The provisioner token gets 403 on deleting or retagging a template and 200 on cloning it | 57 |
 | R15 on clones of both templates: 15/15 negatives blocked, 1/1 positive; the VM clone runs `docker run hello-world`, exposes no `svm`/`vmx`, has no Docker TCP listener | 59 |

@@ -8,7 +8,6 @@ Every number on this page is backed by a row of `docs/platform/requirements.md` 
 |---|---|---|
 | Hosted runners, full suite, cold cache | 71 s (telemetry 5 s, build 19 s, .NET test 29 s, Angular 35 s, report 3 s; queue 5 s or less) | row 15, run 37355482969 |
 | Retired self-hosted host, full suite | 174 s; the report job queued 64 s because the `dotnet` label had one runner | row 16, run 37341728563 attempt 2 |
-| Retired host's build cache | saved about 1 s on the build (4630 to 3616 ms) | row 17 |
 
 ## Build cache
 
@@ -24,9 +23,9 @@ Every number on this page is backed by a row of `docs/platform/requirements.md` 
 
 | Result | Value | Source |
 |---|---|---|
-| Build time on `pve01` | about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | row 55 |
+| Build time on `pve01` | about 2 min 15 s (`lxc-runner`), about 3 min 5 s (`vm-docker`) | row 55; [build log](../docs/evidence/phase3/build-weekly-3.txt), [timer-fired builds](../docs/evidence/phase3/journal-timer-fired.txt) |
 | Retention and rollback | two versions per class; rollback exit 0 on both classes | row 56 |
-| Thin pool after six builds | 20.06% data, 2.01% metadata | row 56 |
+| Thin pool after six builds | 20.06% data, 2.01% metadata | row 56; [timer-fired builds](../docs/evidence/phase3/journal-timer-fired.txt) |
 
 ## Isolation (R15)
 
