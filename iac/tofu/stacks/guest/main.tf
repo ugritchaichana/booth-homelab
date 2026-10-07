@@ -54,7 +54,7 @@ resource "proxmox_virtual_environment_container" "guest" {
   }
 
   initialization {
-    hostname = each.key
+    hostname = each.value.name
 
     dns {
       servers = [var.dns_server]
@@ -91,7 +91,7 @@ resource "proxmox_virtual_environment_container" "guest" {
 resource "proxmox_virtual_environment_vm" "guest" {
   for_each = local.vm_guests
 
-  name            = each.key
+  name            = each.value.name
   node_name       = local.node_name
   vm_id           = each.value.vm_id
   pool_id         = var.pool_id

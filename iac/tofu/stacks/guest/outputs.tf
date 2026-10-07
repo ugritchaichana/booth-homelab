@@ -1,6 +1,7 @@
 output "guests" {
   value = {
-    for name, guest in local.sized_guests : name => {
+    for role, guest in local.placed : role => {
+      name      = guest.name
       kind      = guest.kind
       vm_id     = guest.vm_id
       address   = guest.address
@@ -13,8 +14,13 @@ output "guests" {
   }
 
   precondition {
-    condition     = alltrue([for name in keys(local.guests) : can(regex(local.name_pattern, name))])
-    error_message = "Every guest name must be a lowercase hostname of at most 63 characters starting with a letter."
+    condition     = length(local.placed) == length(local.sized_guests)
+    error_message = "Every guest name <role>-<template class>-v<N> must be a lowercase hostname of at most 63 characters starting with a letter, so the role must be shorter and use only a-z, 0-9 and hyphen."
+  }
+
+  precondition {
+    condition     = length(distinct([for guest in values(local.placed) : guest.name])) == length(local.placed)
+    error_message = "Two guests compose the same name."
   }
 
   precondition {
