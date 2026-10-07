@@ -1,5 +1,5 @@
 name: 'Angular Jest Unit Test Runner'
-description: 'Restores the node_modules cache and executes Angular Jest tests on Proxmox CT 103'
+description: 'Restores the node_modules cache and executes Angular Jest tests'
 
 outputs:
   angular_duration_ms:

@@ -94,3 +94,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0051 | [Keep OpenTofu state local instead of moving it to the cache](0051-keep-opentofu-state-local-instead-of-moving-it-to-the-cache.md) | Accepted |
 | 0052 | [Publish sanitized evidence and knowledge in the repository](0052-publish-sanitized-evidence-and-knowledge-in-the-repository.md) | Accepted |
 | 0053 | [Prove Phase 4 on a runner-template clone before runners exist](0053-prove-phase-4-on-a-runner-template-clone-before-runners-exist.md) | Accepted |
+| 0054 | [Run CI on hosted runners until the runner pool exists](0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md) | Accepted |
