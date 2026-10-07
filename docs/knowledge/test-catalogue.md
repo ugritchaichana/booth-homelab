@@ -17,6 +17,7 @@ ansible-galaxy collection install -r iac/ansible/requirements.yml
 | Ansible Lint, Syntax & Molecule (`iac-ci.yml`) | ansible-lint (production profile), `--syntax-check` of every playbook, every `tests/isolation/test-*.sh`, then Molecule for the `base` role |
 | Verify Affected Graph Selector Engine (`affected-selector-ci.yml`) | `tests/verify-affected-graph.sh`, `tests/verify-affected-graph.ps1`, then three mutants of the selector that each must fail one named scenario |
 | Evidence Publisher Tests & Published-Text Check (`evidence-ci.yml`) | `tests/evidence/test_publish.py`, then `publish.py --check docs/evidence docs/knowledge` |
+| Client tests, lockfiles, stale-binary test (`cache-ci.yml`) | `python3 -m unittest discover -s tests/cache`, a locked NuGet restore, `npm ci`, then `tests/cache/test_stale_binaries.sh` |
 
 ## Shell tests under `tests/isolation/`
 
@@ -72,6 +73,58 @@ TF_VAR_state_passphrase=ci-test-only-passphrase-not-a-secret-0123456789 tofu -ch
 | File | Proves | Run locally | CI job |
 |---|---|---|---|
 | `tests/evidence/test_publish.py` | Substitution is exact-value and longest first, never re-applied to a label, and never cuts a value out of a longer address or a version string. Every checker rule is red on a crafted line; allowlisted addresses stay clean; a dotted version-like token is soft only. `--check` output carries `file:line:rule` and never the matched text. The index hashes equal the bytes; an anchored file needing a substitution is withheld; a credential-mask marker or a checker flag withholds a file and fails the run. The email rule exempts systemd unit names and `.arpa` names but still flags real addresses. An address in a git-tracked file under an allowed directory is accepted, one absent from tracked files or present only under `iac/secrets/` still flags, and the allowed-address list requires a reason per line. Each of these behaviours, and the email rule itself, has a mutant that turns a named test red. | `python3 -m unittest discover -s tests/evidence -v` | Evidence Publisher Tests & Published-Text Check |
+
+## Phase 4 tests: build cache service
+
+Transcripts of the host runs are indexed in the [phase 4 index](../evidence/phase4/INDEX.md). The cache client tests run in the `Cache client CI` workflow (`cache-ci.yml`, job `Client tests, lockfiles, stale-binary test`); the shell tests below run in the Ansible job's isolation step, which loops over `tests/isolation/test-*.sh`.
+
+### Cache client (`tests/cache/`)
+
+Local command for the Python tests: `python3 -m unittest discover -s tests/cache -p 'test_*.py' -v`. `support.py` is a shared helper, not a test.
+
+| File | Proves | Host-only proof / evidence |
+|---|---|---|
+| `tests/cache/test_keys.py` | Happy: the dependency key is stable for identical input and input order, and the outputs key is stable. Bad: an empty lockfile set, an unknown namespace and empty trees are rejected. Edge: one changed lockfile byte, an added, removed or moved lockfile, any toolchain or platform field, the workspace root, the SDK configuration or any tree id changes the key; namespaces never share a key. | none |
+| `tests/cache/test_use_cases.py` | Happy: a saved archive restores to the exact bytes; a stamped restore gives every file one identical time. Bad: a pointer naming another key, a digest mismatch (nothing extracted), a parent-traversal, absolute, escaping-link or device-node archive member, a garbage stream and one bad member among good ones (nothing extracted) are refused. Edge: outputs are never restored on a non-exact key; an unreachable store is a miss on restore and a reported, not raised, failure on save; a save is skipped only after a verified hit in the same job; a save after an evicted blob replaces the pointer; packing is deterministic and records zstd or gzip; two concurrent saves of one key leave one complete blob. | none |
+| `tests/cache/test_http_store.py` | Happy: an authorized write is accepted and an anonymous reader gets a hit; reads are anonymous; an unknown key is a miss. Bad: a wrong or missing password is a refused write that is counted, not raised, and a missing password sends no request; a CAS body that does not match its digest fails with 500 and stores nothing; a pointer naming another key and a tampered blob are rejected; a 400 on get or put is an error, not an outage. Edge: the adapter sends only 64-hex names; a large write with a wrong password is refused by the empty-blob probe without uploading, with one probe per process; a dropped connection followed by a 401 probe is refused and by a good probe is failed; a 5xx on put is a failed save distinct from unreachable and refused, a 5xx on get stays a miss; a down or slow server is a miss; the password never appears in outputs, logs or exception text. Runs against a fake server with the real server's semantics. | **host-only proof** against the real server: [cache-api.txt](../evidence/phase4/cache-api.txt), [cache-edges-2.txt](../evidence/phase4/cache-edges-2.txt), [cache-edges-3-wrongpw.txt](../evidence/phase4/cache-edges-3-wrongpw.txt) |
+| `tests/cache/test_cli.py` | Happy: a miss, save, hit cycle with its report. Bad: a changed source tree and dirty inputs are a miss with exit 0. Edge: a save on a non-default ref is skipped; a save after a verified hit is skipped and after a miss is written; a missing store and an empty cache URL are immediate misses. | [cache-loop20-results.txt](../evidence/phase4/cache-loop20-results.txt) (twenty iterations on the host) |
+| `tests/cache/test_dependency_rule.py` | Happy: layers only point inward. Mutations: a domain module importing an adapter, a domain module importing the application layer and an application module importing an adapter are each caught. | none |
+| `tests/cache/test_stale_binaries.sh` | Builds the backend solution at three commits and checks that the restore of compiled outputs hits on the saved tree and misses on a changed tree. Needs the .NET SDK. Local command: `bash tests/cache/test_stale_binaries.sh`. | the compile-step finding is recorded in [real-host-defects.md](real-host-defects.md); no published transcript |
+
+### Cache service shell tests (`tests/isolation/`)
+
+Local command: `bash tests/isolation/<file>`. The ones that render the role need `ansible`.
+
+| File | Proves | Host-only proof / evidence |
+|---|---|---|
+| `test-cache-service-role.sh` | Happy: the rendered unit starts the pinned binary with the expected flags, orders the address wait before the sweep, orders both after `network-online.target`, sets a start timeout, and never contains the writer password; the role has exactly two htpasswd tasks under `no_log` with the password on stdin, one root-owned sweep script, and a download pinned by sha256 at version 2.6.2. Bad: each mutation of the role must be caught. | **host-only proof** of the service coming up: [converge-cache-7.txt](../evidence/phase4/converge-cache-7.txt) |
+| `test-cache-start-gate.sh` | Happy: a compliant stopped container is started and a running one is left alone. Bad: a container whose firewall read-back is not compliant is never started. Mutation: dropping the group check is caught. Uses a fake `pvesh`. | **host-only proof**: [guard-after-ct.txt](../evidence/phase4/guard-after-ct.txt), [guard-after-ct-2.txt](../evidence/phase4/guard-after-ct-2.txt), [converge-cache-7.txt](../evidence/phase4/converge-cache-7.txt) |
+| `test-cache-verify-cas.sh` | Happy: blobs whose content matches their name are kept. Bad: a mismatched blob is quarantined, not served. Mutation: comparing the wrong field is caught. | **host-only proof**: [cache-kill9-check.txt](../evidence/phase4/cache-kill9-check.txt), [cache-kill9-after-sweep.txt](../evidence/phase4/cache-kill9-after-sweep.txt) |
+| `test-cache-wait-for-address.sh` | Happy: a configured local address is found. Bad: an address that is not a local /32 is not accepted and times out with the documented message. Edge: an unreadable source gives a distinct message and exit 2; the script works under the unit's address-family restriction (it reads the routing table file, not `ip`). Mutation: matching the wrong entry type is caught. | **host-only proof**: [cache-ct-reboot.txt](../evidence/phase4/cache-ct-reboot.txt), [cache-ct-reboot-2.txt](../evidence/phase4/cache-ct-reboot-2.txt) |
+| `test-cache-writer-secret.sh` | Happy: the script creates a writer password of at least 40 characters, stores it through SOPS and sets the same value as a GitHub environment secret, and reports only the secret name. Bad: the password is never on a command line or in output. Edge: a second run without `--rotate` leaves the secret alone and `--rotate` replaces it. Mutations are caught. Uses fakes of `gh` and `sops`. | none |
+| `test-r15-verify-cache.sh` | Happy: `r15-verify.yml` passes the syntax check and runs the probe inside the cache container with the cache guest scope and the baseline phase. | **host-only proof**: [r15-baseline-cache.txt](../evidence/phase4/r15-baseline-cache.txt), [r15-after-pve-reboot-cache.txt](../evidence/phase4/r15-after-pve-reboot-cache.txt) |
+
+### Phase 4 additions to existing tests
+
+| File | What Phase 4 added | Host-only proof / evidence |
+|---|---|---|
+| `tests/isolation/test-guest-fw-guard.sh` | The guard stops a guest on an unknown bridge or on the host bridge, leaves a guest with no NIC alone, leaves a compliant cache guest alone, and stops a cache guest that lacks the `cache-ingress` group, has an extra out rule or has a gateway ssh rule; a guests-vnet guest carrying the cache group is stopped; a compliant stopped template is not touched and leaves no marker or journal line. | [guard-after-ct.txt](../evidence/phase4/guard-after-ct.txt), [guard-after-ct-2.txt](../evidence/phase4/guard-after-ct-2.txt) |
+| `tests/isolation/test-cluster-fw-render.sh` | With a cache endpoint the `guest-egress` group renders the cache accept first and then the existing drop and public accept, and the accept stays before the drop. | [fw-after-site1.txt](../evidence/phase4/fw-after-site1.txt), [fw-after-sdn.txt](../evidence/phase4/fw-after-sdn.txt) |
+| `tests/isolation/test-pve-api-identity-grants.sh` | The declared grants on the vnet paths of the guest zone match the expected set and role, and the grant count grows by exactly the cache vnet. | none |
+| `tests/isolation/test-r15-probe.sh` | Cache rows: the cache port is a positive and tcp/22 a paired negative; a tcp/22 that is open or reset fails; an unreachable cache port fails the positive; tcp/22 is not measured when the cache itself is unreachable; red-first expects the cache sshd reachable; inside the cache the runner-to-cache scope row applies and a reachable runner fails; a missing or malformed `CACHE_ADDR` or `CACHE_PORT` is a usage error. | [r15-baseline-lxc.txt](../evidence/phase4/r15-baseline-lxc.txt), [r15-baseline-vm.txt](../evidence/phase4/r15-baseline-vm.txt), [r15-baseline-cache.txt](../evidence/phase4/r15-baseline-cache.txt), [r15-after-pve-reboot-cache.txt](../evidence/phase4/r15-after-pve-reboot-cache.txt) |
+
+### Phase 4 OpenTofu tests
+
+Local command per stack is the one in the OpenTofu section above.
+
+| File | Proves | Host-only proof / evidence |
+|---|---|---|
+| `iac/tofu/stacks/cache-service/tests/cache.tftest.hcl` | Happy: the container sits on the cache vnet with the planned shape; the data volume is ten GiB at the service path and the cache limit fits it; the VM id stays outside the template blocks and probe ids; the firewall options are the runner-class values and the rules are exactly the two groups. Bad: a private key, a VM id inside a template block, a data volume the cache limit does not fit, a host without cache keys (fails closed) and the gateway address are each rejected. | **host-only proof**: [tofu-cache-service-apply1.txt](../evidence/phase4/tofu-cache-service-apply1.txt), [tofu-cache-service-final-plan.txt](../evidence/phase4/tofu-cache-service-final-plan.txt) |
+| `iac/tofu/stacks/proxmox-host/tests/sdn.tftest.hcl` (additions) | Happy: the first host plans the cache network; two vnets are isolated and source-nated. Edge: a host without a cache network plans no second vnet. Bad: an additional vnet overlapping the first is rejected. | **host-only proof**: [tofu-proxmox-host-plan1.txt](../evidence/phase4/tofu-proxmox-host-plan1.txt), [tofu-proxmox-host-apply1.txt](../evidence/phase4/tofu-proxmox-host-apply1.txt), [tofu-proxmox-host-final-plan.txt](../evidence/phase4/tofu-proxmox-host-final-plan.txt) |
+
+### Evidence tooling additions
+
+`tests/evidence/test_publish.py` also covers the rules added with the evidence tooling: an email address exempts systemd unit names and `.arpa` names, addresses from git-tracked files under allowed directories (never `iac/secrets/`) and from the reasoned allowed-address list are accepted, the operator-side deny-list is a hard flag that never prints the word, and a path segment naming the operator's tooling directory is a hard flag. Each behaviour has a mutant that turns a named test red. Local command: `python3 -m unittest discover -s tests/evidence -v`; CI job: `Evidence Publisher Tests & Published-Text Check`.
 
 ## Host-only verifiers (not run by CI)
 
