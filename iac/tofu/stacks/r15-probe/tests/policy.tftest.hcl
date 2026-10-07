@@ -265,3 +265,12 @@ run "template_sources_output_reports_the_resolved_vmids" {
     error_message = "template_sources must report the resolved VMID per class."
   }
 }
+
+run "the_vm_clone_installs_the_probe_key_from_the_vendor_data_snippet" {
+  command = plan
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.probe.initialization[0].vendor_data_file_id == "local:snippets/r15-probe-vendor.yaml"
+    error_message = "The VM clone must reference the vendor-data snippet that the keygen step writes, or sshd stays sealed."
+  }
+}

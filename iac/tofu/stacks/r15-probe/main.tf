@@ -117,7 +117,8 @@ resource "proxmox_virtual_environment_vm" "probe" {
   }
 
   initialization {
-    datastore_id = var.vm_datastore_id
+    datastore_id        = var.vm_datastore_id
+    vendor_data_file_id = "local:snippets/${local.probe.r15_vendor_snippet}"
 
     dns {
       servers = [var.dns_server]
