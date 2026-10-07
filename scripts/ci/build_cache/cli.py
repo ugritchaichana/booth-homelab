@@ -13,9 +13,9 @@ from pathlib import Path
 from .adapters import environment as env
 from .adapters.fs_store import FilesystemStore
 from .adapters.http_store import HttpStore
-from .adapters.tar_archiver import TarArchiver
+from .adapters.tar_archiver import TarArchiver, stamp_extracted
 from .application.ports import Outcome, Store
-from .application.restore import restore, stamp_extracted
+from .application.restore import restore
 from .application.save import save
 from .domain import keys
 from .domain.policy import DEFAULT_MAX_BYTES, DEFAULT_MAX_MEMBERS, ExtractionRules, write_decision
