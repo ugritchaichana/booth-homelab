@@ -69,12 +69,12 @@ if users != [user] or users[0] in ("root", "0", ""):
     problems.append("User= is %s, wanted the non-root %s" % (users, user))
 if service.get("IPAddressDeny") != ["any"]:
     problems.append("IPAddressDeny=any is missing")
-if extra.get("IPAddressAllow") != [subnet] or "IPAddressAllow" in service:
-    problems.append("IPAddressAllow is %s, wanted only the guest subnet %s" % (extra.get("IPAddressAllow"), subnet))
+if sorted(extra.get("IPAddressAllow", [])) != sorted(a + "/32" for a in subnet.split(",")) or "IPAddressAllow" in service:
+    problems.append("IPAddressAllow is %s, wanted only the build addresses as /32: %s" % (extra.get("IPAddressAllow"), subnet))
 for key, value in (("ProtectSystem", "strict"), ("ProtectHome", "yes"), ("NoNewPrivileges", "yes"), ("PrivateTmp", "yes"), ("CapabilityBoundingSet", "")):
     if service.get(key) != [value]:
         problems.append("%s=%s is missing" % (key, value))
-inaccessible = " ".join(service.get("InaccessiblePaths", [])).split()
+inaccessible = " ".join(service.get("InaccessiblePaths", []) + extra.get("InaccessiblePaths", [])).split()
 for path in ("/etc/pve", "/root"):
     if path not in inaccessible:
         problems.append("InaccessiblePaths does not hold %s" % path)
@@ -91,7 +91,7 @@ failures=0
 expect() {
   if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: got '$3', wanted '$2'"; failures=$((failures + 1)); fi
 }
-subnet="$(python3 -I -c "import json; print(json.load(open('$work/vars.json'))['guest_network']['cidr'])")"
+subnet="$(python3 -I -c "import json; print(\",\".join(c[\"build_address\"] for c in json.load(open(\"$work/config.json\"))[\"classes\"].values()))")"
 unit="${GUEST_UNIT:-$role/files/homelab-template-guest@.service}"
 checker() { python3 -I "$work/check-guest-unit.py" "$1" "$2" "$subnet" homelab-tmpl > "$work/check.out" 2>&1 && echo ok || echo bad; }
 
@@ -112,14 +112,22 @@ mutate "a unit without a User= fails" '/^User=/d'
 mutate "a unit without NoNewPrivileges fails" '/^NoNewPrivileges=yes$/d'
 mutate "a unit without ProtectSystem=strict fails" 's/^ProtectSystem=strict$/ProtectSystem=full/'
 mutate "a unit without ProtectHome=yes fails" '/^ProtectHome=yes$/d'
-mutate "a unit that can see /etc/pve fails" 's#^InaccessiblePaths=/etc/pve /root$#InaccessiblePaths=/root#'
-mutate "a unit that can see /root fails" 's#^InaccessiblePaths=/etc/pve /root$#InaccessiblePaths=/etc/pve#'
+mutate "a unit that can see /etc/pve fails" 's#^InaccessiblePaths=/etc/pve /root /var/lib/pve-cluster$#InaccessiblePaths=/root /var/lib/pve-cluster#'
+mutate "a unit that can see /root fails" 's#^InaccessiblePaths=/etc/pve /root /var/lib/pve-cluster$#InaccessiblePaths=/etc/pve /var/lib/pve-cluster#'
 mutate "a unit without the key cleanup fails" '/^ExecStopPost=/d'
 mutate "a unit that allows more than the subnet fails" 's/^IPAddressDeny=any$/IPAddressDeny=any\nIPAddressAllow=0.0.0.0\/0/'
 printf '[Service]\nIPAddressAllow=0.0.0.0/0\n' > "$work/wide.conf"
 expect "a drop-in that allows every address fails" bad "$(checker "$unit" "$work/wide.conf")"
-printf '[Service]\nIPAddressAllow=%s\nIPAddressAllow=10.0.0.0/8\n' "$subnet" > "$work/two.conf"
-expect "a drop-in that adds a second allowed range fails" bad "$(checker "$unit" "$work/two.conf")"
+printf '[Service]
+IPAddressAllow=%s/32
+IPAddressAllow=%s/24
+' "${subnet%%,*}" "${subnet%%,*}" > "$work/two.conf"
+expect "a drop-in that adds a second, wider allowed range fails" bad "$(checker "$unit" "$work/two.conf")"
+printf '[Service]
+IPAddressAllow=%s
+' "$(python3 -I -c "import json; print(json.load(open(\"$work/vars.json\"))[\"guest_network\"][\"cidr\"])")" > "$work/subnet.conf"
+expect "a drop-in that allows the whole guest subnet (the host vnet address) fails" bad "$(checker "$unit" "$work/subnet.conf")"
+expect "the work directory task gives the guest user no ownership" "root" "$(python3 -I -c "import yaml; t = [x for x in yaml.safe_load(open(\"$role/tasks/main.yml\")) if \"work directory\" in x[\"name\"]][0]; print(t[\"ansible.builtin.file\"][\"owner\"])")"
 
 echo "== the other units"
 build="$role/files/homelab-template-build@.service"

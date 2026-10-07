@@ -216,6 +216,16 @@ def systemctl():
     scenario, out = os.environ.get("FAKE_GUEST", "pass"), params["OUT"]
     if scenario == "fail":
         sys.exit(1)
+    if scenario in ("symlink-out", "symlink-build"):
+        victim = os.environ["FAKE_VICTIM"]
+        os.makedirs(os.path.join(victim, "out"), exist_ok=True)
+        for base in (victim, os.path.join(victim, "out")):
+            open(os.path.join(base, "pass"), "w", encoding="ascii").write("PASS %s\n" % params["BUILD_ID"])
+            open(os.path.join(base, "manifest.json"), "w", encoding="ascii").write('{"os": "swapped"}')
+        target = out if scenario == "symlink-out" else os.path.dirname(out)
+        os.rename(target, target + ".gone")
+        os.symlink(victim, target)
+        sys.exit(0)
     if scenario == "scan":
         guest_root = os.environ["FAKE_SCAN_ROOT"]
         finalized = subprocess.run(["sh", os.environ["FINALIZE_SCRIPT"], params["BUILD_ID"]], capture_output=True, check=False,

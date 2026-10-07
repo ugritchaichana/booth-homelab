@@ -145,6 +145,7 @@ for cls in $lxc $vm; do
   expect "$cls v1: the read-back line comes before the start line" "1" "$(awk '/READBACK ok .* before first start/{r=NR} /START vmid=/{s=NR} END{print (r>0 && s>r)?1:0}' "$case_dir/out.log")"
   has "$cls v1: promotion is journaled" "$case_dir/out.log" "PROMOTED class=$cls first version v1"
   hasnt "$cls v1: the build guest was never given a pool" "$case_dir/calls" "--pool"
+  expect "$cls v1: the pool join comes after the verification clone" 1 "$(awk '/ clone /{c=NR} /pvesh set \/pools/{p=NR} END{print (c>0 && p>c) ? 1 : 0}' "$case_dir/calls")"
   expect "$cls v1: a linked clone was requested" "1" "$(count 'clone .* --full 0' "$case_dir/calls")"
   expect "$cls v1: state current is 1, previous none" "1 None" "$(state_get "$cls" "str(s['current']) + ' ' + str(s['previous'])")"
 
@@ -242,6 +243,46 @@ for scenario in nopass wrongid symlink bigmanifest fail; do
 done
 has "wrong build id is named" "$work/case-gate-wrongid/out.log" "pass marker does not carry build id"
 
+echo "== root never follows a symlink in the work directory"
+sym_case() {
+  new_case "$1"
+  victim="$case_dir/victim"
+  mkdir -p "$victim"
+  echo keep > "$victim/sentinel"
+}
+sym_case sym-planted
+ln -s "$victim" "$case_dir/work/build"
+tplrun build $lxc
+expect "a symlink planted at work/build refuses the build" 1 "$rc"
+expect "nothing is written through a symlink at work/build" "sentinel" "$(ls "$victim" | tr '\n' ' ' | sed 's/ $//')"
+expect "a refused work directory creates no guest" 0 "$(count '^pct create' "$case_dir/calls")"
+for scenario in symlink-out symlink-build; do
+  sym_case "sym-$scenario"
+  FAKE_GUEST="$scenario" FAKE_VICTIM="$victim" tplrun build $lxc
+  expect "$scenario swapped in while the guest step runs: the build fails" 1 "$rc"
+  expect "$scenario: no template conversion was requested" 0 "$(count '^pct template' "$case_dir/calls")"
+  expect "$scenario: nothing is promoted" "None" "$(state_get $lxc "s['current']")"
+done
+
+echo "== retention keeps the recorded current and previous even when their tags drift"
+new_case retention-drift
+build_ok $lxc "v1"; build_ok $lxc "v2"
+world_edit "w['guests']['9202']['tags'] = ''; w['guests']['9203']['tags'] = ''"
+build_ok $lxc "v3 after tag drift"
+expect "the recorded previous v2 survives without tags and the unrecorded v1 is retired" "9203,9204" "$(world_get "','.join(sorted(g))")"
+
+echo "== leftover cleanup touches only this framework's build guests"
+new_case strangers
+world_edit "w['guests']['9210'] = {'type': 'lxc', 'name': 'consumer-runner', 'status': 'running', 'template': 0, 'pool': '', 'tags': '', 'config': {}, 'fw_options': {}, 'fw_rules': [], 'ipsets': {}, 'origin': None}"
+tplrun build $lxc
+expect "a non-build guest in the class block refuses the build with exit 3" 3 "$rc"
+expect "a non-build guest in the class block is not destroyed" 0 "$(count 'destroy' "$case_dir/calls")"
+new_case pooled-build-name
+world_edit "w['guests']['9210'] = {'type': 'lxc', 'name': 'build-lxc-runner-v9', 'status': 'stopped', 'template': 0, 'pool': 'homelab', 'tags': '', 'config': {}, 'fw_options': {}, 'fw_rules': [], 'ipsets': {}, 'origin': None}"
+tplrun build $lxc
+expect "a build-named guest that sits in a pool is not ours: exit 3" 3 "$rc"
+expect "a build-named guest that sits in a pool is not destroyed" 0 "$(count 'destroy' "$case_dir/calls")"
+
 echo "== a failure while the guest is being set up leaves no guest behind"
 new_case setup-fails
 FAIL_CALLS="pvesh create" tplrun build $lxc
@@ -273,6 +314,7 @@ tplrun build $lxc
 unset FAKE_CLONE_FULL
 expect "a full clone fails verification" 1 "$rc"
 has "the failure says the clone is not linked" "$case_dir/out.log" "not a linked clone"
+expect "a template that failed verification never joined the templates pool" 0 "$(count 'pvesh set /pools' "$case_dir/calls")"
 expect "a template that failed verification is destroyed" "" "$(world_get "','.join(sorted(g))")"
 expect "a template that failed verification is not promoted" "None" "$(state_get $lxc "s['current']")"
 printf '#!/bin/sh\necho "$CLASS $VERSION $TEMPLATE_VMID $CLONE_VMID" > "%s/hook.out"\nexit "${HOOK_EXIT:-0}"\n' "$work" > "$work/hook-pass.sh"
@@ -351,6 +393,7 @@ for cls_spec in "$lxc:9202:$lx_net" "$vm:9302:$vm_net"; do
   for option in enable:0 policy_in:ACCEPT policy_out:ACCEPT ipfilter:0 macfilter:0 dhcp:1 radv:1 ndp:0 log_level_out:nolog; do
     prestart_case "$cls firewall option ${option%%:*} differs" "$cls" "{\"options_set\": {\"${option%%:*}\": \"${option#*:}\"}}" "firewall option ${option%%:*} is '${option#*:}'" "$id"
   done
+  prestart_case "$cls option policy_in missing" "$cls" '{"options_del": ["policy_in"]}' "firewall option policy_in is 'None'" "$id"
   prestart_case "$cls option policy_out missing" "$cls" '{"options_del": ["policy_out"]}' "firewall option policy_out is 'None'" "$id"
   prestart_case "$cls extra enabled OUT ACCEPT rule" "$cls" '{"rules_add": [{"type": "out", "action": "ACCEPT", "enable": 1}]}' "firewall rules are not exactly" "$id"
   prestart_case "$cls extra disabled rule" "$cls" '{"rules_add": [{"type": "in", "action": "ACCEPT", "enable": 0}]}' "firewall rules are not exactly" "$id"

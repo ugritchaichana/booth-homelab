@@ -22,7 +22,6 @@ FORBIDDEN_KEYS = {
     "qemu": re.compile(r"^(hostpci\d+|usb\d+|virtiofs\d+|serial\d+|parallel\d+|args|hookscript)$"),
     "lxc": re.compile(r"^(mp\d+|dev\d+|features|hookscript|lxc.*)$"),
 }
-FW_DEFAULTS = {"policy_in": "DROP"}
 
 
 class Refused(Exception):
@@ -273,7 +272,7 @@ def firewall_problems(cfg, kind, vmid, with_ssh, address):
     options, rules = pvesh_get(base + "/options") or {}, pvesh_get(base + "/rules") or []
     problems = []
     for key, want in cfg["fw_options"].items():
-        have = options.get(key, FW_DEFAULTS.get(key))
+        have = options.get(key)
         if have is None or str(have).strip().lower() != str(want).strip().lower():
             problems.append("firewall option %s is '%s', wanted %s" % (key, have, want))
     if sorted(normalize_rule(r) for r in rules) != expected_rules(cfg, with_ssh):
@@ -365,61 +364,105 @@ def clone_readback(cfg, cls, template_vmid, clone_vmid, kind):
     log("VERIFY ok clone=%s is a linked clone of %s (origin %s)" % (clone_vmid, template_vmid, linked[0]))
 
 
-def read_regular(path, limit):
+def require_plain_dir(path, private=False):
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        info = os.lstat(path)
     except OSError as err:
-        raise Failed("%s is missing or not a plain file (%s)" % (os.path.basename(path), err.strerror)) from err
+        raise Failed("%s cannot be inspected (%s)" % (path, err.strerror)) from err
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise Failed("%s is a symlink or not a directory, refusing to work inside it" % path)
+    if private and (info.st_uid != os.geteuid() or info.st_mode & 0o022):
+        raise Failed("%s must be owned by the orchestrator user and not writable by others" % path)
+
+
+def read_out_file(out, name, limit):
     try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
-            raise Failed("%s is not a regular file of at most %d bytes" % (os.path.basename(path), limit))
-        return os.read(fd, limit + 1)
+        dir_fd = os.open(out, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError as err:
+        raise Failed("%s is missing or a symlink (%s)" % (out, err.strerror)) from err
+    try:
+        try:
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dir_fd)
+        except OSError as err:
+            raise Failed("%s is missing or not a plain file (%s)" % (name, err.strerror)) from err
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+                raise Failed("%s is not a regular file of at most %d bytes" % (name, limit))
+            return os.read(fd, limit + 1)
+        finally:
+            os.close(fd)
     finally:
-        os.close(fd)
+        os.close(dir_fd)
 
 
 def work_build_dir(cfg):
     return os.path.join(cfg["work_dir"], "build")
 
 
+def reset_build_dir(cfg):
+    require_plain_dir(cfg["work_dir"], private=True)
+    root = work_build_dir(cfg)
+    if os.path.lexists(root):
+        require_plain_dir(root)
+        shutil.rmtree(root)
+    os.mkdir(root, 0o711)
+    return root
+
+
+def guest_owned_dir(path, account):
+    os.mkdir(path, 0o700)
+    os.chown(path, account.pw_uid, account.pw_gid, follow_symlinks=False)
+
+
 def prepare_workdir(cfg, cls, build_id, version, address, state):
     spec = cfg["classes"][cls]
     account = pwd.getpwnam(cfg["guest_user"])
-    root = work_build_dir(cfg)
-    shutil.rmtree(root, ignore_errors=True)
-    os.makedirs(os.path.join(root, "out"), mode=0o700)
+    root = reset_build_dir(cfg)
+    guest_owned_dir(os.path.join(root, "out"), account)
+    guest_owned_dir(os.path.join(root, "ssh"), account)
     bundle = os.path.join(root, "bundle")
     shutil.copytree(cfg["bundle_common_dir"], bundle)
     class_dir = os.path.join(cfg["bundle_root_dir"], cls)
     if os.path.isdir(class_dir):
         shutil.copytree(class_dir, bundle, dirs_exist_ok=True)
-    key = os.path.join(root, "key")
-    run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", build_id, "-f", key], timeout=60)
+    staged = os.path.join(root, "key")
+    run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", build_id, "-f", staged], timeout=60)
+    key = os.path.join(root, "ssh", "key")
+    for suffix in ("", ".pub"):
+        os.chown(staged + suffix, account.pw_uid, account.pw_gid, follow_symlinks=False)
+        os.rename(staged + suffix, key + suffix)
     previous = ""
     if state.data["current"] is not None:
         source = os.path.join(cfg["state_dir"], "manifests", cls, "v%s.json" % state.data["current"])
         if os.path.exists(source):
             previous = os.path.join(root, "previous-manifest.json")
             shutil.copyfile(source, previous)
+            os.chmod(previous, 0o644)
     values = {
         "BUILD_ID": build_id, "CLASS": cls, "VERSION": version, "ADDRESS": address, "LOGIN_USER": spec["login_user"],
-        "USE_SUDO": "1" if spec["login_user"] != "root" else "0", "KEY": key, "KNOWN_HOSTS": os.path.join(root, "known_hosts"),
+        "USE_SUDO": "1" if spec["login_user"] != "root" else "0", "KEY": key, "KNOWN_HOSTS": os.path.join(root, "ssh", "known_hosts"),
         "BUNDLE": bundle, "OUT": os.path.join(root, "out"), "PREVIOUS_MANIFEST": previous,
         "MANIFEST_MAX_BYTES": cfg["manifest_max_bytes"], "SSH_WAIT_SECONDS": cfg["timeouts"]["ssh_wait_seconds"], "RUN_SECONDS": cfg["timeouts"]["run_seconds"],
         "HOOK": spec.get("verify_hook", ""),
     }
-    with open(os.path.join(root, "params.env"), "w", encoding="utf-8") as handle:
-        for name, value in values.items():
-            handle.write("%s=%s\n" % (name, value))
-    for current, dirs, files in os.walk(root):
-        for entry in [current] + [os.path.join(current, n) for n in dirs + files]:
-            os.chown(entry, account.pw_uid, account.pw_gid)
+    write_params(root, values)
     return open(key + ".pub", encoding="utf-8").read().strip(), key + ".pub"
 
 
+def write_params(root, values):
+    path = os.path.join(root, "params.env")
+    with open(path, "w", encoding="utf-8") as handle:
+        for name, value in values.items():
+            handle.write("%s=%s\n" % (name, value))
+    os.chmod(path, 0o644)
+
+
 def remove_workdir(cfg):
-    shutil.rmtree(work_build_dir(cfg), ignore_errors=True)
+    root = work_build_dir(cfg)
+    if os.path.lexists(root):
+        require_plain_dir(root)
+        shutil.rmtree(root)
 
 
 def guest_unit(cfg, mode):
@@ -496,12 +539,13 @@ def retain(cfg, cls, state):
     guests = class_guests(cfg, cls)
     keep = {state.data["current"], state.data["previous"]} - {None}
     rows = lvs_rows(cfg)
-    verified = verified_versions(cfg, cls, guests, state)
-    kept_vmids = {int(verified[n]["vmid"]) for n in keep if n in verified}
-    victims = {int(g["vmid"]): (n, g) for n, g in verified.items() if n not in keep}
-    for guest in guests:
-        if guest.get("template") and int(guest["vmid"]) not in kept_vmids:
-            victims.setdefault(int(guest["vmid"]), (None, guest))
+    templates = {int(g["vmid"]): g for g in guests if g.get("template")}
+    kept_vmids = {int(state.data["verified"][str(n)]["vmid"]) for n in keep if str(n) in state.data["verified"]}
+    missing = [v for v in kept_vmids if v not in templates]
+    if missing or len(kept_vmids) != len(keep):
+        raise Failed("retention refused: recorded current or previous version is not a template in the class block (vmids %s)" % sorted(missing))
+    numbers = {int(entry["vmid"]): int(n) for n, entry in state.data["verified"].items()}
+    victims = {vmid: (numbers.get(vmid), guest) for vmid, guest in templates.items() if vmid not in kept_vmids}
     for number, guest in victims.values():
         found = dependents(rows, guest["vmid"])
         if found:
@@ -527,6 +571,10 @@ def build(cfg, cls):
     kind = spec["type"]
     lock = Lock(cfg)
     state = State(cfg, cls)
+    build_names = re.compile(r"^(build|verify)-%s-v[0-9]+$" % re.escape(cls))
+    strangers = [g for g in class_guests(cfg, cls) if not g.get("template") and not (build_names.match(str(g.get("name"))) and not g.get("pool"))]
+    if strangers:
+        raise Refused("the %s VMID block holds guests that are not build guests of this framework: %s" % (cls, sorted(int(g["vmid"]) for g in strangers)))
     for guest in class_guests(cfg, cls):
         if not guest.get("template"):
             log("LEFTOVER destroying non-template guest vmid=%s status=%s" % (guest["vmid"], guest.get("status")))
@@ -555,11 +603,13 @@ def build(cfg, cls):
         log("START vmid=%s" % vmid)
         run([tool(kind), "start", str(vmid)])
         guest_unit(cfg, "build")
+        require_plain_dir(cfg["work_dir"], private=True)
+        require_plain_dir(work_build_dir(cfg))
         out = os.path.join(work_build_dir(cfg), "out")
-        marker = read_regular(os.path.join(out, "pass"), 256)
+        marker = read_out_file(out, "pass", 256)
         if marker != ("PASS %s\n" % build_id).encode():
             raise Failed("pass marker does not carry build id %s" % build_id)
-        manifest = read_regular(os.path.join(out, "manifest.json"), cfg["manifest_max_bytes"])
+        manifest = read_out_file(out, "manifest.json", cfg["manifest_max_bytes"])
         digest = hashlib.sha256(manifest).hexdigest()
         log("GATE ok build_id=%s manifest_sha256=%s" % (build_id, digest))
         remove_workdir(cfg)
@@ -570,10 +620,6 @@ def build(cfg, cls):
         template_readback(cfg, cls, vmid, kind, set(), False)
         run([tool(kind), "template", str(vmid)])
         converted = True
-        pvesh_write("set", "/pools/" + cfg["pool"], vms=vmid)
-        tags = wanted_tags(cfg, cls, version, None)
-        run([tool(kind), "set", str(vmid), "--tags", ";".join(sorted(tags))])
-        template_readback(cfg, cls, vmid, kind, tags, True)
         manifest_dir = os.path.join(cfg["state_dir"], "manifests", cls)
         os.makedirs(manifest_dir, mode=0o700, exist_ok=True)
         with open(os.path.join(manifest_dir, "v%d.json" % version), "wb") as handle:
@@ -589,8 +635,15 @@ def build(cfg, cls):
             if clone is not None:
                 stop_guest(cfg, clone)
                 destroy_guest(clone)
+        pvesh_write("set", "/pools/" + cfg["pool"], vms=vmid)
+        tags = wanted_tags(cfg, cls, version, None)
+        run([tool(kind), "set", str(vmid), "--tags", ";".join(sorted(tags))])
+        template_readback(cfg, cls, vmid, kind, tags, True)
     except BaseException as err:
-        remove_workdir(cfg)
+        try:
+            remove_workdir(cfg)
+        except (Failed, OSError) as cleanup_err:
+            log("WORKDIR cleanup refused: %s" % cleanup_err)
         if created:
             leftover = guest_entry(cfg, cls, vmid)
             if leftover is not None:
@@ -622,15 +675,9 @@ def build(cfg, cls):
 
 
 def prepare_verify(cfg, cls, version, template_vmid, clone_vmid):
-    root = work_build_dir(cfg)
-    account = pwd.getpwnam(cfg["guest_user"])
-    os.makedirs(root, mode=0o700, exist_ok=True)
+    root = reset_build_dir(cfg)
     values = {"CLASS": cls, "VERSION": version, "TEMPLATE_VMID": template_vmid, "CLONE_VMID": clone_vmid, "HOOK": cfg["classes"][cls].get("verify_hook", "")}
-    with open(os.path.join(root, "params.env"), "w", encoding="utf-8") as handle:
-        for name, value in values.items():
-            handle.write("%s=%s\n" % (name, value))
-    for entry in (root, os.path.join(root, "params.env")):
-        os.chown(entry, account.pw_uid, account.pw_gid)
+    write_params(root, values)
 
 
 def rollback(cfg, cls):
