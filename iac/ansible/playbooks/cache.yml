@@ -1,4 +1,22 @@
 ---
+- name: Start the cache container only after its firewall reads back correctly
+  hosts: pve_hosts
+  gather_facts: false
+  become: true
+  vars:
+    cache_vmid: "{{ hostvars[groups['cache'][0]].cache_vmid }}"
+    cache_node: "{{ pve_node_name }}"
+    cache_vnet: "{{ cache_network.vnet }}"
+  tasks:
+    - name: Gate the first start on the firewall read-back
+      ansible.builtin.include_tasks: tasks/cache-start-gate.yml
+
+    - name: Wait for ssh on the cache address
+      ansible.builtin.wait_for:
+        host: "{{ cache_endpoint.address }}"
+        port: 22
+        timeout: 120
+
 - name: Prepare the cache container for Ansible
   hosts: cache
   gather_facts: false

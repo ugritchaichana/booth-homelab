@@ -9,6 +9,8 @@ RequiresMountsFor={{ cache_service_data_mount }}
 Type=simple
 User={{ cache_service_user }}
 Group={{ cache_service_group }}
+ExecStartPre={{ cache_service_install_dir }}/wait-for-address {{ cache_service_listen_address }} {{ cache_service_address_wait_seconds }}
+ExecStartPre={{ cache_service_install_dir }}/verify-cas {{ cache_service_data_dir }} {{ cache_service_quarantine_dir }} {{ cache_service_quarantine_keep }} {{ cache_service_quarantine_max_file_bytes }}
 ExecStart={{ cache_service_binary_link }} \
   --dir {{ cache_service_data_dir }} \
   --max_size {{ cache_service_max_size_gib }} \
@@ -20,6 +22,7 @@ ExecStart={{ cache_service_binary_link }} \
   --disable_http_ac_validation \
   --max_blob_size {{ cache_service_max_blob_size_bytes }} \
   --enable_endpoint_metrics
+TimeoutStartSec={{ cache_service_start_timeout_seconds }}
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
@@ -30,6 +33,15 @@ ProtectHome=true
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 MemoryMax={{ cache_service_memory_max }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+PrivateDevices=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

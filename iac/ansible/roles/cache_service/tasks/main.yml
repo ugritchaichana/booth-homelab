@@ -21,6 +21,7 @@
       - apache2-utils
       - ca-certificates
       - curl
+      - iproute2
     state: present
     update_cache: true
     cache_valid_time: 3600
@@ -64,6 +65,32 @@
     owner: root
     group: root
     mode: "0755"
+
+- name: Create the quarantine directory outside the cache directory
+  ansible.builtin.file:
+    path: "{{ cache_service_quarantine_dir }}"
+    state: directory
+    owner: "{{ cache_service_user }}"
+    group: "{{ cache_service_group }}"
+    mode: "0700"
+
+- name: Install the wait that holds the start until the listen address exists
+  ansible.builtin.copy:
+    src: wait-for-address
+    dest: "{{ cache_service_install_dir }}/wait-for-address"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart bazel-remote
+
+- name: Install the sweep that quarantines blobs whose content does not match their name
+  ansible.builtin.copy:
+    src: verify-cas
+    dest: "{{ cache_service_install_dir }}/verify-cas"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart bazel-remote
 
 - name: Download the pinned bazel-remote binary and verify its digest
   ansible.builtin.get_url:

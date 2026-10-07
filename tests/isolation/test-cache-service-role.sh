@@ -71,11 +71,33 @@ for directive in (
     "CapabilityBoundingSet=",
     "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX",
     "MemoryMax=768M",
+    "ProtectKernelTunables=yes",
+    "ProtectKernelModules=yes",
+    "ProtectControlGroups=yes",
+    "PrivateDevices=yes",
+    "RestrictNamespaces=yes",
+    "RestrictSUIDSGID=yes",
+    "LockPersonality=yes",
+    "SystemCallFilter=@system-service",
+    "SystemCallArchitectures=native",
     "Restart=on-failure",
     "User=bazel-remote",
 ):
     if directive not in lines:
         errors.append(f"unit lacks the line {directive!r}")
+
+want_wait = "ExecStartPre=/usr/local/lib/bazel-remote/wait-for-address 10.99.17.10 30"
+if want_wait not in lines:
+    errors.append(f"unit lacks the line {want_wait!r}")
+if "After=network-online.target" not in lines or "Wants=network-online.target" not in lines:
+    errors.append("unit must order after and want network-online.target")
+if lines.index(want_wait) > lines.index("ExecStartPre=/usr/local/lib/bazel-remote/verify-cas /var/lib/bazel-remote/data /var/lib/bazel-remote/quarantine 3 67108864") if want_wait in lines else False:
+    errors.append("the address wait must run before the sweep")
+want_pre = "ExecStartPre=/usr/local/lib/bazel-remote/verify-cas /var/lib/bazel-remote/data /var/lib/bazel-remote/quarantine 3 67108864"
+if want_pre not in lines:
+    errors.append(f"unit lacks the line {want_pre!r}")
+if not any(line.startswith("TimeoutStartSec=") for line in lines):
+    errors.append("unit lacks TimeoutStartSec for the sweep")
 
 if sentinel in text:
     errors.append("the writer password text reached the unit")
@@ -112,6 +134,10 @@ for task in tasks:
         errors.append(f"task {name!r} uses the password outside htpasswd stdin")
 if htpasswd_tasks != 2:
     errors.append(f"expected 2 htpasswd tasks, found {htpasswd_tasks}")
+
+sweep = [t for t in tasks if module_args(t)[0] == "ansible.builtin.copy" and module_args(t)[1].get("src") == "verify-cas"]
+if len(sweep) != 1 or sweep[0]["ansible.builtin.copy"].get("owner") != "root" or sweep[0]["ansible.builtin.copy"].get("mode") != "0755":
+    errors.append("the sweep must be installed once, root-owned, mode 0755")
 
 downloads = [t for t in tasks if module_args(t)[0] == "ansible.builtin.get_url"]
 if len(downloads) != 1 or downloads[0]["ansible.builtin.get_url"].get("checksum") != "sha256:{{ cache_service_sha256 }}":
@@ -157,7 +183,10 @@ mutate() {
 
 mutate "drop allow_unauthenticated_reads" templates/bazel-remote.service.j2 '/--allow_unauthenticated_reads/d'
 mutate "drop htpasswd_file" templates/bazel-remote.service.j2 '/--htpasswd_file/d'
+mutate "drop the address wait from the unit" templates/bazel-remote.service.j2 '/wait-for-address/d'
+mutate "drop the sweep from the unit" templates/bazel-remote.service.j2 '/^ExecStartPre=/d'
 mutate "drop the grpc off switch" templates/bazel-remote.service.j2 '/--grpc_address none/d'
+mutate "drop the syscall filter" templates/bazel-remote.service.j2 '/^SystemCallFilter=/d'
 mutate "loosen ProtectSystem" templates/bazel-remote.service.j2 's/^ProtectSystem=strict/ProtectSystem=full/'
 mutate "put the password in the unit" templates/bazel-remote.service.j2 '/^\[Install\]/i Environment=PW={{ cache_writer_password }}'
 mutate "drop no_log" tasks/main.yml '/^  no_log: true/d'
