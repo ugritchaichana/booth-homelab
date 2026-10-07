@@ -1,0 +1,7 @@
+---
+guests:
+  pve01:
+    azure-vm:
+      flavor: azure/Standard_B2s
+      template_class: vm-docker
+      slot: 1

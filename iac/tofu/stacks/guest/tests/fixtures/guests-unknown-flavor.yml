@@ -1,0 +1,7 @@
+---
+guests:
+  pve01:
+    runner-lxc:
+      flavor: aws/t3.nonexistent
+      template_class: lxc-runner
+      slot: 1
