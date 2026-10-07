@@ -221,10 +221,12 @@ Describe 'Sync-PveVmAcl refuses and fails closed (psm1:370-429)' {
         $store.Events | Should -Contain 'disconnect'
     }
 
-    It 'still fails closed when every write is dropped, with a binding error instead of the verification text (psm1:416)' {
+    It 'reports the verification failure and disconnects when every write is dropped (psm1:416)' {
         $store.AddFails = $true
-        { Sync-PveVmAcl -Config $c -ExtraDenyPrefix @() } | Should -Throw "*empty array*"
+        $want = @(Get-PveAclPlan -Config $c -ExtraDenyPrefix @()).Count
+        { Sync-PveVmAcl -Config $c -ExtraDenyPrefix @() } | Should -Throw "*Port ACL verification failed: $want rule(s) missing, 0 unexpected*"
         $store.Events | Should -Contain 'disconnect'
+        Should -Invoke Write-Host -ModuleName HomelabHyperV -ParameterFilter { $Object -like '*(no rules read back)*' }
     }
 
     It 'fails the verification when a stale rule cannot be removed (psm1:404,414-417)' {

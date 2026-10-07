@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 if (-not $ConfigPath) { $ConfigPath = Join-Path $PSScriptRoot 'pve01.psd1' }
 Import-Module (Join-Path $PSScriptRoot 'HomelabHyperV.psm1') -Force
 $script:ShowPrefixes = $ShowPrefixes.IsPresent

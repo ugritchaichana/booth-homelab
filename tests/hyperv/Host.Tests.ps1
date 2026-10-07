@@ -411,9 +411,9 @@ Describe 'Assert-PveSafePath (psm1:576-601)' {
 }
 
 Describe 'Get-PveVmAccountName (psm1:641-645)' {
-    It 'joins the VM worker group domain with the upper-case VM id (invariant culture: psm1:644 IndexOf is culture-sensitive)' -Skip:(-not $script:canTranslateVmGroup) {
+    It 'joins the VM worker group domain with the upper-case VM id under the th-TH culture (psm1:644)' -Skip:(-not $script:canTranslateVmGroup) {
         $saved = [Threading.Thread]::CurrentThread.CurrentCulture
-        [Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::InvariantCulture
+        [Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::GetCultureInfo('th-TH')
         try { $name = Get-PveVmAccountName -VmId ([guid]'0a1b2c3d-4e5f-6789-abcd-ef0123456789') }
         finally { [Threading.Thread]::CurrentThread.CurrentCulture = $saved }
         $name | Should -Match '^[^\\]+\\0A1B2C3D-4E5F-6789-ABCD-EF0123456789$'

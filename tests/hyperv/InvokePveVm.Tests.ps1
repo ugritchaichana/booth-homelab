@@ -57,7 +57,7 @@ BeforeAll {
         $st.Dvd = @([pscustomobject]@{ Path = ''; DvdMediaType = 'None'; ControllerNumber = 0; ControllerLocation = 1 })
         $st.SnapDvd = @()
         $st.Disks = @([pscustomobject]@{ Path = 'D:\lab\lab-vm.vhdx' })
-        $st.SnapDisks = @()
+        $st.SnapDisks = @([pscustomobject]@{ Path = 'D:\lab\lab-vm.vhdx' })
         $st.Vhd = @{ 'D:\lab\lab-vm.vhdx' = [pscustomobject]@{ FileSize = 10GB; ParentPath = $null } }
         $st.Free = 500GB
         $st.StopThrows = $false
