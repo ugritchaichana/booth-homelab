@@ -153,3 +153,27 @@ run "the_gateway_address_is_rejected" {
 
   expect_failures = [proxmox_virtual_environment_container.cache]
 }
+
+run "name_and_tags_say_the_role_and_the_base_image" {
+  command = plan
+
+  assert {
+    condition     = proxmox_virtual_environment_container.cache.initialization[0].hostname == "build-cache-debian-13"
+    error_message = "The hostname must be build-cache-<os image slug>, build-cache-debian-13 for the lxc-runner base image."
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_container.cache.tags == tolist(["build-cache", "src-debian-13"])
+    error_message = "The tags must be build-cache and src-<os image slug>, sorted as Proxmox stores them."
+  }
+
+  assert {
+    condition     = local.image_slug == "debian-13" && strcontains(local.template_file, local.image_slug)
+    error_message = "The slug must be read from the base image file name of the lxc-runner class."
+  }
+
+  assert {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,62}$", local.hostname)) && length(local.hostname) <= 63
+    error_message = "The hostname must be a valid DNS label of at most 63 characters."
+  }
+}

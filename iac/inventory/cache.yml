@@ -3,7 +3,7 @@ all:
   children:
     cache:
       hosts:
-        cache01:
+        build-cache:
           ansible_host: "{{ hostvars['pve01'].cache_endpoint.address }}"
           ansible_user: root
           ssh_key_name: homelab_pve01_ed25519

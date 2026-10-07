@@ -6,6 +6,7 @@ resource "proxmox_virtual_environment_container" "cache" {
   unprivileged  = true
   start_on_boot = true
   started       = false
+  tags          = local.tags
 
   cpu {
     cores = 1
@@ -39,7 +40,7 @@ resource "proxmox_virtual_environment_container" "cache" {
   }
 
   initialization {
-    hostname = "cache01"
+    hostname = local.hostname
 
     dns {
       servers = [var.dns_server]
@@ -73,6 +74,11 @@ resource "proxmox_virtual_environment_container" "cache" {
     precondition {
       condition     = local.max_size_gib * 10 <= var.data_disk_gb * 8
       error_message = "cache_service_max_size_gib must stay within 80 percent of the data volume, or eviction cannot keep the disk from filling."
+    }
+
+    precondition {
+      condition     = local.hostname != null && can(regex(local.name_pattern, local.hostname))
+      error_message = "The cache hostname must be build-cache-<os image slug>, a valid hostname of at most 63 characters; the slug comes from the lxc-runner base image file name."
     }
   }
 }
