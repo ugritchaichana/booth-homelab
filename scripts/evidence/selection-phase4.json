@@ -164,17 +164,17 @@
     {
       "src": "plans:booth-homelab-phase4/r15/r15-baseline-lxc.txt",
       "dest": "docs/evidence/phase4/r15-baseline-lxc.txt",
-      "proves": "R15 isolation baseline on the container probe with the cache present"
+      "proves": "Final R15 baseline on the container runner probe with the cache present: 19 of 19 negatives blocked, 2 of 2 positives open"
     },
     {
       "src": "plans:booth-homelab-phase4/r15/r15-baseline-vm.txt",
       "dest": "docs/evidence/phase4/r15-baseline-vm.txt",
-      "proves": "R15 isolation baseline on the VM probe with the cache present"
+      "proves": "Final R15 baseline on the VM runner probe with the cache present: 19 of 19 negatives blocked, 2 of 2 positives open"
     },
     {
       "src": "plans:booth-homelab-phase4/r15/r15-baseline-cache.txt",
       "dest": "docs/evidence/phase4/r15-baseline-cache.txt",
-      "proves": "R15 isolation baseline from the cache container"
+      "proves": "Final R15 baseline from inside the cache container: 12 of 12 negatives blocked, 1 of 1 positive open"
     },
     {
       "src": "plans:booth-homelab-phase4/r15/r15-after-pve-reboot-lxc.txt",
@@ -200,6 +200,26 @@
       "src": "plans:booth-homelab-phase4/r15/pre-cache-r15-baseline-vm.txt",
       "dest": "docs/evidence/phase4/pre-cache-r15-baseline-vm.txt",
       "proves": "R15 isolation baseline on the VM probe before the cache existed"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-red-first-lxc.txt",
+      "dest": "docs/evidence/phase4/r15-red-first-lxc.txt",
+      "proves": "R15 red-first on the container runner probe with the firewall stopped: positive controls open, 10 of 10 and 11 of 11"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-red-first-vm.txt",
+      "dest": "docs/evidence/phase4/r15-red-first-vm.txt",
+      "proves": "R15 red-first on the VM runner probe with the firewall stopped: positive controls open, 10 of 10 and 11 of 11"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/r15/r15-red-first-cache.txt",
+      "dest": "docs/evidence/phase4/r15-red-first-cache.txt",
+      "proves": "R15 red-first from inside the cache container with the firewall stopped: positive controls open, 8 of 8 and 5 of 5"
+    },
+    {
+      "src": "plans:booth-homelab-phase4/host-run/cache-sandbox.txt",
+      "dest": "docs/evidence/phase4/cache-sandbox.txt",
+      "proves": "Cache service systemd sandbox: nine extra directives and a systemd-analyze security exposure of 2.1"
     }
   ]
 }
