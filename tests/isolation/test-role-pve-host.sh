@@ -60,6 +60,16 @@ verdict "a keyring override reaches all three repositories" "$(call_count deb822
 TASKS_FROM=repos run repo-write-fails '{"deb822_repository": [{"result": {"failed": true, "msg": "cannot write"}}]}'
 verdict "a failed repository write stops before any apt call" "$([ "$rc" -ne 0 ] && echo stopped || echo continued)$(call_count apt)" stopped0
 
+SET_MSG="must be non-empty"
+for bad in 'pve_repo_suite|""' 'pve_repo_suite|"  "' 'pve_repo_suite|13' 'pve_host_keyring|""' 'pve_host_keyring|"  "'; do
+  TASKS_FROM=repos run "bad-${bad%%|*}" "" -e "{\"${bad%%|*}\": ${bad#*|}}"
+  should_fail "${bad%%|*} set to ${bad#*|}" "$SET_MSG"
+  verdict "${bad%%|*} set to ${bad#*|} writes no repository and runs no apt" "$(call_count deb822_repository)$(call_count apt)" 00
+done
+run empty-suite-main "" -e '{"pve_repo_suite": ""}'
+should_fail "an empty suite in the full role" "$SET_MSG"
+verdict "the full role runs no apt call for an empty suite" "$(call_count apt)" 0
+
 run happy
 should_pass "a host already on its boot kernel"
 verdict "the upgrade is a full upgrade with a cache refresh" "$(call_count apt '"upgrade": "full"' '"update_cache": true')" 1

@@ -1,4 +1,12 @@
 ---
+- name: Assert the blocked module list is a list that holds hv_sock
+  ansible.builtin.assert:
+    that:
+      - hyperv_guest_blocked_modules is sequence
+      - hyperv_guest_blocked_modules is not string
+      - "'hv_sock' in hyperv_guest_blocked_modules"
+    fail_msg: hyperv_guest_blocked_modules must be a list that contains hv_sock, otherwise the drop-in blocks nothing
+
 - name: Block the vsock transport from loading
   ansible.builtin.copy:
     dest: "{{ hyperv_guest_modprobe_dropin }}"

@@ -1,4 +1,13 @@
 ---
+- name: Assert the repository suite and keyring are set
+  ansible.builtin.assert:
+    that:
+      - pve_host_suite is string
+      - pve_host_suite | trim | length > 0
+      - pve_host_keyring is string
+      - pve_host_keyring | trim | length > 0
+    fail_msg: pve_repo_suite and pve_host_keyring must be non-empty, an empty value writes a repository with no suite or no signing key
+
 - name: Disable the pve-enterprise repository
   ansible.builtin.deb822_repository:
     name: pve-enterprise

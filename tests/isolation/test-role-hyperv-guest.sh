@@ -38,6 +38,13 @@ verdict "the drop-in carries one install line per module" "$(tr '\n' '|' < "$out
 verdict "every blocked module is unloaded" "$(call_count modprobe '"state": "absent"')" 2
 verdict "every blocked module is planned" "$(call_count command 'modprobe -n -v')" 2
 
+LIST_MSG="must be a list that contains hv_sock"
+for bad in '[]' '["vsock"]' '"hv_sock"' 'null'; do
+  run "bad-list-$bad" "" -e "{\"hyperv_guest_blocked_modules\": $bad}"
+  should_fail "a blocked module list of $bad" "$LIST_MSG"
+  verdict "a blocked module list of $bad writes no drop-in" "$(call_count copy)" 0
+done
+
 run daemon-package-installed '{"package_facts": [{"result": {"ansible_facts": {"packages": {"hyperv-daemons": [{}]}}}}]}'
 should_fail "an installed hyperv-daemons package" "$DAEMON_MSG"
 run init-package-installed '{"package_facts": [{"result": {"ansible_facts": {"packages": {"hv-kvp-daemon-init": [{}]}}}}]}'
