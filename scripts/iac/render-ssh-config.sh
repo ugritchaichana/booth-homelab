@@ -4,11 +4,11 @@ set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 inventory="${HOMELAB_INVENTORY:-$repo/iac/inventory/hosts.yml}"
 out="${HOMELAB_CONFIG_DIR:-$HOME/.config/homelab}"
-winssh="/mnt/c/Windows/System32/OpenSSH/ssh.exe"
-cmdexe="/mnt/c/Windows/System32/cmd.exe"
+winssh="${HOMELAB_WINSSH:-/mnt/c/Windows/System32/OpenSSH/ssh.exe}"
+cmdexe="${HOMELAB_CMDEXE:-/mnt/c/Windows/System32/cmd.exe}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
-winvar() { (cd /mnt/c && "$cmdexe" /c "echo %$1%" 2>/dev/null | tr -d '\r'); }
+winvar() { (cd /mnt/c 2>/dev/null || :; "$cmdexe" /c "echo %$1%" 2>/dev/null | tr -d '\r'); }
 
 [ -x "$winssh" ] || die "Windows OpenSSH client not found at $winssh"
 command -v sops >/dev/null || die "sops not installed (scripts/bootstrap/operator-toolchain.sh)"
