@@ -34,13 +34,13 @@
   loop_control:
     label: "{{ item.path }}"
 
-- name: Create the work directory of the guest-facing user
+- name: Create the root-owned work directory
   ansible.builtin.file:
     path: "{{ pve_templates_work_dir }}"
     state: directory
-    owner: "{{ pve_templates_guest_user }}"
-    group: "{{ pve_templates_guest_user }}"
-    mode: "0700"
+    owner: root
+    group: root
+    mode: "0711"
 
 - name: Install the root orchestrator
   ansible.builtin.copy:
