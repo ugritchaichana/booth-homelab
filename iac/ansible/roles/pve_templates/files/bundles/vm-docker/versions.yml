@@ -1,0 +1,22 @@
+---
+base_image:
+  note: "Debian 13 generic cloud image; pinned in defaults/main.yml, listed here for the manifest only"
+apt_packages:
+  - {name: docker.io, version: "26.1.5+dfsg1-9+deb13u1"}
+  - {name: containerd, version: "1.7.24~ds1-6+deb13u1"}
+  - {name: runc, version: "1.1.15+ds1-2+b4"}
+  - {name: git, version: "1:2.47.3-0+deb13u1"}
+  - {name: curl, version: "8.14.1-2+deb13u5"}
+  - {name: jq, version: "1.7.1-6+deb13u4"}
+  - {name: tar, version: "1.35+dfsg-3.1"}
+  - {name: zstd, version: "1.5.7+dfsg-1"}
+  - {name: ca-certificates, version: "20250419"}
+  - {name: libicu76, version: "76.1-4"}
+  - {name: libkrb5-3, version: "1.21.3-5+deb13u1"}
+  - {name: libssl3t64, version: "3.5.7-1~deb13u3"}
+  - {name: zlib1g, version: "1:1.3.dfsg+really1.3.1-1+b1"}
+downloads:
+  - name: actions-runner
+    version: "2.338.0"
+    url: "https://github.com/actions/runner/releases/download/v2.338.0/actions-runner-linux-x64-2.338.0.tar.gz"
+    sha256: "af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32"
