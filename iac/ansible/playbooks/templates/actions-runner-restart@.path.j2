@@ -1,0 +1,9 @@
+[Unit]
+Description=Restart GitHub Actions runner %i after each job
+
+[Path]
+PathExists=/run/actions-runner-%i/restart
+Unit=actions-runner-restart@%i.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,18 +1,20 @@
 [Unit]
-Description=GitHub Actions runner for {{ ci_runner_repository }}
+Description=GitHub Actions runner %i for {{ ci_runner_repository }}
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 User=runner
-WorkingDirectory={{ ci_runner_dir }}
+WorkingDirectory={{ ci_runner_dir }}-%i
+RuntimeDirectory=actions-runner-%i
+RuntimeDirectoryMode=0750
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED={{ ci_runner_guard }}
+Environment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED={{ ci_runner_job_completed }}
 Environment=RUNNER_GUARD_REPOSITORY={{ ci_runner_repository }}
-ExecStart={{ ci_runner_dir }}/run.sh
+ExecStart={{ ci_runner_dir }}-%i/run.sh
 Restart=always
-RestartSec=10
-KillMode=process
+RestartSec=2
 KillSignal=SIGTERM
 TimeoutStopSec=5min
 

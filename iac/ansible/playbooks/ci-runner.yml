@@ -1,17 +1,31 @@
 ---
-- name: Register the CI runner container with GitHub behind the job-start guard
+- name: Register the CI runner instances with GitHub behind the job-start guard
   hosts: pve_hosts
   gather_facts: false
   become: true
   vars:
     ci_runner_repository: ugritchaichana/booth-homelab
     ci_runner_hostname_prefix: ci-lxc-runner-v
-    ci_runner_name: "{{ inventory_hostname }}-ci-lxc-runner"
+    ci_runner_name_prefix: "{{ inventory_hostname }}-ci-lxc-runner"
+    ci_runner_instances: 3
     ci_runner_labels: proxmox,dotnet,angular
     ci_runner_dir: /opt/actions-runner
     ci_runner_guard: /usr/local/lib/homelab/runner-guard.sh
+    ci_runner_job_completed: /usr/local/lib/homelab/runner-job-completed.sh
+    ci_runner_restart: /usr/local/lib/homelab/runner-restart.sh
+    ci_runner_files:
+      - {src: runner-guard.sh, dest: /usr/local/lib/homelab/runner-guard.sh, mode: "0755"}
+      - {src: runner-job-completed.sh, dest: /usr/local/lib/homelab/runner-job-completed.sh, mode: "0755"}
+      - {src: runner-restart.sh, dest: /usr/local/lib/homelab/runner-restart.sh, mode: "0755"}
+      - {src: actions-runner@.service, dest: /etc/systemd/system/actions-runner@.service, mode: "0644"}
+      - {src: actions-runner-restart@.path, dest: /etc/systemd/system/actions-runner-restart@.path, mode: "0644"}
+      - {src: actions-runner-restart@.service, dest: /etc/systemd/system/actions-runner-restart@.service, mode: "0644"}
     ci_runner_stage: /root/ci-runner
+    ci_runner_api: "https://api.github.com/repos/{{ ci_runner_repository }}/actions/runners"
     ci_github_token: "{{ lookup('ansible.builtin.env', 'GH_TOKEN') }}"
+    ci_github_headers:
+      Authorization: "Bearer {{ ci_github_token }}"
+      Accept: application/vnd.github+json
   tasks:
     - name: Require a GitHub token in the environment of the controller
       ansible.builtin.assert:
@@ -41,57 +55,125 @@
         group: root
         mode: "0700"
 
-    - name: Copy the guard to the host
+    - name: Copy the runner scripts to the host
       ansible.builtin.copy:
-        src: ../../../scripts/ci/runner-guard.sh
-        dest: "{{ ci_runner_stage }}/runner-guard.sh"
+        src: "../../../scripts/ci/{{ item }}"
+        dest: "{{ ci_runner_stage }}/{{ item }}"
         owner: root
         group: root
         mode: "0755"
+      loop: [runner-guard.sh, runner-job-completed.sh, runner-restart.sh]
 
-    - name: Render the runner unit on the host
+    - name: Render the runner units on the host
       ansible.builtin.template:
-        src: templates/actions-runner.service.j2
-        dest: "{{ ci_runner_stage }}/actions-runner.service"
+        src: "templates/{{ item }}.j2"
+        dest: "{{ ci_runner_stage }}/{{ item }}"
         owner: root
         group: root
         mode: "0644"
+      loop: [actions-runner@.service, actions-runner-restart@.path, actions-runner-restart@.service]
 
-    - name: Create the guard directory in the container
+    - name: Read what the container holds now
       ansible.builtin.command:
-        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, install, -d, -m, "0755", -o, root, -g, root, "{{ ci_runner_guard | dirname }}"]
+        argv: "{{ ['pct', 'exec', ci_runner_ids.stdout, '--', 'sha256sum'] + (ci_runner_files | map(attribute='dest') | list) }}"
+      register: ci_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Hash the staged files
+      ansible.builtin.command:
+        argv: "{{ ['sha256sum'] + (ci_runner_files | map(attribute='src') | map('regex_replace', '^', ci_runner_stage ~ '/') | list) }}"
+      register: ci_staged
       changed_when: false
 
-    - name: Install the guard and the unit in the container, owned by root
-      ansible.builtin.command:
-        argv: [pct, push, "{{ ci_runner_ids.stdout }}", "{{ ci_runner_stage }}/{{ item.src }}", "{{ item.dest }}", --perms, "{{ item.mode }}", --user, "0", --group, "0"]
-      loop:
-        - {src: runner-guard.sh, dest: "{{ ci_runner_guard }}", mode: "0755"}
-        - {src: actions-runner.service, dest: /etc/systemd/system/actions-runner.service, mode: "0644"}
-      changed_when: false
+    - name: Install the runner scripts and units in the container, owned by root
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          pct exec {{ ci_runner_ids.stdout }} -- install -d -m 0755 -o root -g root {{ ci_runner_guard | dirname }}
+          {% for f in ci_runner_files %}
+          pct push {{ ci_runner_ids.stdout }} {{ ci_runner_stage }}/{{ f.src }} {{ f.dest }} --perms {{ f.mode }} --user 0 --group 0
+          {% endfor %}
+          pct exec {{ ci_runner_ids.stdout }} -- systemctl daemon-reload
+        executable: /bin/bash
+      register: ci_files_installed
+      when: (ci_installed.stdout_lines | map('split') | map('first') | list) != (ci_staged.stdout_lines | map('split') | map('first') | list)
+      changed_when: true
 
-    - name: Read whether the runner is configured
+    - name: Retire the single-instance runner of the first install
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          id={{ ci_runner_ids.stdout }}
+          if pct exec "$id" -- test -f /etc/systemd/system/actions-runner.service; then
+            pct exec "$id" -- systemctl disable --now actions-runner.service
+            pct exec "$id" -- pkill -u runner -f Runner.Listener || true
+            pct exec "$id" -- rm -f /etc/systemd/system/actions-runner.service {{ ci_runner_dir }}/.runner {{ ci_runner_dir }}/.credentials {{ ci_runner_dir }}/.credentials_rsaparams
+            pct exec "$id" -- systemctl daemon-reload
+            echo retired
+          fi
+        executable: /bin/bash
+      register: ci_retired
+      changed_when: "'retired' in ci_retired.stdout"
+
+    - name: Read the runners GitHub knows
+      ansible.builtin.uri:
+        url: "{{ ci_runner_api }}"
+        headers: "{{ ci_github_headers }}"
+      register: ci_known
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: Deregister the single-instance runner name
+      ansible.builtin.uri:
+        url: "{{ ci_runner_api }}/{{ item.id }}"
+        method: DELETE
+        headers: "{{ ci_github_headers }}"
+        status_code: 204
+      loop: "{{ ci_known.json.runners | selectattr('name', 'equalto', ci_runner_name_prefix) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      delegate_to: localhost
+      become: false
+      changed_when: true
+
+    - name: Create each instance directory from the unconfigured runner
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          id={{ ci_runner_ids.stdout }}
+          dir={{ ci_runner_dir }}-{{ item }}
+          if ! pct exec "$id" -- test -d "$dir"; then
+            pct exec "$id" -- bash -c "cp -a {{ ci_runner_dir }} $dir && rm -rf $dir/_work $dir/_diag $dir/.runner $dir/.credentials $dir/.credentials_rsaparams && chown -R runner:runner $dir"
+            echo created
+          fi
+        executable: /bin/bash
+      loop: "{{ range(1, ci_runner_instances + 1) | list }}"
+      register: ci_dirs
+      changed_when: "'created' in ci_dirs.stdout"
+
+    - name: Read which instances are configured
       ansible.builtin.command:
-        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, test, -f, "{{ ci_runner_dir }}/.runner"]
-      register: ci_runner_configured
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, test, -f, "{{ ci_runner_dir }}-{{ item }}/.runner"]
+      loop: "{{ range(1, ci_runner_instances + 1) | list }}"
+      register: ci_configured
       changed_when: false
-      failed_when: ci_runner_configured.rc not in [0, 1]
+      failed_when: ci_configured.rc not in [0, 1]
 
     - name: Ask GitHub for a registration token
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ ci_runner_repository }}/actions/runners/registration-token"
+        url: "{{ ci_runner_api }}/registration-token"
         method: POST
-        headers:
-          Authorization: "Bearer {{ ci_github_token }}"
-          Accept: application/vnd.github+json
+        headers: "{{ ci_github_headers }}"
         status_code: 201
       register: ci_registration
       delegate_to: localhost
       become: false
-      when: ci_runner_configured.rc != 0
+      when: ci_configured.results | selectattr('rc', 'ne', 0) | list | length > 0
       no_log: true
 
-    - name: Configure the runner as the runner user, the token on stdin
+    - name: Configure each new instance as the runner user, the token on stdin
       ansible.builtin.command:
         argv:
           - pct
@@ -106,42 +188,43 @@
           - -c
           - >-
             IFS= read -r ACTIONS_RUNNER_INPUT_TOKEN && export ACTIONS_RUNNER_INPUT_TOKEN &&
-            cd {{ ci_runner_dir }} && ./config.sh --unattended --url https://github.com/{{ ci_runner_repository }}
-            --name {{ ci_runner_name }} --labels {{ ci_runner_labels }} --work _work --replace
+            cd {{ ci_runner_dir }}-{{ item.item }} && ./config.sh --unattended --url https://github.com/{{ ci_runner_repository }}
+            --name {{ ci_runner_name_prefix }}-{{ item.item }} --labels {{ ci_runner_labels }} --work _work --replace
         stdin: "{{ ci_registration.json.token }}"
-      when: ci_runner_configured.rc != 0
+      loop: "{{ ci_configured.results | selectattr('rc', 'ne', 0) | list }}"
+      loop_control:
+        label: "{{ ci_runner_name_prefix }}-{{ item.item }}"
       changed_when: true
       no_log: true
 
-    - name: Enable and start the runner service
+    - name: Enable and start every instance and its restart-after-job watcher
       ansible.builtin.command:
-        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, enable, --now, actions-runner.service]
-      register: ci_runner_enable
-      changed_when: "'Created symlink' in ci_runner_enable.stderr"
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, enable, --now, "actions-runner@{{ item }}.service", "actions-runner-restart@{{ item }}.path"]
+      loop: "{{ range(1, ci_runner_instances + 1) | list }}"
+      register: ci_enabled
+      changed_when: "'Created symlink' in ci_enabled.stderr"
 
-    - name: Restart the runner when the unit or the guard may have changed
+    - name: Restart the instances when the guard or the unit changed
       ansible.builtin.command:
-        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, bash, -c, systemctl daemon-reload && systemctl restart actions-runner.service]
-      changed_when: false
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, restart, "actions-runner@{{ item }}.service"]
+      loop: "{{ range(1, ci_runner_instances + 1) | list }}"
+      when: ci_files_installed is changed
+      changed_when: true
 
-    - name: Wait until GitHub lists the runner online with its labels
+    - name: Wait until GitHub lists every instance online
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ ci_runner_repository }}/actions/runners"
-        headers:
-          Authorization: "Bearer {{ ci_github_token }}"
-          Accept: application/vnd.github+json
+        url: "{{ ci_runner_api }}"
+        headers: "{{ ci_github_headers }}"
       register: ci_runners
       delegate_to: localhost
       become: false
       until: >-
-        ci_runners.json.runners | selectattr('name', 'equalto', ci_runner_name) | selectattr('status', 'equalto', 'online') | list | length == 1
+        ci_runners.json.runners | selectattr('name', 'match', ci_runner_name_prefix ~ '-[0-9]+$')
+        | selectattr('status', 'equalto', 'online') | list | length == ci_runner_instances
       retries: 18
       delay: 10
       no_log: true
 
-    - name: Show the runner as GitHub sees it
+    - name: Show the runners as GitHub sees them
       ansible.builtin.debug:
-        msg: >-
-          {{ ci_runners.json.runners | selectattr('name', 'equalto', ci_runner_name)
-          | map(attribute='status') | list }} {{ ci_runners.json.runners | selectattr('name', 'equalto', ci_runner_name)
-          | map(attribute='labels') | flatten | map(attribute='name') | list }}
+        msg: "{{ ci_runners.json.runners | map(attribute='name') | zip(ci_runners.json.runners | map(attribute='status')) | list }}"
