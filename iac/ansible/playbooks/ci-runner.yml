@@ -96,9 +96,9 @@
           {% endfor %}
           pct exec {{ ci_runner_ids.stdout }} -- systemctl daemon-reload
         executable: /bin/bash
-      register: ci_files_installed
       when: (ci_installed.stdout_lines | map('split') | map('first') | list) != (ci_staged.stdout_lines | map('split') | map('first') | list)
       changed_when: true
+      notify: Restart the runner instances
 
     - name: Retire the single-instance runner of the first install
       ansible.builtin.shell:
@@ -108,7 +108,8 @@
           if pct exec "$id" -- test -f /etc/systemd/system/actions-runner.service; then
             pct exec "$id" -- systemctl disable --now actions-runner.service
             pct exec "$id" -- pkill -u runner -f Runner.Listener || true
-            pct exec "$id" -- rm -f /etc/systemd/system/actions-runner.service {{ ci_runner_dir }}/.runner {{ ci_runner_dir }}/.credentials {{ ci_runner_dir }}/.credentials_rsaparams
+            pct exec "$id" -- rm -f /etc/systemd/system/actions-runner.service \
+              {{ ci_runner_dir }}/.runner {{ ci_runner_dir }}/.credentials {{ ci_runner_dir }}/.credentials_rsaparams
             pct exec "$id" -- systemctl daemon-reload
             echo retired
           fi
@@ -145,7 +146,9 @@
           id={{ ci_runner_ids.stdout }}
           dir={{ ci_runner_dir }}-{{ item }}
           if ! pct exec "$id" -- test -d "$dir"; then
-            pct exec "$id" -- bash -c "cp -a {{ ci_runner_dir }} $dir && rm -rf $dir/_work $dir/_diag $dir/.runner $dir/.credentials $dir/.credentials_rsaparams && chown -R runner:runner $dir"
+            pct exec "$id" -- cp -a {{ ci_runner_dir }} "$dir"
+            pct exec "$id" -- rm -rf "$dir/_work" "$dir/_diag" "$dir/.runner" "$dir/.credentials" "$dir/.credentials_rsaparams"
+            pct exec "$id" -- chown -R runner:runner "$dir"
             echo created
           fi
         executable: /bin/bash
@@ -199,17 +202,22 @@
 
     - name: Enable and start every instance and its restart-after-job watcher
       ansible.builtin.command:
-        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, enable, --now, "actions-runner@{{ item }}.service", "actions-runner-restart@{{ item }}.path"]
+        argv:
+          - pct
+          - exec
+          - "{{ ci_runner_ids.stdout }}"
+          - --
+          - systemctl
+          - enable
+          - --now
+          - actions-runner@{{ item }}.service
+          - actions-runner-restart@{{ item }}.path
       loop: "{{ range(1, ci_runner_instances + 1) | list }}"
       register: ci_enabled
       changed_when: "'Created symlink' in ci_enabled.stderr"
 
-    - name: Restart the instances when the guard or the unit changed
-      ansible.builtin.command:
-        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, restart, "actions-runner@{{ item }}.service"]
-      loop: "{{ range(1, ci_runner_instances + 1) | list }}"
-      when: ci_files_installed is changed
-      changed_when: true
+    - name: Restart the instances before waiting when the scripts or the units changed
+      ansible.builtin.meta: flush_handlers
 
     - name: Wait until GitHub lists every instance online
       ansible.builtin.uri:
@@ -228,3 +236,10 @@
     - name: Show the runners as GitHub sees them
       ansible.builtin.debug:
         msg: "{{ ci_runners.json.runners | map(attribute='name') | zip(ci_runners.json.runners | map(attribute='status')) | list }}"
+
+  handlers:
+    - name: Restart the runner instances
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, restart, "actions-runner@{{ item }}.service"]
+      loop: "{{ range(1, ci_runner_instances + 1) | list }}"
+      changed_when: true
