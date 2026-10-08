@@ -121,10 +121,10 @@ If the receiving team's repository belongs to an organization, question 1 may no
 | Alarm on cache writes outside writer jobs (if Phase 5 did not close it) | Phase 5 entry gate 10 |
 | Alert on stale templates, failed builds, quarantined cache blobs | Phase 5 entry gate 5; row 65 (cache edge cases) |
 | Secrets rotation drills for every secret in [operations.md](operations.md) | operations page |
-| TOTP on `root@pam` and a notification target | D60 (TOTP and notifications) |
+| A notification target | D60 (notifications); TOTP stays off in the lab ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)) |
 | Backups to another device, timed restore | Phase 7 text |
 
-**Owner steps.** Provide the backup device; enrol TOTP; choose the notification target.
+**Owner steps.** Provide the backup device; choose the notification target.
 
 ## Phase 8: Runbook, knowledge and portability
 

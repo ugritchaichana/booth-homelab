@@ -15,7 +15,7 @@ Every named gap, who owns it, and the evidence that closes it. "Owner" means the
 | cloud-init restores the default user's passwordless sudo at a VM clone's first boot, although the template seal removed it | Phase 5 gate | A fix plus an R15 row that fails if a runner clone can use sudo | row 59 (clone isolation); [evidence-vm-clone.txt](../evidence/phase3/evidence-vm-clone.txt) |
 | The provisioner token holds privileges on the pool that contains the cache container, and `SDN.Use` on the cache vnet | Phase 5 gate (the controller must not hold it) | A separate pool without a provisioner ACL and an operator-scoped token for the cache stack; `pvesh set` on the cache container returns 403 with the controller token | Phase 4 security review |
 | Plain HTTP with Basic credentials between runners and cache | Before the cache leaves one host | A decision (TLS or an isolated segment) recorded in an ADR | ADR 0050 |
-| No TOTP on `root@pam`; notification target absent | Owner (enrolment) and Phase 7 | Enrolment done; a notification target tested | D60 (TOTP and notifications) |
+| Notification target absent | Phase 7 | A notification target tested | D60 (notifications) |
 | Host-layer trust: any process running as the owner can change the VM's port ACLs; the claim that this reaches host-administrator rights is a HYPOTHESIS, untested | Host layer only; drops on bare metal | Not applicable on bare metal | D43 (Hyper-V Administrators re-confirmed) |
 
 ## Entry gates for the controller phase (Phase 5)
@@ -79,5 +79,7 @@ Each needs a host converge proof or is Phase 5 work.
 | The two old runners of the retired host were still registered | 2026-10-08: deregistered; the runners API lists 0 runners | [owner-gaps-readback.txt](../evidence/closeout/owner-gaps-readback.txt) |
 
 ## Reference-machine limits (do not inherit)
+
+TOTP on `root@pam` is off in this lab by decision ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)); the [lab defaults table](security-model.md#lab-defaults-and-what-to-turn-on) says when to turn it on.
 
 A laptop that enters Modern Standby suspends the VM and invalidates long runs (row 43, converge run); static RAM leaves little for daily work (row 28, RAM headroom); the control path through the Windows host and WSL has no bare-metal equivalent (ADR 0011). See [porting.md](porting.md).

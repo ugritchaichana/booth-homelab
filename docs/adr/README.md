@@ -98,3 +98,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0055 | [Create flavor-sized guests from a declarative list with one command](0055-create-flavor-sized-guests-from-a-declarative-list-with-one-command.md) | Accepted |
 | 0056 | [Keep one implementation of the affected-test selector](0056-keep-one-implementation-of-the-affected-test-selector.md) | Accepted |
 | 0057 | [Measure coverage with coverage.py and Pester](0057-measure-coverage-with-coverage-py-and-pester.md) | Accepted |
+| 0058 | [Keep Proxmox login hardening off in the reference lab and document it for adopters](0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) | Accepted |

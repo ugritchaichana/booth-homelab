@@ -55,6 +55,17 @@ Two limits of the provisioner token that the receiving team will meet: it cannot
 
 A guest created by `scripts/iac/new-guest.sh` is a linked clone of a template, created stopped, with the NIC `firewall` flag, `ipfilter` for a VM and the `guests` bridge; it declares no firewall rules of its own and inherits the template's (ADR 0055). The guard stops one that lacks any of them. No new secret or role is involved: the stack uses the provisioner token.
 
+## Lab defaults and what to turn on
+
+This lab is a learning project and a base to adapt, so it leaves some controls off on purpose. Turn each on when its condition applies to your setup.
+
+| Control | In this lab | Why | Turn it on when | How |
+|---|---|---|---|---|
+| TOTP on `root@pam` | Off | Every UI login would need a code; the UI is reachable only through the host relay, and `root@pam` is break-glass only | Someone other than the owner can reach the UI, a second administrator joins, the host carries real workloads, or the UI is exposed beyond the relay | [ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) |
+| Encrypted cache traffic | Plain HTTP with Basic credentials on a private vnet | One host, one isolated vnet | Before the cache leaves the host | [ADR 0050](../adr/0050-allow-anonymous-cache-reads-and-gate-writes-with-one-writer-credential.md) |
+| A second age recipient | One recipient | One operator holds every secret | More than one person needs the secrets, or the identity must survive the loss of one copy | [secrets README](../../iac/secrets/README.md), recovery and rotation |
+| A fresh VM checkpoint after each rotation | None after the 2026-10-08 writer rotation | A checkpoint needs the VM off, and the lab stays running (D86) | Every rotation that follows a checkpoint: an older checkpoint still holds the old secret | Runbook 3.1 |
+
 ## Known gaps
 
 All open security gaps, with owner and closing evidence: [limits-and-gaps.md](limits-and-gaps.md).

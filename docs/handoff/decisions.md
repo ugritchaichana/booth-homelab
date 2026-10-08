@@ -97,6 +97,7 @@ The full list is the [ADR index](../adr/README.md); the one-row-per-decision log
 | [ADR 0055](../adr/0055-create-flavor-sized-guests-from-a-declarative-list-with-one-command.md) | The Proxmox interface has no instance-type field; a guest list plus one command makes a guest of a cloud flavor and records the flavor in its tags |
 | [ADR 0056](../adr/0056-keep-one-implementation-of-the-affected-test-selector.md) | The affected-test selector existed twice and had drifted; the shell script is the only one |
 | [ADR 0057](../adr/0057-measure-coverage-with-coverage-py-and-pester.md) | Coverage.py and Pester give a measured number per suite with a regression floor; no target is invented |
+| [ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) | A learning lab stays easy to use: TOTP on `root@pam` is off, with the conditions and steps to turn it on |
 
 ## Decided direction, not built
 
@@ -110,7 +111,7 @@ The full list is the [ADR index](../adr/README.md); the one-row-per-decision log
 |---|---|---|
 | D10 controller, build or adopt | Open | Research recommends building, see [next-phases.md](next-phases.md); HYPOTHESIS until the scale-set spike |
 | D11 controller language | Open | The same research recommends Go |
-| D60 TOTP for `root@pam` and the notification target | Open (owner) | Enrolment cannot be delegated; notifications wait for Phase 7 |
+| D60 TOTP for `root@pam` and the notification target | TOTP decided off for the lab (D90, ADR 0058); notifications open | Notifications wait for Phase 7 |
 | D85 general object storage (artifacts, backups, state) | Handed off to Phase 7 with backups | Candidate: Garage, S3-compatible and maintained; ADR 0048 rejected it only as a cache because it lacks LRU eviction |
 | Shared OpenTofu state backend | Not decided | Local state suits one operator (ADR 0013); a team needs a shared, locked, encrypted backend, which D85 storage could provide; ADR 0051 rules out the cache |
 | D86 lab machines after the release | Decided: keep every machine running as evidence | Supersedes the on-demand stop of D21 (VM start policy) |
