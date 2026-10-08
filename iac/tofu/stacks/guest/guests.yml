@@ -11,6 +11,6 @@ guests:
       slot: 2
       vendor_snippet: lab-accounts-vendor.yaml
     ci-lxc-runner:
-      flavor: aws/c5.xlarge
+      flavor: aws/c5.2xlarge
       template_class: lxc-runner
       slot: 3
