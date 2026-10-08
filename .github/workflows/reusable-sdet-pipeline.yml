@@ -284,7 +284,7 @@ jobs:
     needs: [select-runner, angular-jest]
     timeout-minutes: 10
     environment: cache-writer
-    if: always() && needs.angular-jest.result == 'success' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: always() && needs.angular-jest.result == 'success' && needs.angular-jest.outputs.cache_hit_node_modules != 'true' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
     steps:
       - name: Checkout Repository
