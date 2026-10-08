@@ -1,0 +1,147 @@
+---
+- name: Register the CI runner container with GitHub behind the job-start guard
+  hosts: pve_hosts
+  gather_facts: false
+  become: true
+  vars:
+    ci_runner_repository: ugritchaichana/booth-homelab
+    ci_runner_hostname_prefix: ci-lxc-runner-v
+    ci_runner_name: "{{ inventory_hostname }}-ci-lxc-runner"
+    ci_runner_labels: proxmox,dotnet,angular
+    ci_runner_dir: /opt/actions-runner
+    ci_runner_guard: /usr/local/lib/homelab/runner-guard.sh
+    ci_runner_stage: /root/ci-runner
+    ci_github_token: "{{ lookup('ansible.builtin.env', 'GH_TOKEN') }}"
+  tasks:
+    - name: Require a GitHub token in the environment of the controller
+      ansible.builtin.assert:
+        that: ci_github_token | length > 0
+        fail_msg: export GH_TOKEN for an account that administers {{ ci_runner_repository }}
+        quiet: true
+      no_log: true
+
+    - name: Find the running runner container
+      ansible.builtin.shell:
+        cmd: set -o pipefail && pct list | awk -v p='{{ ci_runner_hostname_prefix }}' 'NR > 1 && $2 == "running" && index($3, p) == 1 {print $1}'
+        executable: /bin/bash
+      register: ci_runner_ids
+      changed_when: false
+
+    - name: Require exactly one runner container
+      ansible.builtin.assert:
+        that: ci_runner_ids.stdout_lines | length == 1
+        fail_msg: "expected one running container named {{ ci_runner_hostname_prefix }}N, found {{ ci_runner_ids.stdout_lines }}"
+        quiet: true
+
+    - name: Stage the guard and the unit on the host
+      ansible.builtin.file:
+        path: "{{ ci_runner_stage }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Copy the guard to the host
+      ansible.builtin.copy:
+        src: ../../../scripts/ci/runner-guard.sh
+        dest: "{{ ci_runner_stage }}/runner-guard.sh"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Render the runner unit on the host
+      ansible.builtin.template:
+        src: templates/actions-runner.service.j2
+        dest: "{{ ci_runner_stage }}/actions-runner.service"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Create the guard directory in the container
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, install, -d, -m, "0755", -o, root, -g, root, "{{ ci_runner_guard | dirname }}"]
+      changed_when: false
+
+    - name: Install the guard and the unit in the container, owned by root
+      ansible.builtin.command:
+        argv: [pct, push, "{{ ci_runner_ids.stdout }}", "{{ ci_runner_stage }}/{{ item.src }}", "{{ item.dest }}", --perms, "{{ item.mode }}", --user, "0", --group, "0"]
+      loop:
+        - {src: runner-guard.sh, dest: "{{ ci_runner_guard }}", mode: "0755"}
+        - {src: actions-runner.service, dest: /etc/systemd/system/actions-runner.service, mode: "0644"}
+      changed_when: false
+
+    - name: Read whether the runner is configured
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, test, -f, "{{ ci_runner_dir }}/.runner"]
+      register: ci_runner_configured
+      changed_when: false
+      failed_when: ci_runner_configured.rc not in [0, 1]
+
+    - name: Ask GitHub for a registration token
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ ci_runner_repository }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ ci_github_token }}"
+          Accept: application/vnd.github+json
+        status_code: 201
+      register: ci_registration
+      delegate_to: localhost
+      become: false
+      when: ci_runner_configured.rc != 0
+      no_log: true
+
+    - name: Configure the runner as the runner user, the token on stdin
+      ansible.builtin.command:
+        argv:
+          - pct
+          - exec
+          - "{{ ci_runner_ids.stdout }}"
+          - --
+          - runuser
+          - -u
+          - runner
+          - --
+          - bash
+          - -c
+          - >-
+            IFS= read -r ACTIONS_RUNNER_INPUT_TOKEN && export ACTIONS_RUNNER_INPUT_TOKEN &&
+            cd {{ ci_runner_dir }} && ./config.sh --unattended --url https://github.com/{{ ci_runner_repository }}
+            --name {{ ci_runner_name }} --labels {{ ci_runner_labels }} --work _work --replace
+        stdin: "{{ ci_registration.json.token }}"
+      when: ci_runner_configured.rc != 0
+      changed_when: true
+      no_log: true
+
+    - name: Enable and start the runner service
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, systemctl, enable, --now, actions-runner.service]
+      register: ci_runner_enable
+      changed_when: "'Created symlink' in ci_runner_enable.stderr"
+
+    - name: Restart the runner when the unit or the guard may have changed
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, bash, -c, systemctl daemon-reload && systemctl restart actions-runner.service]
+      changed_when: false
+
+    - name: Wait until GitHub lists the runner online with its labels
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ ci_runner_repository }}/actions/runners"
+        headers:
+          Authorization: "Bearer {{ ci_github_token }}"
+          Accept: application/vnd.github+json
+      register: ci_runners
+      delegate_to: localhost
+      become: false
+      until: >-
+        ci_runners.json.runners | selectattr('name', 'equalto', ci_runner_name) | selectattr('status', 'equalto', 'online') | list | length == 1
+      retries: 18
+      delay: 10
+      no_log: true
+
+    - name: Show the runner as GitHub sees it
+      ansible.builtin.debug:
+        msg: >-
+          {{ ci_runners.json.runners | selectattr('name', 'equalto', ci_runner_name)
+          | map(attribute='status') | list }} {{ ci_runners.json.runners | selectattr('name', 'equalto', ci_runner_name)
+          | map(attribute='labels') | flatten | map(attribute='name') | list }}
