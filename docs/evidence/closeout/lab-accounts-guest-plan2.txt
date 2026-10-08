@@ -1,0 +1,15 @@
+Acquiring state lock. This may take a few moments...
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all[0]: Read complete after 0s [id=a49c11b0-0735-451e-8e63-568a8dadb13c][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Read complete after 0s [id=88bca5ed-8d4a-4a5e-87b5-a6bbbe9fd17e][0m
+[0m[1mproxmox_virtual_environment_container.guest["demo-lxc-runner"]: Refreshing state... [id=9501][0m
+[0m[1mproxmox_virtual_environment_vm.guest["demo-vm-docker"]: Refreshing state... [id=9502][0m
+[0m[1mproxmox_virtual_environment_firewall_ipset.vm_ipfilter["demo-vm-docker"]: Refreshing state... [id=ipfilter-net0][0m
+
+[0m[1m[32mNo changes.[0m[1m Your infrastructure matches the configuration.[0m
+[0m

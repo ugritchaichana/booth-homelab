@@ -1,0 +1,6 @@
+#cloud-config
+bootcmd:
+  - {{ "id guest >/dev/null 2>&1 || useradd --create-home --shell /bin/bash guest" | to_json }}
+  - {{ "for g in sudo wheel adm docker lxd disk; do gpasswd -d guest $g >/dev/null 2>&1 || true; done" | to_json }}
+  - {{ ("echo " ~ (("root:" ~ lab_root_hash) | quote) ~ " | chpasswd -e") | to_json }}
+  - {{ ("echo " ~ (("guest:" ~ lab_guest_hash) | quote) ~ " | chpasswd -e") | to_json }}

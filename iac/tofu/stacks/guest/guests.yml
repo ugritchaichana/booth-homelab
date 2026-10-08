@@ -9,3 +9,4 @@ guests:
       flavor: aws/t3.medium
       template_class: vm-docker
       slot: 2
+      vendor_snippet: lab-accounts-vendor.yaml

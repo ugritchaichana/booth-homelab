@@ -90,6 +90,36 @@
       "src": "plans:booth-homelab-closeout/raw/rotate-converge-2.txt",
       "dest": "docs/evidence/closeout/rotate-converge-2.txt",
       "proves": "D89: second converge, the stored hash verifies against the rotated password (changed=0)"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/lab-accounts-run1.txt",
+      "dest": "docs/evidence/closeout/lab-accounts-run1.txt",
+      "proves": "D92: first lab-accounts run: host root set, LabGuest role, guest@pve and its password, vendor snippet, three containers with root and guest (changed=3 each)"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/lab-accounts-run2.txt",
+      "dest": "docs/evidence/closeout/lab-accounts-run2.txt",
+      "proves": "D92: second run: host and containers changed=0, the probe VM over its control key changed=3"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/lab-accounts-guest-plan.txt",
+      "dest": "docs/evidence/closeout/lab-accounts-guest-plan.txt",
+      "proves": "D92: adding vendor data to the existing VM plans a replacement (1 to add, 1 to destroy); not applied"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/lab-accounts-guest-refresh.txt",
+      "dest": "docs/evidence/closeout/lab-accounts-guest-refresh.txt",
+      "proves": "D92: refresh-only apply after qm set cicustom records the vendor snippet in state"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/lab-accounts-guest-plan2.txt",
+      "dest": "docs/evidence/closeout/lab-accounts-guest-plan2.txt",
+      "proves": "D92: the guest stack then plans no changes"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/lab-accounts-verify.txt",
+      "dest": "docs/evidence/closeout/lab-accounts-verify.txt",
+      "proves": "D92: independent checks 26 of 26 PASS on the web UI API, the containers and the probe VM, plus VM 9502 read from a read-only disk snapshot"
     }
   ]
 }

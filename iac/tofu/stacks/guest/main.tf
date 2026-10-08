@@ -144,7 +144,8 @@ resource "proxmox_virtual_environment_vm" "guest" {
   }
 
   initialization {
-    datastore_id = var.vm_datastore_id
+    datastore_id        = var.vm_datastore_id
+    vendor_data_file_id = each.value.vendor_snippet == null ? null : "local:snippets/${each.value.vendor_snippet}"
 
     dns {
       servers = [var.dns_server]

@@ -462,10 +462,13 @@ Client wiring (CI): `dotnet-build` restores `nuget` then `dotnet-outputs`; `angu
 | OpenTofu API token | `bash scripts/iac/ansible.sh site.yml -l pve01 -e pve_api_identity_rotate=true` (the role replaces the privilege-separated token and writes `iac/secrets/tofu/pve01-api.sops.yaml` through `sops set --value-stdin`) | commit the encrypted file |
 | OpenTofu state passphrase | move the encrypted state aside, then `bash scripts/iac/tofu.sh proxmox-host pve01 init-passphrase --rotate`; `tofu.sh` refuses while the state is still encrypted with the current passphrase | recreate or import the state; the stacks share the host's passphrase |
 | R15 probe key | delete `/root/.ssh/r15_probe_ed25519` on the host, rerun `bash scripts/iac/ansible.sh r15-verify.yml -l pve01 --tags r15_keygen`, replace the VM clone | the keygen play also clears the previous probe host keys |
-| Root password, SSH keys | edit with `sops iac/secrets/hosts/pve01.sops.yaml` and `pve01-access.sops.yaml`, then converge `site.yml` (keys); a new root password reaches a running host with `chpasswd` over SSH (`sudo -n chpasswd`, value on stdin), then the same value goes into the file with `sops set --value-stdin` | take a fresh checkpoint, remove the old ones |
+| Root password, SSH keys | edit with `sops iac/secrets/hosts/pve01.sops.yaml` and `pve01-access.sops.yaml`, then converge `site.yml` (keys); the root password reaches the host and every running guest with `bash scripts/iac/ansible.sh iac/ansible/playbooks/lab-accounts.yml -i iac/inventory/hosts.yml` | take a fresh checkpoint, remove the old ones; reboot each guest-stack VM, which takes it at boot |
+| Visitor password (`guest@pve` and the local `guest`) | `printf '"%s"' '<new value>' \| sops set --value-stdin iac/secrets/hosts/pve01-lab-accounts.sops.yaml '["guest_password"]'` from a shell that keeps no history, then the same playbook | reboot each guest-stack VM |
 | age identity (leak or loss) | a leaked identity means change every secret value, not only the encryption: old commits stay decryptable. New values, new recipient in `.sops.yaml`, recommit, apply to the hosts | `iac/secrets/README.md`, "Recovery and rotation" |
 
 Every secret file has one writer (table in `iac/secrets/README.md`). Never print a secret or put one on a command line; the scripts above read and write secrets through stdin.
+
+Logins for visitors (ADR 0059): web UI user `guest`, realm "Proxmox VE authentication server"; console of any guest, user `guest`. Root: web UI user `root`, realm "Linux PAM"; console of any guest, user `root`. A second run of `lab-accounts.yml` reports `changed=0` on the host, the containers and the probe VM.
 
 ### 3.6 The guest firewall guard
 

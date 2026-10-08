@@ -1,15 +1,16 @@
 output "guests" {
   value = {
     for key, guest in local.placed : key => {
-      name      = guest.name
-      kind      = guest.kind
-      vm_id     = guest.vm_id
-      address   = guest.address
-      flavor    = guest.flavor
-      cores     = module.flavor[guest.flavor].cores
-      memory_mb = module.flavor[guest.flavor].memory_mb
-      disk_gb   = module.flavor[guest.flavor].disk_gb
-      tags      = guest.tags
+      name           = guest.name
+      kind           = guest.kind
+      vm_id          = guest.vm_id
+      address        = guest.address
+      flavor         = guest.flavor
+      cores          = module.flavor[guest.flavor].cores
+      memory_mb      = module.flavor[guest.flavor].memory_mb
+      disk_gb        = module.flavor[guest.flavor].disk_gb
+      tags           = guest.tags
+      vendor_snippet = guest.vendor_snippet
     }
   }
 
@@ -26,6 +27,11 @@ output "guests" {
   precondition {
     condition     = length(distinct([for guest in values(local.placed) : guest.name])) == length(local.placed)
     error_message = "Two guests compose the same name."
+  }
+
+  precondition {
+    condition     = alltrue([for guest in values(local.guests) : guest.vendor_snippet == null || (guest.kind == "qemu" && can(regex("^[a-z0-9][a-z0-9-]*\\.ya?ml$", guest.vendor_snippet)))])
+    error_message = "vendor_snippet is a file name such as lab-accounts-vendor.yaml in the host's snippets storage, and only a VM guest takes one."
   }
 
   precondition {

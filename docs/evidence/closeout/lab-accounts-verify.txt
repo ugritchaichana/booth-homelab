@@ -1,0 +1,29 @@
+== lab accounts verification 2026-10-08 13:06 ICT
+PASS root@pam logs in with the new root password (200)
+PASS root@pam refuses the previous demo password (401)
+PASS guest@pve logs in (200)
+PASS guest@pve reads the cluster resources (16 items)
+PASS guest@pve cannot change a VM config (403)
+PASS guest@pve cannot stop a VM (403)
+PASS guest@pve cannot create users (403)
+     guest@pve privileges on /: Datastore.Audit,Mapping.Audit,Pool.Audit,SDN.Audit,Sys.Audit,VM.Audit,VM.Console,VM.GuestAgent.Audit
+PASS guest@pve may open consoles (VM.Console)
+PASS guest@pve holds only *.Audit plus VM.Console
+PASS CT 9050 root password works
+PASS CT 9050 guest password works
+PASS CT 9050 guest cannot write /etc
+PASS CT 9050 guest has no admin group (guest)
+PASS CT 9101 root password works
+PASS CT 9101 guest password works
+PASS CT 9101 guest cannot write /etc
+PASS CT 9101 guest has no admin group (guest)
+PASS CT 9501 root password works
+PASS CT 9501 guest password works
+PASS CT 9501 guest cannot write /etc
+PASS CT 9501 guest has no admin group (guest)
+PASS VM 9102 root password works
+PASS VM 9102 guest password works
+PASS VM 9102 guest cannot write /etc
+PASS VM 9102 guest has no admin group (guest)
+PASS VM 9102 guest cannot use docker
+VM 9502: read from a read-only thin snapshot of its disk after the reboot: root password matches, guest password matches, guest in none of sudo, docker, adm; snapshot removed

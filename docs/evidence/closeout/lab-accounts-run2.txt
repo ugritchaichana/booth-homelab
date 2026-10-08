@@ -1,0 +1,128 @@
+
+PLAY [Keep root and a read-only visitor account on the host and every running guest] ***
+
+TASK [Require both passwords] **************************************************
+ok: [pve01]
+
+TASK [Install the account script on the host] **********************************
+ok: [pve01]
+
+TASK [Set root on the host; its visitor account is guest@pve] ******************
+ok: [pve01]
+
+TASK [Show the host result] ****************************************************
+ok: [pve01] => {
+    "msg": [
+        "root-password: ok",
+        "changed=0"
+    ]
+}
+
+TASK [Read the Proxmox roles, users and permissions] ***************************
+ok: [pve01] => (item=role)
+ok: [pve01] => (item=user)
+ok: [pve01] => (item=acl)
+
+TASK [Derive the visitor privileges from PVEAuditor plus VM.Console] ***********
+ok: [pve01]
+
+TASK [Create or update the visitor role] ***************************************
+skipping: [pve01]
+
+TASK [Create the visitor user] *************************************************
+skipping: [pve01]
+
+TASK [Grant the visitor role on the whole tree] ********************************
+skipping: [pve01]
+
+TASK [Try the visitor login] ***************************************************
+ok: [pve01]
+
+TASK [Log in as root to set the visitor password] ******************************
+skipping: [pve01]
+
+TASK [Set the visitor password through the API] ********************************
+skipping: [pve01]
+
+TASK [Hash the passwords for the VM vendor snippet with a fixed salt, so a re-run writes the same file] ***
+ok: [pve01] => (item=(censored due to no_log))
+ok: [pve01] => (item=(censored due to no_log))
+
+TASK [Write the vendor snippet that sets the accounts on guest-stack VMs at every boot] ***
+changed: [pve01]
+
+TASK [List the running containers] *********************************************
+ok: [pve01]
+
+TASK [Copy the account script into each running container] *********************
+ok: [pve01] => (item=9050)
+ok: [pve01] => (item=9101)
+ok: [pve01] => (item=9501)
+
+TASK [Apply the accounts in each running container] ****************************
+ok: [pve01] => (item=(censored due to no_log))
+ok: [pve01] => (item=(censored due to no_log))
+ok: [pve01] => (item=(censored due to no_log))
+
+TASK [Remove the account script from each container] ***************************
+ok: [pve01] => (item=9050)
+ok: [pve01] => (item=9101)
+ok: [pve01] => (item=9501)
+
+TASK [Show the container results] **********************************************
+ok: [pve01] => {
+    "msg": [
+        [
+            "root-password: ok",
+            "guest-user: ok",
+            "guest-password: ok",
+            "changed=0"
+        ],
+        [
+            "root-password: ok",
+            "guest-user: ok",
+            "guest-password: ok",
+            "changed=0"
+        ],
+        [
+            "root-password: ok",
+            "guest-user: ok",
+            "guest-password: ok",
+            "changed=0"
+        ]
+    ]
+}
+
+TASK [List running VMs with their address, login and key] **********************
+ok: [pve01]
+
+TASK [Refuse a running VM with no way in] **************************************
+ok: [pve01] => (item=9102 10.99.16.22 debian /root/.ssh/r15_probe_ed25519 /var/lib/homelab/r15/known_hosts)
+ok: [pve01] => (item=9502 10.99.16.102 snippet - -)
+
+TASK [Copy the account script into each VM reachable over SSH] *****************
+ok: [pve01] => (item=9102 10.99.16.22 debian /root/.ssh/r15_probe_ed25519 /var/lib/homelab/r15/known_hosts)
+
+TASK [Apply the accounts in each VM reachable over SSH] ************************
+changed: [pve01] => (item=(censored due to no_log))
+
+TASK [Show the VM results; snippet VMs take the accounts at every boot] ********
+ok: [pve01] => {
+    "msg": {
+        "at_boot": [
+            "9502"
+        ],
+        "over_ssh": [
+            [
+                "root-password: changed",
+                "guest-user: created",
+                "guest-password: changed",
+                "changed=3"
+            ]
+        ]
+    }
+}
+
+PLAY RECAP *********************************************************************
+pve01                      : ok=19   changed=2    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+
