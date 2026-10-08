@@ -52,7 +52,7 @@ The speed goal (faster than the hosted baseline) is not measured on the new plat
 
 ## Reading order
 
-1. This file, then [architecture.md](architecture.md) and [security-model.md](security-model.md).
+1. This file, then [architecture.md](architecture.md) and [security-model.md](security-model.md); its [lab defaults table](security-model.md#lab-defaults-and-what-to-turn-on) lists the controls this lab leaves off and when to turn each on.
 2. [limits-and-gaps.md](limits-and-gaps.md): what is open and what closes it.
 3. [decisions.md](decisions.md) and the [ADR index](../adr/README.md).
 4. [build-from-zero.md](build-from-zero.md), [examples.md](examples.md), then [operations.md](operations.md).

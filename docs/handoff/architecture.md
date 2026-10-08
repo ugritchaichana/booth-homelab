@@ -55,7 +55,7 @@ Guest addresses and IDs: probes `.21`, `.22`; flavor guests `.101` to `.199` wit
 
 | Identity | Holds | Cannot | Where the secret lives |
 |---|---|---|---|
-| `root@pam` | Break-glass over an SSH key from the management address only; password login off | Be used by automation | Root password in `iac/secrets/hosts/pve01.sops.yaml`; TOTP enrolment is an open owner step ([limits-and-gaps.md](limits-and-gaps.md)) |
+| `root@pam` | Break-glass over an SSH key from the management address only; password login off | Be used by automation | Root password in `iac/secrets/hosts/pve01.sops.yaml`, a shared demo value while the lab is open to visitors ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)); TOTP off in this lab by decision ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)) |
 | `automation` (OS user) | Key-only, passwordless sudo | Log in with a password | Public keys in a SOPS file; private keys on the operator side |
 | `tofu@pve!provisioner` (token) | Guest lifecycle in pool `homelab`, SDN use on the guest and cache vnets, `VM.Clone` on pool `templates` (row 48, token boundary; row 57, template protection) | Create users (403), delete or retag a template (403), delete a volume | `iac/secrets/tofu/pve01-api.sops.yaml`, written by the role |
 | Template root orchestrator | Root on the host, runs `qm`/`pct` with arguments the host chooses | Parse guest output as instructions; the guest-facing step runs as a non-root sandboxed user | None; systemd units on pve01 (ADR 0038) |

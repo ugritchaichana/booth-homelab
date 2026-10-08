@@ -1,0 +1,26 @@
+== 2026-10-08 owner-authorized security steps on ugritchaichana/booth-homelab (times ICT)
+== before (read 2026-10-08 10:35)
+GET actions/runners: 2 runners, both status offline (pve-runner-01, pve-runner-angular)
+GET actions/permissions/fork-pr-contributor-approval: {"approval_policy":"first_time_contributors"}
+GET environments/cache-writer: {"deployment_branch_policy":null,"protection_rules":[]}
+GET environments/cache-writer/secrets: CACHE_WRITER_PASSWORD updated=2026-10-07T07:36:06Z
+wiki pages not in wiki/: 02-GitHub-Actions-Runner-LXC.md 03-Enterprise-MinIO-S3-Cache.md 05-Performance-Benchmark-Results.md
+== after (read 2026-10-08 10:42)
+GET actions/runners: total_count=0
+GET actions/permissions/fork-pr-contributor-approval: {"approval_policy":"all_external_contributors"}
+GET environments/cache-writer .deployment_branch_policy: {"custom_branch_policies":true,"protected_branches":false}
+GET environments/cache-writer/deployment-branch-policies: total=1 master:branch
+GET environments/cache-writer/secrets: CACHE_WRITER_PASSWORD updated=2026-10-08T03:39:22Z
+wiki HEAD: ae23b52 (commit removes the three pages; no page or repository file links to them: grep rc=1, git grep rc=1)
+== writer rotation
+scripts/iac/cache-writer-secret.sh --rotate: stored the writer credential in iac/secrets/hosts/pve01-cache.sops.yaml and set the secret CACHE_WRITER_PASSWORD in environment cache-writer (rc=0)
+converge 1 (rotate-converge-1.txt): build-cache ok=24 changed=2 (bcrypt hash written, bazel-remote restarted) failed=0; pve01 changed=0
+converge 2 (rotate-converge-2.txt): build-cache ok=22 changed=0 skipped=1 (stored hash verifies against the SOPS password, write skipped) failed=0
+== D91, lab opened to visitors (read 2026-10-08 11:29)
+GET actions/permissions/fork-pr-contributor-approval: {"approval_policy":"first_time_contributors_new_to_github"}
+GET actions/runners: total_count=0
+GET branches/master/protection: {"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":1}
+GET collaborators: ugritchaichana:admin
+pve01 sshd -T: passwordauthentication no; permitrootlogin without-password; kbdinteractiveauthentication no
+pve01 root@pam demo password set with chpasswd (rc=0); POST /api2/json/access/ticket with the demo value: http=200, ticket issued, user root@pam; with a wrong value: http=401
+iac/secrets/hosts/pve01.sops.yaml root_password: sops set rc=0, decrypted value matches the host value

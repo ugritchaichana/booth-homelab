@@ -2,7 +2,6 @@
 
 The inventory taken on 2026-10-07 is closed except for the items below, which now live in [limits-and-gaps.md](../handoff/limits-and-gaps.md) and [next-phases.md](../handoff/next-phases.md):
 
-- the two registered but offline runners of the retired host (owner step, Phase 6 cutover);
 - the janitor for runs stuck on offline self-hosted runners (Phase 6 backlog, closed pull request #49);
 - `global.json`, only if a template build ever picks the wrong SDK;
 - the old copies of three renamed wiki pages, which stay on the GitHub wiki until the owner deletes them there.

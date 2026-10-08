@@ -26,7 +26,7 @@ Option 3, with bazel-remote `--allow_unauthenticated_reads` and an htpasswd file
 
 ## Rationale and trade-offs
 
-- The environment's branch policy (default branch only) is an owner setting and is currently unset. Read 2026-10-07: `deployment_branch_policy: null` for environment `cache-writer`. Until the owner sets it, a workflow on any branch that names the environment can read the credential. NAMED GAP, not closed by this change: the credential is exposed to any branch workflow of this repository until the policy is set and the password rotated.
+- The environment's branch policy (default branch only) is an owner setting. Read 2026-10-07: `deployment_branch_policy: null`, so a workflow on any branch that named the environment could read the credential. Closed 2026-10-08: the policy allows `master` only and the password was rotated after it was set ([read-back](../evidence/closeout/owner-gaps-readback.txt)).
 - One credential means one rotation: `scripts/iac/cache-writer-secret.sh --rotate`, then converge the role, which rewrites the hash and restarts the service.
 - bazel-remote verifies the sha256 of every content PUT (ADR 0048), so the credential cannot plant content under a wrong address; it can still fill the cache, which is bounded by the LRU size limit.
 - The traffic is plain HTTP on the private vnet; Basic auth credentials are visible to anything that can sniff that segment. Accepted for a single-host lab bridge; revisit before the cache leaves the host.

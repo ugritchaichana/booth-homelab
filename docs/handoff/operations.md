@@ -50,7 +50,7 @@ Commands: runbook 3.5. Every secret file has one writer ([secrets README](../../
 
 | Secret | Evidence level |
 |---|---|
-| Cache writer password | Script tested offline with mutants (`tests/isolation/test-cache-writer-secret.sh`); no host rotation recorded. Rotate once after the environment branch policy is set ([limits-and-gaps.md](limits-and-gaps.md)) |
+| Cache writer password | Rotated on the host 2026-10-08, after the environment branch policy was set: converge changed=2, then changed=0 ([rotate-converge-1.txt](../evidence/closeout/rotate-converge-1.txt), [rotate-converge-2.txt](../evidence/closeout/rotate-converge-2.txt)); script also tested offline with mutants (`tests/isolation/test-cache-writer-secret.sh`). Hyper-V checkpoints older than the rotation still hold the old value (runbook 3.1) |
 | Provisioner API token | Implemented (`pve_api_identity_rotate`); no host run recorded |
 | OpenTofu state passphrase | Implemented; no host run recorded |
 | R15 probe key | Exercised in the Phase 4 re-creations of the probe guests ([real-host-defects.md](../knowledge/real-host-defects.md)) |

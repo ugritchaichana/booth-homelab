@@ -94,7 +94,7 @@ The certificate is the host's own, so the browser warns once ([ADR 0029](../adr/
 | Guests | probe container, probe VM | `docs/evidence/closeout/rename-final-state.txt:11` `r15-probe-lxc-runner-v6`; `docs/evidence/closeout/rename-final-state.txt:16` `r15-probe-vm-docker-v7` |
 | Guests | demo container, demo VM | `docs/evidence/closeout/rename-final-state.txt:14` `demo-lxc-runner-v6`; `docs/evidence/closeout/rename-final-state.txt:19` `demo-vm-docker-v7` |
 
-What to check: node `pve01`, every guest tagged as in example 1, and `homelab-guest-firewall-guard.service` reports `ok`. Set TOTP on `root@pam` before regular remote use (ADR 0008).
+What to check: node `pve01`, every guest tagged as in example 1, and `homelab-guest-firewall-guard.service` reports `ok`. TOTP on `root@pam` is off in this lab; turn it on before anyone else can reach the UI ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)).
 
 ## 4. Read the build cache status from a guest
 

@@ -6,8 +6,7 @@ Every named gap, who owns it, and the evidence that closes it. "Owner" means the
 
 | Gap | Owner step | What closes it | Source |
 |---|---|---|---|
-| Cache-writer branch policy: environment `cache-writer` has no deployment branch policy, so a workflow from any branch of the repository can name it and receive the writer credential. Forks never receive it | Repository administrator, before the first runner (Phase 5 entry gate) | Set "selected branches" to the default branch only, rotate the writer password, read back `deployment_branch_policy` non-null | ADR 0050; row 62 (cache API), row 70 (security hardening) |
-| Fork pull-request approval is not set to "all external contributors" | Repository administrator, now | The setting changed, and a fork pull-request run shown not to start without approval | row 27 (routing), owner actions in requirements.md |
+| Fork pull requests run without approval (only accounts new to GitHub wait), by decision ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)); safe only while no self-hosted runner is registered | Phase 5 entry gate 1 | Before the first self-hosted runner: forks routed to hosted, or approval for all external contributors restored, shown by a fork run | row 27 (routing), D91 |
 | The routing expression sends fork pull requests to self-hosted runners | Phase 5 gate, then the Phase 6 router | Fork events routed to hosted in the workflows; a fork run on hosted shown by a run id | row 27 (routing); D17 (public-repo CI on a host with private networks) |
 | Save jobs have never run in environment `cache-writer` on the new platform; the self-hosted path has never run, and hosted CI does not use the cache ([ADR 0054](../adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)) | Phase 5 first runners; Phase 6 | A default-branch push runs the save jobs on a JIT runner, a later run hits, and a canary proves the writer credential is absent from every step that runs third-party code | row 68 (hosted run); ADR 0053 |
 | Cache egress: the cache container keeps public IPv4 egress through `guest-egress`, so a compromised cache service could call out | Phase 7 | An egress group without `public-v4` for the cache, opened only during converge; R15 cache rows show the outbound negative | Phase 4 security review |
@@ -16,7 +15,7 @@ Every named gap, who owns it, and the evidence that closes it. "Owner" means the
 | cloud-init restores the default user's passwordless sudo at a VM clone's first boot, although the template seal removed it | Phase 5 gate | A fix plus an R15 row that fails if a runner clone can use sudo | row 59 (clone isolation); [evidence-vm-clone.txt](../evidence/phase3/evidence-vm-clone.txt) |
 | The provisioner token holds privileges on the pool that contains the cache container, and `SDN.Use` on the cache vnet | Phase 5 gate (the controller must not hold it) | A separate pool without a provisioner ACL and an operator-scoped token for the cache stack; `pvesh set` on the cache container returns 403 with the controller token | Phase 4 security review |
 | Plain HTTP with Basic credentials between runners and cache | Before the cache leaves one host | A decision (TLS or an isolated segment) recorded in an ADR | ADR 0050 |
-| No TOTP on `root@pam`; notification target absent | Owner (enrolment) and Phase 7 | Enrolment done; a notification target tested | D60 (TOTP and notifications) |
+| Notification target absent | Phase 7 | A notification target tested | D60 (notifications) |
 | Host-layer trust: any process running as the owner can change the VM's port ACLs; the claim that this reaches host-administrator rights is a HYPOTHESIS, untested | Host layer only; drops on bare metal | Not applicable on bare metal | D43 (Hyper-V Administrators re-confirmed) |
 
 ## Entry gates for the controller phase (Phase 5)
@@ -54,7 +53,6 @@ All gates must be shown, not asserted, before the first runner registers. The fu
 | OpenTofu state is local to one operator workstation | A shared, locked, encrypted backend chosen by the receiving team (not the cache) | ADR 0013, 0051 |
 | A second real host was planned, never applied | Adding a host by [operations.md](operations.md) | R5 (baseline capabilities) |
 | Rebuild from zero by someone who was not there; run on a non-Proxmox host | Phase 8 | R2 (runbook), R10 (portability), R18 (handoff-ready) |
-| The two old runners of the retired host are still registered | Repository administrator deregisters them on an explicit go (Phase 6) | requirements.md section 2.1 |
 | The probe's link-local target is a stale hand-edited value after an SDN re-apply | The probe derives the address at run time | [real-host-defects.md](../knowledge/real-host-defects.md), open findings |
 | Provisioner cannot set tags at create; deleting a downloaded volume needs one operator `pvesm free` | Accepted limitation; do not widen the token | row 48 (token boundary) |
 | Janitor for runs stuck on offline self-hosted runners | Phase 6 backlog, see [next-phases.md](next-phases.md) | closed pull request [#49](https://github.com/ugritchaichana/booth-homelab/pull/49), "feat: actions janitor cancels runs stuck on offline self-hosted runners and raises an alert issue" |
@@ -73,6 +71,15 @@ Each needs a host converge proof or is Phase 5 work.
 - `.github/workflows/sdet-ci.yml` passes `secrets: inherit` to the reusable pipeline instead of naming the secrets it needs.
 - `scripts/iac/cache-writer-secret.sh`, `new-guest.sh`, `render-ssh-config.sh` and `tofu.sh` each define their own helper functions such as `die`; there is no shared `scripts/iac/lib.sh`.
 
+## Closed gaps
+
+| Gap | Closed | Evidence |
+|---|---|---|
+| Cache-writer branch policy: a workflow from any branch could name environment `cache-writer` and receive the writer credential | 2026-10-08: selected branches, `master` only; the writer password rotated afterwards and converged on the cache host | [owner-gaps-readback.txt](../evidence/closeout/owner-gaps-readback.txt), [rotate-converge-2.txt](../evidence/closeout/rotate-converge-2.txt) |
+| The two old runners of the retired host were still registered | 2026-10-08: deregistered; the runners API lists 0 runners | [owner-gaps-readback.txt](../evidence/closeout/owner-gaps-readback.txt) |
+
 ## Reference-machine limits (do not inherit)
+
+`root@pam` has a shared demo password so visitors can log in ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)); replace it before the host holds anything of value. TOTP on `root@pam` is off in this lab by decision ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)); the [lab defaults table](security-model.md#lab-defaults-and-what-to-turn-on) says when to turn it on.
 
 A laptop that enters Modern Standby suspends the VM and invalidates long runs (row 43, converge run); static RAM leaves little for daily work (row 28, RAM headroom); the control path through the Windows host and WSL has no bare-metal equivalent (ADR 0011). See [porting.md](porting.md).

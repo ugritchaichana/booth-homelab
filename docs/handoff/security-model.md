@@ -41,7 +41,7 @@ Two limits of the provisioner token that the receiving team will meet: it cannot
 - Reads are anonymous: a pull-request job holds nothing to leak. Writes need one credential (`ci-writer`), held only as the secret `CACHE_WRITER_PASSWORD` of environment `cache-writer` (ADR 0050).
 - The credential sits only in the environment of the save steps. Those steps run the cache client over artifacts uploaded by the same run's build and test jobs, so no install script or build runs beside it. A workflow test rejects any use of the secret outside the save steps (row 70, security hardening; `tests/cache/test_workflow_secrets.py`).
 - The server verifies the sha256 of every blob on upload (500 on mismatch, nothing stored); the client verifies digests on restore, extracts only the planned paths, caps size and members, and refuses an interpreter older than the tarfile fixes (row 62, cache API; row 65, cache edge cases; row 70, security hardening).
-- Owner step, not done: the branch policy of environment `cache-writer` ([limits-and-gaps.md](limits-and-gaps.md), first security gap; ADR 0050).
+- Done 2026-10-08: environment `cache-writer` accepts only `master`, and the writer password was rotated after the policy was set ([limits-and-gaps.md](limits-and-gaps.md), closed gaps; ADR 0050).
 - Traffic is plain HTTP on a private vnet; Basic credentials are visible to anything that can sniff that segment (ADR 0050). Revisit before the cache leaves the host.
 
 ## Secrets handling
@@ -54,6 +54,19 @@ Two limits of the provisioner token that the receiving team will meet: it cannot
 ## Flavor guests
 
 A guest created by `scripts/iac/new-guest.sh` is a linked clone of a template, created stopped, with the NIC `firewall` flag, `ipfilter` for a VM and the `guests` bridge; it declares no firewall rules of its own and inherits the template's (ADR 0055). The guard stops one that lacks any of them. No new secret or role is involved: the stack uses the provisioner token.
+
+## Lab defaults and what to turn on
+
+This lab is a learning project and a base to adapt, so it leaves some controls off on purpose. Turn each on when its condition applies to your setup.
+
+| Control | In this lab | Why | Turn it on when | How |
+|---|---|---|---|---|
+| TOTP on `root@pam` | Off | Every UI login would need a code; the UI is reachable only through the host relay, and `root@pam` is break-glass only | Someone other than the owner can reach the UI, a second administrator joins, the host carries real workloads, or the UI is exposed beyond the relay | [ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) |
+| Encrypted cache traffic | Plain HTTP with Basic credentials on a private vnet | One host, one isolated vnet | Before the cache leaves the host | [ADR 0050](../adr/0050-allow-anonymous-cache-reads-and-gate-writes-with-one-writer-credential.md) |
+| A second age recipient | One recipient | One operator holds every secret | More than one person needs the secrets, or the identity must survive the loss of one copy | [secrets README](../../iac/secrets/README.md), recovery and rotation |
+| Fork pull-request approval | Loosest GitHub allows: only accounts new to GitHub wait | Anyone can open a pull request and see CI run; merges still need the owner's review | Before the first self-hosted runner registers (Phase 5 entry gate 1) | Settings, Actions, General; or `gh api -X PUT repos/OWNER/REPO/actions/permissions/fork-pr-contributor-approval -f approval_policy=all_external_contributors` ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)) |
+| A strong `root@pam` password | A shared demo password the owner gives to visitors | Visitors log in to the web UI without setup; SSH still refuses passwords | Before the host holds anything of value or anyone untrusted can reach the UI | Runbook 3.5 ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)) |
+| A fresh VM checkpoint after each rotation | None after the 2026-10-08 writer rotation | A checkpoint needs the VM off, and the lab stays running (D86) | Every rotation that follows a checkpoint: an older checkpoint still holds the old secret | Runbook 3.1 |
 
 ## Known gaps
 

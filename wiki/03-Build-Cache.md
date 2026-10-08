@@ -30,7 +30,7 @@ Extraction is bounded: only the plan's paths, capped bytes and members, and an i
 
 ## Limits
 
-- Open gaps, including the missing branch policy on environment `cache-writer` and the `bazel-remote` behavior after `kill -9`: [docs/handoff/limits-and-gaps.md](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/handoff/limits-and-gaps.md). The action-cache counters that stay at zero: [docs/knowledge/real-host-defects.md](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/knowledge/real-host-defects.md).
+- Open gaps, including the `bazel-remote` behavior after `kill -9`: [docs/handoff/limits-and-gaps.md](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/handoff/limits-and-gaps.md). The action-cache counters that stay at zero: [docs/knowledge/real-host-defects.md](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/knowledge/real-host-defects.md).
 - CI runs on hosted runners today (ADR 0054), which run with the cache disabled by design; the cache is used once self-hosted runners exist.
 
 Procedures: [RUNBOOK.md](https://github.com/ugritchaichana/booth-homelab/blob/master/RUNBOOK.md), "Day-2 operations", "Cache: health, purge, rotation".
