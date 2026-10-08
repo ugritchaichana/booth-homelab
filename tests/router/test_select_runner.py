@@ -41,10 +41,10 @@ def runners(status="online"):
 
 
 def previous_attempt(scenario):
-    base = FIXTURES / scenario
-    routes = {"/runs/9/attempts/1/jobs?per_page=100": [200, text(base / "jobs.json")]}
-    for path in (base / "annotations").glob("*.json"):
-        routes[f"/check-runs/{path.stem}/annotations"] = [200, text(path)]
+    doc = json.loads(text(FIXTURES / f"{scenario}.json"))
+    routes = {"/runs/9/attempts/1/jobs?per_page=100": [200, json.dumps(doc["jobs"])]}
+    for job_id, annotations in doc["annotations"].items():
+        routes[f"/check-runs/{job_id}/annotations"] = [200, json.dumps(annotations)]
     return routes
 
 

@@ -81,7 +81,7 @@ jobs:
       - name: Run the Router Tests, Measured
         run: |
           coverage run --branch --include='scripts/ci/runner_route.py' -m unittest discover -s tests/router -v
-          coverage report -m --precision=2 --fail-under=96
+          coverage report -m --precision=2 --fail-under=100
 
       - name: Shellcheck the Route Script
         run: shellcheck scripts/ci/select-runner.sh

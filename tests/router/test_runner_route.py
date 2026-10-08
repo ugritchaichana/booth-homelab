@@ -1,11 +1,13 @@
 import copy
 import io
 import json
+import runpy
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -13,8 +15,8 @@ sys.path.insert(0, str(REPO / "scripts" / "ci"))
 
 import runner_route  # noqa: E402
 
-RESTARTED = FIXTURES / "runner-restarted"
-TEST_FAILURE = FIXTURES / "test-failure"
+RESTARTED = FIXTURES / "runner-restarted.json"
+TEST_FAILURE = FIXTURES / "test-failure.json"
 DOTNET_JOB = "CI / Build and Test (.NET)"
 CANCELLED_STEP = "Execute Transitive Affected Tests (Unit & Integration)"
 TIMEOUT = "The job running on runner pve01-ci-lxc-runner-1 has exceeded the maximum execution time of 30 minutes."
@@ -23,9 +25,17 @@ LOST = "The self-hosted runner: pve01-ci-lxc-runner-1 lost communication with th
 
 
 def scenario(path):
-    jobs = json.loads((path / "jobs.json").read_text(encoding="utf-8"))["jobs"]
-    annotations = {int(f.stem): json.loads(f.read_text(encoding="utf-8")) for f in (path / "annotations").glob("*.json")}
-    return jobs, annotations
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    return doc["jobs"]["jobs"], {int(k): v for k, v in doc["annotations"].items()}
+
+
+def unpacked(path, into):
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    (into / "annotations").mkdir()
+    (into / "jobs.json").write_text(json.dumps(doc["jobs"]), encoding="utf-8")
+    for job_id, annotations in doc["annotations"].items():
+        (into / "annotations" / f"{job_id}.json").write_text(json.dumps(annotations), encoding="utf-8")
+    return ["--jobs", str(into / "jobs.json"), "--annotations-dir", str(into / "annotations")]
 
 
 def runners():
@@ -118,6 +128,12 @@ class FingerprintTests(unittest.TestCase):
         next(s for s in angular["steps"] if s["name"] == "Execute Angular Jest Suite")["conclusion"] = "failure"
         self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
 
+    def test_a_failed_job_with_no_failed_or_cancelled_step_is_not_infra(self):
+        jobs, annotations = scenario(RESTARTED)
+        for step in dotnet(jobs)["steps"]:
+            step["conclusion"] = "success"
+        self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
+
     def test_a_cancelled_run_is_not_infra(self):
         jobs, annotations = scenario(RESTARTED)
         dotnet(jobs)["conclusion"] = "cancelled"
@@ -204,13 +220,15 @@ class CliTests(unittest.TestCase):
         return dict(line.split("=", 1) for line in out.getvalue().splitlines())
 
     def test_classify_prints_the_fingerprint_of_the_restarted_runner(self):
-        out = self.run_cli(["classify", "--jobs", str(RESTARTED / "jobs.json"), "--annotations-dir", str(RESTARTED / "annotations")])
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_cli(["classify"] + unpacked(RESTARTED, Path(d)))
         self.assertEqual(out["infra"], "true")
         self.assertEqual(out["proxmox"], "true")
         self.assertIn(CANCELLED_STEP, out["fingerprint"])
 
     def test_classify_a_test_failure(self):
-        out = self.run_cli(["classify", "--jobs", str(TEST_FAILURE / "jobs.json"), "--annotations-dir", str(TEST_FAILURE / "annotations")])
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_cli(["classify"] + unpacked(TEST_FAILURE, Path(d)))
         self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "true"})
 
     def test_classify_with_missing_inputs_is_not_infra(self):
@@ -232,6 +250,13 @@ class CliTests(unittest.TestCase):
                                 "--previous-fingerprint", "x\ny", "--previous-error", ""])
         self.assertEqual(out["hosted"], "true")
         self.assertNotIn("\n", out["reason"])
+
+    def test_the_script_entry_point_exits_with_the_command_status(self):
+        argv = ["runner_route.py", "decide", "--forced-hosted", "true", "--token-present", "false"]
+        with mock.patch.object(sys, "argv", argv), redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as done:
+            runpy.run_path(str(REPO / "scripts" / "ci" / "runner_route.py"), run_name="__main__")
+        self.assertEqual(done.exception.code, 0)
+        self.assertIn("hosted=true", out.getvalue())
 
     def test_decide_with_a_bad_status_is_an_api_error(self):
         out = self.run_cli(["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "000"])
