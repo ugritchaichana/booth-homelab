@@ -102,3 +102,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0059 | [Open the reference lab to visitors](0059-open-the-reference-lab-to-visitors.md) | Accepted |
 | 0060 | [Run own CI on one persistent runner container behind a job-start guard](0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md) | Accepted |
 | 0061 | [Report each SDET run on its pull request from a workflow_run callback](0061-report-each-sdet-run-on-its-pull-request-from-a-workflow-run-callback.md) | Accepted |
+| 0062 | [Route CI by runner health and retry once on hosted after an infra failure](0062-route-ci-by-runner-health-and-retry-once-on-hosted-after-an-infra-failure.md) | Accepted |

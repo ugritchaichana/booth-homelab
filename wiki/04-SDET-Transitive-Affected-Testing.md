@@ -60,9 +60,18 @@ Composite actions: `.github/actions/build-cache` (restore and save), `run-affect
 
 ## Runner selection
 
-The `select-runner` job chooses `ubuntu-latest` when `force_ubuntu_runner` is true or the repository is not this one, and the labels `self-hosted`, `linux`, `proxmox` and `dotnet` or `angular` otherwise. `CACHE_URL` is set only on the self-hosted path, so a hosted run executes with the cache disabled.
+The `select-runner` job chooses the labels `self-hosted`, `linux`, `proxmox` and `dotnet` or `angular`, or `ubuntu-latest`, and writes the reason to its summary ([ADR 0062](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0062-route-ci-by-runner-health-and-retry-once-on-hosted-after-an-infra-failure.md)):
 
-`sdet-ci.yml` sets `force_ubuntu_runner` unless the repository variable `CI_RUNNER` is `proxmox`. A fork pull request, and a dispatch with `force_ubuntu_runner` true, run hosted whatever the variable says. On the self-hosted runner a job-start hook refuses every event except `push`, `workflow_dispatch`, `schedule` and a pull request from a branch of this repository, before the job's first step ([ADR 0060](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md); runbook 3.7). Back to hosted for every run: `gh variable set CI_RUNNER --body hosted`.
+1. **Forced hosted.** `force_ubuntu_runner` is true (set by `sdet-ci.yml` unless the repository variable `CI_RUNNER` is `proxmox`, and for every fork pull request), or the repository is not this one.
+2. **Rerun after a runner failure.** The previous attempt failed on Proxmox with an infra fingerprint: hosted.
+3. **Health check.** The runners API, read with the secret `RUNNER_STATUS_TOKEN`:
+   - at least one online runner labelled `proxmox` keeps the run on Proxmox, even when every runner is busy;
+   - none online sends it to hosted;
+   - without the token, or on an API error, the variable decides.
+
+`CACHE_URL` follows the route: a run on hosted runners executes with the cache disabled.
+
+An infra fingerprint is a Proxmox job that failed although no step of its own failed, with a step cancelled under it (measured by restarting a runner mid-job), or one of the runner-loss messages GitHub documents. A failed test, compile or guard step is never one. The callback reruns such a run once, and the rerun's `select-runner` sends it to hosted. On the self-hosted runner a job-start hook refuses every event except `push`, `workflow_dispatch`, `schedule` and a pull request from a branch of this repository, before the job's first step ([ADR 0060](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md); runbook 3.7). Back to hosted for every run: `gh variable set CI_RUNNER --body hosted`.
 
 ## Other workflows
 
@@ -76,7 +85,7 @@ The `select-runner` job chooses `ubuntu-latest` when `force_ubuntu_runner` is tr
 | `secret-scan.yml` | every pull request and push to the default branch: gitleaks |
 | `standard-scorecard.yml` | pull requests and pushes to the default branch, weekly: the scorecard and the documentation-claims check ([standard/README.md](https://github.com/ugritchaichana/booth-homelab/blob/master/standard/README.md)) |
 | `sdet-fallback-drill.yml` | monthly: the full pipeline on hosted runners |
-| `sdet-callback.yml` | every finished SDET run: one comment on its pull request with the pass rate per suite, every failed test with its message and stack, and the log tail of a job that failed outside the tests ([ADR 0061](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0061-report-each-sdet-run-on-its-pull-request-from-a-workflow-run-callback.md)) |
+| `sdet-callback.yml` | every finished SDET run: one comment on its pull request with the pass rate per suite, every failed test with its message and stack, and the log tail of a job that failed outside the tests ([ADR 0061](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0061-report-each-sdet-run-on-its-pull-request-from-a-workflow-run-callback.md)); after an infra failure on Proxmox it reruns the run once on hosted ([ADR 0062](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0062-route-ci-by-runner-health-and-retry-once-on-hosted-after-an-infra-failure.md)) |
 | `report-ci.yml` | `scripts/ci/run_report.py`, `scripts/ci/sdet-report.sh`, `tests/report/`: parser tests with a coverage floor, shellcheck |
 | `wiki-sync.yml` | `wiki/` on the default branch: mirrors the pages to the GitHub wiki |
 | `pr-labeler.yml`, `pr-reviewer-guard.yml` | pull request events: area labels; removes an automatic reviewer request |

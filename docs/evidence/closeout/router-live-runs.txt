@@ -1,0 +1,68 @@
+Runner router live runs, read through the GitHub API on 2026-10-08T11:55:25Z
+
+== 1. Runners online: pull request run 37770136447, attempt 1
+  CI / Select Runner | success | GitHub Actions 1000002291 | 
+  CI / Test (Angular) | success | pve01-ci-lxc-runner-3 | 
+  CI / Build and Test (.NET) | success | pve01-ci-lxc-runner-2 | 
+  CI / Telemetry | success | pve01-ci-lxc-runner-1 | 
+  CI / Cache (Angular) | skipped | no runner | 
+  CI / Report | success | GitHub Actions 1000002300 | 
+  CI / Cache (.NET) | skipped | no runner | 
+Runner route (attempt 1): Proxmox VE Self-Hosted (LXC) because 3 of 3 Proxmox runners online (HTTP 200)
+
+== 2. A whole-run rerun re-executes Select Runner: run 37770136447, attempt 2 (rerun by the owner account)
+select-runner: attempt 1 classified: infra=false fingerprint= proxmox=true 
+Runner route (attempt 2): Proxmox VE Self-Hosted (LXC) because 3 of 3 Proxmox runners online (HTTP 200)
+
+== 3. Runner restarted mid-job: dispatched run 37772130618
+attempt 1 (actions-runner@2 restarted at 11:45:45Z while the .NET test step ran):
+  CI / Select Runner | success | GitHub Actions 1000002322 | 
+  CI / Test (Angular) | success | pve01-ci-lxc-runner-1 | 
+  CI / Build and Test (.NET) | failure | pve01-ci-lxc-runner-2 | Execute Transitive Affected Tests (Unit & Integration): cancelled
+  CI / Telemetry | success | pve01-ci-lxc-runner-3 | 
+  CI / Cache (Angular) | skipped | no runner | 
+  CI / Report | failure | GitHub Actions 1000002323 | Generate Pipeline Summary Report: failure
+  CI / Cache (.NET) | skipped | no runner | 
+callback run 37772261359 (event workflow_dispatch)
+  job Classify the finished attempt | success
+    sdet-classify: run 37772130618 attempt 1 failure; this attempt: infra=true fingerprint=job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed proxmox=true ; previous:  
+    sdet-classify: retry=true note=Attempt 1 failed on the Proxmox runner (job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed); the whole run is rerun once on GitHub-hosted. 
+  job Report to the pull request | success
+    sdet-report: updated comment 6058859898 on #121
+  job Retry once on GitHub-hosted | success
+    sdet-retry: Attempt 1 failed on the Proxmox runner (job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed); the whole run is rerun once on GitHub-hosted.
+attempt 2 (triggering actor github-actions[bot]):
+select-runner: attempt 1 classified: infra=true fingerprint=job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed proxmox=true 
+Runner route (attempt 2): GitHub-Hosted (ubuntu-latest) because the previous attempt failed on the Proxmox runner (job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed)
+  CI / Select Runner | success | GitHub Actions 1000002328 | 
+  CI / Telemetry | success | GitHub Actions 1000002329 | 
+  CI / Test (Angular) | success | GitHub Actions 1000002330 | 
+  CI / Build and Test (.NET) | success | GitHub Actions 1000002331 | 
+  CI / Cache (Angular) | skipped | no runner | 
+  CI / Report | success | GitHub Actions 1000002332 | 
+  CI / Cache (.NET) | skipped | no runner | 
+workflow_run callback on attempt 2's completion: run 37772441144 created 2026-10-08T11:47:55Z
+callback run 37772587709 (event workflow_dispatch)
+  job Classify the finished attempt | success
+    sdet-classify: run 37772130618 attempt 2 success; this attempt: infra=false fingerprint= proxmox=false ; previous: infra=true fingerprint=job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed proxmox=true 
+    sdet-classify: retry=false note=Attempt 1 failed on the Proxmox runner (job "CI / Build and Test (.NET)" lost its runner: step "Execute Transitive Affected Tests (Unit & Integration)" was cancelled and no step failed); this attempt ran on GitHub-hosted. 
+  job Report to the pull request | success
+    sdet-report: updated comment 6058859898 on #121
+  job Retry once on GitHub-hosted | skipped
+
+== 4. Real test failure on Proxmox: draft pull request #122 (closed), run 37772807650
+  CI / Select Runner | success | GitHub Actions 1000002342 | 
+  CI / Telemetry | success | pve01-ci-lxc-runner-1 | 
+  CI / Test (Angular) | failure | pve01-ci-lxc-runner-2 | Execute Angular Jest Suite: failure
+  CI / Build and Test (.NET) | failure | pve01-ci-lxc-runner-3 | Execute Transitive Affected Tests (Unit & Integration): failure
+  CI / Cache (Angular) | skipped | no runner | 
+  CI / Report | failure | GitHub Actions 1000002353 | Generate Pipeline Summary Report: failure
+  CI / Cache (.NET) | skipped | no runner | 
+callback run 37772971683 (event workflow_dispatch)
+  job Classify the finished attempt | success
+    sdet-classify: run 37772807650 attempt 1 failure; this attempt: infra=false fingerprint= proxmox=true ; previous:  
+    sdet-classify: retry=false note=Not retried: no runner failure was found, so the failure comes from the code or the tests. 
+  job Report to the pull request | success
+    sdet-report: updated comment 6059256964 on #122
+  job Retry once on GitHub-hosted | skipped
+run_attempt after the callback: 1
