@@ -79,7 +79,7 @@
     {
       "src": "plans:booth-homelab-closeout/raw/owner-gaps-readback.txt",
       "dest": "docs/evidence/closeout/owner-gaps-readback.txt",
-      "proves": "D89: GitHub read-backs before and after the owner-authorized steps: runners 0, fork approval all external contributors, cache-writer limited to master, writer secret updated, stale wiki pages removed"
+      "proves": "D89 and D91: GitHub read-backs before and after the owner-authorized steps (runners 0, cache-writer limited to master, writer secret updated, stale wiki pages removed), then the lab opened to visitors (fork approval at the loosest value, code-owner review on master, demo root login 200 and wrong value 401, SSH refuses passwords)"
     },
     {
       "src": "plans:booth-homelab-closeout/raw/rotate-converge-1.txt",

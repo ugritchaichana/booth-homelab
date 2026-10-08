@@ -33,7 +33,7 @@ Expected: the first prints a long encoded string (the script above treats HTTP 2
 
 ### Entry gates (before the first runner registers)
 
-1. Fork pull requests are routed to hosted runners in the workflows (the routing expression still selects self-hosted for forks) and the fork-approval setting is on.
+1. Fork pull requests are routed to hosted runners in the workflows (the routing expression still selects self-hosted for forks), or fork approval is restored to all external contributors; it is at the loosest value while the lab is open to visitors ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)).
 2. Runner clones do not keep the default user's passwordless sudo that cloud-init restores at first boot, checked by an R15 row.
 3. Root touches probe guests only after checking tag and pool, and runner VMIDs stay outside the template blocks.
 4. A per-runner firewall read-back (clones inherit the template firewall).

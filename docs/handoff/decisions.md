@@ -98,6 +98,7 @@ The full list is the [ADR index](../adr/README.md); the one-row-per-decision log
 | [ADR 0056](../adr/0056-keep-one-implementation-of-the-affected-test-selector.md) | The affected-test selector existed twice and had drifted; the shell script is the only one |
 | [ADR 0057](../adr/0057-measure-coverage-with-coverage-py-and-pester.md) | Coverage.py and Pester give a measured number per suite with a regression floor; no target is invented |
 | [ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) | A learning lab stays easy to use: TOTP on `root@pam` is off, with the conditions and steps to turn it on |
+| [ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md) | Visitors can try the lab: fork pull requests run without approval, `root@pam` has a shared demo password, merges still need the owner's review |
 
 ## Decided direction, not built
 

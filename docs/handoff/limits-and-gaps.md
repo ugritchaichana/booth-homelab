@@ -6,7 +6,7 @@ Every named gap, who owns it, and the evidence that closes it. "Owner" means the
 
 | Gap | Owner step | What closes it | Source |
 |---|---|---|---|
-| Fork pull-request approval: set to "all external contributors" on 2026-10-08 ([read-back](../evidence/closeout/owner-gaps-readback.txt)), not yet shown on a real fork pull request | Repository administrator with a second account, or Phase 6 | A fork pull-request run shown not to start without approval | row 27 (routing), owner actions in requirements.md |
+| Fork pull requests run without approval (only accounts new to GitHub wait), by decision ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)); safe only while no self-hosted runner is registered | Phase 5 entry gate 1 | Before the first self-hosted runner: forks routed to hosted, or approval for all external contributors restored, shown by a fork run | row 27 (routing), D91 |
 | The routing expression sends fork pull requests to self-hosted runners | Phase 5 gate, then the Phase 6 router | Fork events routed to hosted in the workflows; a fork run on hosted shown by a run id | row 27 (routing); D17 (public-repo CI on a host with private networks) |
 | Save jobs have never run in environment `cache-writer` on the new platform; the self-hosted path has never run, and hosted CI does not use the cache ([ADR 0054](../adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)) | Phase 5 first runners; Phase 6 | A default-branch push runs the save jobs on a JIT runner, a later run hits, and a canary proves the writer credential is absent from every step that runs third-party code | row 68 (hosted run); ADR 0053 |
 | Cache egress: the cache container keeps public IPv4 egress through `guest-egress`, so a compromised cache service could call out | Phase 7 | An egress group without `public-v4` for the cache, opened only during converge; R15 cache rows show the outbound negative | Phase 4 security review |
@@ -80,6 +80,6 @@ Each needs a host converge proof or is Phase 5 work.
 
 ## Reference-machine limits (do not inherit)
 
-TOTP on `root@pam` is off in this lab by decision ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)); the [lab defaults table](security-model.md#lab-defaults-and-what-to-turn-on) says when to turn it on.
+`root@pam` has a shared demo password so visitors can log in ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)); replace it before the host holds anything of value. TOTP on `root@pam` is off in this lab by decision ([ADR 0058](../adr/0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md)); the [lab defaults table](security-model.md#lab-defaults-and-what-to-turn-on) says when to turn it on.
 
 A laptop that enters Modern Standby suspends the VM and invalidates long runs (row 43, converge run); static RAM leaves little for daily work (row 28, RAM headroom); the control path through the Windows host and WSL has no bare-metal equivalent (ADR 0011). See [porting.md](porting.md).
