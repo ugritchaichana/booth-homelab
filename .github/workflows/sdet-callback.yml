@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: ["SDET Homelab CI Pipeline"]
     types: [completed]
+  pull_request:
+    paths: ['.github/workflows/sdet-callback.yml']
   workflow_dispatch:
     inputs:
       run_id:
@@ -23,6 +25,7 @@ concurrency:
 jobs:
   report:
     name: Report to the pull request
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
