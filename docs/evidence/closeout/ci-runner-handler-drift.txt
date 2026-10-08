@@ -1,0 +1,95 @@
+
+PLAY [Register the CI runner instances with GitHub behind the job-start guard] ***
+
+TASK [Require a GitHub token in the environment of the controller] *************
+ok: [pve01]
+
+TASK [Find the running runner container] ***************************************
+ok: [pve01]
+
+TASK [Require exactly one runner container] ************************************
+ok: [pve01]
+
+TASK [Stage the guard and the unit on the host] ********************************
+ok: [pve01]
+
+TASK [Copy the runner scripts to the host] *************************************
+ok: [pve01] => (item=runner-guard.sh)
+ok: [pve01] => (item=runner-job-completed.sh)
+ok: [pve01] => (item=runner-restart.sh)
+
+TASK [Render the runner units on the host] *************************************
+ok: [pve01] => (item=actions-runner@.service)
+ok: [pve01] => (item=actions-runner-restart@.path)
+ok: [pve01] => (item=actions-runner-restart@.service)
+
+TASK [Read what the container holds now] ***************************************
+ok: [pve01]
+
+TASK [Hash the staged files] ***************************************************
+ok: [pve01]
+
+TASK [Install the runner scripts and units in the container, owned by root] ****
+changed: [pve01]
+
+TASK [Retire the single-instance runner of the first install] ******************
+ok: [pve01]
+
+TASK [Read the runners GitHub knows] *******************************************
+ok: [pve01 -> localhost]
+
+TASK [Deregister the single-instance runner name] ******************************
+skipping: [pve01]
+
+TASK [Create each instance directory from the unconfigured runner] *************
+ok: [pve01] => (item=1)
+ok: [pve01] => (item=2)
+ok: [pve01] => (item=3)
+
+TASK [Read which instances are configured] *************************************
+ok: [pve01] => (item=1)
+ok: [pve01] => (item=2)
+ok: [pve01] => (item=3)
+
+TASK [Ask GitHub for a registration token] *************************************
+skipping: [pve01]
+
+TASK [Configure each new instance as the runner user, the token on stdin] ******
+skipping: [pve01]
+
+TASK [Enable and start every instance and its restart-after-job watcher] *******
+ok: [pve01] => (item=1)
+ok: [pve01] => (item=2)
+ok: [pve01] => (item=3)
+
+TASK [Restart the instances before waiting when the scripts or the units changed] ***
+
+RUNNING HANDLER [Restart the runner instances] *********************************
+changed: [pve01] => (item=1)
+changed: [pve01] => (item=2)
+changed: [pve01] => (item=3)
+
+TASK [Wait until GitHub lists every instance online] ***************************
+ok: [pve01 -> localhost]
+
+TASK [Show the runners as GitHub sees them] ************************************
+ok: [pve01] => {
+    "msg": [
+        [
+            "pve01-ci-lxc-runner-1",
+            "online"
+        ],
+        [
+            "pve01-ci-lxc-runner-2",
+            "online"
+        ],
+        [
+            "pve01-ci-lxc-runner-3",
+            "online"
+        ]
+    ]
+}
+
+PLAY RECAP *********************************************************************
+pve01                      : ok=17   changed=2    unreachable=0    failed=0    skipped=3    rescued=0    ignored=0   
+

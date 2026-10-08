@@ -94,9 +94,10 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0051 | [Keep OpenTofu state local instead of moving it to the cache](0051-keep-opentofu-state-local-instead-of-moving-it-to-the-cache.md) | Accepted |
 | 0052 | [Publish sanitized evidence and knowledge in the repository](0052-publish-sanitized-evidence-and-knowledge-in-the-repository.md) | Accepted |
 | 0053 | [Prove Phase 4 on a runner-template clone before runners exist](0053-prove-phase-4-on-a-runner-template-clone-before-runners-exist.md) | Accepted |
-| 0054 | [Run CI on hosted runners until the runner pool exists](0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md) | Accepted |
+| 0054 | [Run CI on hosted runners until the runner pool exists](0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md) | Superseded in part by 0060 |
 | 0055 | [Create flavor-sized guests from a declarative list with one command](0055-create-flavor-sized-guests-from-a-declarative-list-with-one-command.md) | Accepted |
 | 0056 | [Keep one implementation of the affected-test selector](0056-keep-one-implementation-of-the-affected-test-selector.md) | Accepted |
 | 0057 | [Measure coverage with coverage.py and Pester](0057-measure-coverage-with-coverage-py-and-pester.md) | Accepted |
 | 0058 | [Keep Proxmox login hardening off in the reference lab and document it for adopters](0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) | Accepted |
 | 0059 | [Open the reference lab to visitors](0059-open-the-reference-lab-to-visitors.md) | Accepted |
+| 0060 | [Run own CI on one persistent runner container behind a job-start guard](0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md) | Accepted |

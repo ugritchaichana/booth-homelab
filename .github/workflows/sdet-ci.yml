@@ -8,10 +8,10 @@ on:
   workflow_dispatch:
     inputs:
       force_ubuntu_runner:
-        description: 'Run on GitHub-hosted ubuntu-latest; set false to target self-hosted runners once the ephemeral pool exists'
+        description: 'Force GitHub-hosted ubuntu-latest; otherwise the repository variable CI_RUNNER decides'
         required: false
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -25,4 +25,4 @@ jobs:
     with:
       target_branch: ${{ github.head_ref || github.ref_name }}
       base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || (github.event.before && github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'HEAD~1')) }}
-      force_ubuntu_runner: ${{ github.event_name != 'workflow_dispatch' || inputs.force_ubuntu_runner }}
+      force_ubuntu_runner: ${{ vars.CI_RUNNER != 'proxmox' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || (github.event_name == 'workflow_dispatch' && inputs.force_ubuntu_runner) }}

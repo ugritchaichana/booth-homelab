@@ -1,0 +1,7 @@
+[Unit]
+Description=Restart GitHub Actions runner %i once its job has ended
+
+[Service]
+Type=oneshot
+Environment=RUNNER_ROOT={{ ci_runner_dir }}
+ExecStart={{ ci_runner_restart }} %i

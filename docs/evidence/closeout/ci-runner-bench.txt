@@ -1,0 +1,91 @@
+before the merge of the .NET jobs (commit 7d5e5a6, three runner instances with restart-after-job)
+proxmox run 37741533072 7d5e5a6 success 114s wall
+    CI / Select Runner | queued 3s | ran 3s
+    CI / Telemetry | queued 4s | ran 11s
+    CI / Test (Angular) | queued 3s | ran 39s
+    CI / Build (.NET) | queued 4s | ran 36s
+    CI / Test (.NET) | queued 3s | ran 47s
+    CI / Report | queued 3s | ran 12s
+hosted run 37741735902 7d5e5a6 success 79s wall
+    CI / Select Runner | queued 3s | ran 3s
+    CI / Test (Angular) | queued 2s | ran 25s
+    CI / Telemetry | queued 2s | ran 6s
+    CI / Build (.NET) | queued 2s | ran 28s
+    CI / Test (.NET) | queued 2s | ran 32s
+    CI / Report | queued 3s | ran 3s
+proxmox run 37741883916 7d5e5a6 success 109s wall
+    CI / Select Runner | queued 3s | ran 4s
+    CI / Telemetry | queued 3s | ran 12s
+    CI / Build (.NET) | queued 3s | ran 28s
+    CI / Test (Angular) | queued 3s | ran 34s
+    CI / Test (.NET) | queued 4s | ran 37s
+    CI / Report | queued 15s | ran 12s
+hosted run 37742082437 7d5e5a6 success 74s wall
+    CI / Select Runner | queued 2s | ran 3s
+    CI / Telemetry | queued 3s | ran 5s
+    CI / Build (.NET) | queued 3s | ran 13s
+    CI / Test (Angular) | queued 3s | ran 25s
+    CI / Test (.NET) | queued 3s | ran 42s
+    CI / Report | queued 3s | ran 2s
+
+after the merge of the .NET jobs and Report on hosted (commit 0442859), dispatch runs, same commit
+round 1 proxmox run 37745982978 0442859 success 66s wall
+    CI / Select Runner | queued 3s | ran 2s
+    CI / Telemetry | queued 4s | ran 12s
+    CI / Test (Angular) | queued 4s | ran 34s
+    CI / Build and Test (.NET) | queued 4s | ran 49s
+    CI / Report | queued 2s | ran 2s
+round 1 hosted run 37746112406 0442859 success 48s wall
+    CI / Select Runner | queued 3s | ran 3s
+    CI / Test (Angular) | queued 3s | ran 17s
+    CI / Telemetry | queued 3s | ran 5s
+    CI / Build and Test (.NET) | queued 3s | ran 31s
+    CI / Report | queued 3s | ran 2s
+round 2 proxmox run 37746222699 0442859 success 63s wall
+    CI / Select Runner | queued 3s | ran 4s
+    CI / Build and Test (.NET) | queued 4s | ran 44s
+    CI / Test (Angular) | queued 4s | ran 31s
+    CI / Telemetry | queued 4s | ran 12s
+    CI / Report | queued 3s | ran 4s
+round 2 hosted run 37746355843 0442859 success 63s wall
+    CI / Select Runner | queued 2s | ran 2s
+    CI / Test (Angular) | queued 2s | ran 21s
+    CI / Build and Test (.NET) | queued 2s | ran 48s
+    CI / Telemetry | queued 3s | ran 4s
+    CI / Report | queued 2s | ran 3s
+round 1 proxmox run 37746603237 0442859 success 66s wall
+    CI / Select Runner | queued 3s | ran 3s
+    CI / Test (Angular) | queued 4s | ran 31s
+    CI / Telemetry | queued 3s | ran 12s
+    CI / Build and Test (.NET) | queued 4s | ran 49s
+    CI / Report | queued 3s | ran 2s
+round 1 hosted run 37746729183 0442859 success 76s wall
+    CI / Select Runner | queued 3s | ran 2s
+    CI / Build and Test (.NET) | queued 4s | ran 55s
+    CI / Telemetry | queued 3s | ran 3s
+    CI / Test (Angular) | queued 3s | ran 18s
+    CI / Report | queued 4s | ran 4s
+round 2 proxmox run 37746879449 0442859 success 72s wall
+    CI / Select Runner | queued 3s | ran 4s
+    CI / Telemetry | queued 3s | ran 12s
+    CI / Build and Test (.NET) | queued 3s | ran 53s
+    CI / Test (Angular) | queued 3s | ran 33s
+    CI / Report | queued 3s | ran 3s
+round 2 hosted run 37747041236 0442859 success 49s wall
+    CI / Select Runner | queued 3s | ran 2s
+    CI / Build and Test (.NET) | queued 3s | ran 33s
+    CI / Test (Angular) | queued 3s | ran 20s
+    CI / Telemetry | queued 3s | ran 5s
+    CI / Report | queued 3s | ran 2s
+round 3 proxmox run 37747158998 0442859 success 65s wall
+    CI / Select Runner | queued 3s | ran 3s
+    CI / Telemetry | queued 3s | ran 12s
+    CI / Build and Test (.NET) | queued 3s | ran 48s
+    CI / Test (Angular) | queued 3s | ran 29s
+    CI / Report | queued 3s | ran 3s
+round 3 hosted run 37747292910 0442859 success 58s wall
+    CI / Select Runner | queued 3s | ran 5s
+    CI / Telemetry | queued 2s | ran 5s
+    CI / Test (Angular) | queued 2s | ran 16s
+    CI / Build and Test (.NET) | queued 2s | ran 38s
+    CI / Report | queued 3s | ran 4s

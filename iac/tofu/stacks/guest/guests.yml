@@ -10,3 +10,7 @@ guests:
       template_class: vm-docker
       slot: 2
       vendor_snippet: lab-accounts-vendor.yaml
+    ci-lxc-runner:
+      flavor: aws/c5.2xlarge
+      template_class: lxc-runner
+      slot: 3

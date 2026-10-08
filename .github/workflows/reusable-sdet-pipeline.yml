@@ -21,13 +21,13 @@ on:
     outputs:
       cache_hit:
         description: 'Cache hit status'
-        value: ${{ jobs.dotnet-build.outputs.cache_hit_dotnet_outputs }}
+        value: ${{ jobs.dotnet.outputs.cache_hit_dotnet_outputs }}
       build_duration_ms:
         description: 'Build duration in ms'
-        value: ${{ jobs.dotnet-build.outputs.build_duration_ms }}
+        value: ${{ jobs.dotnet.outputs.build_duration_ms }}
       test_duration_ms:
         description: 'Test duration in ms'
-        value: ${{ jobs.dotnet-test.outputs.test_duration_ms }}
+        value: ${{ jobs.dotnet.outputs.test_duration_ms }}
       angular_duration_ms:
         description: 'Angular Jest duration in ms'
         value: ${{ jobs.angular-jest.outputs.angular_duration_ms }}
@@ -121,15 +121,18 @@ jobs:
           fi
           echo "=========================================================="
 
-  dotnet-build:
-    name: Build (.NET)
-    needs: [select-runner, telemetry]
-    timeout-minutes: 15
+  dotnet:
+    name: Build and Test (.NET)
+    needs: [select-runner]
+    timeout-minutes: 30
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     outputs:
+      compiled: ${{ steps.compile.outcome == 'success' }}
+      tested: ${{ steps.run-tests.outcome == 'success' }}
       cache_hit_nuget: ${{ steps.restore-nuget.outputs.hit }}
       cache_hit_dotnet_outputs: ${{ steps.restore-outputs.outputs.hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
+      test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -196,34 +199,6 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-      - name: Cache Hit Report
-        if: always()
-        shell: bash
-        run: |
-          if [ -f "$RUNNER_TEMP/build-cache-stats.jsonl" ]; then
-            PYTHONPATH=scripts/ci python3 -m build_cache report --stats-file "$RUNNER_TEMP/build-cache-stats.jsonl"
-          fi
-
-  dotnet-test:
-    name: Test (.NET)
-    needs: [select-runner, dotnet-build]
-    timeout-minutes: 20
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
-    outputs:
-      test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
-    steps:
-      - name: Checkout Repository (Preserve Binaries)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-          clean: false
-
-      - name: Setup .NET 8 SDK (Fallback Runner)
-        if: needs.select-runner.outputs.hosted == 'true'
-        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
-        with:
-          dotnet-version: '8.0.x'
-
       - name: Execute Transitive Affected Tests (Unit & Integration)
         id: run-tests
         uses: ./.github/actions/run-affected-tests
@@ -240,12 +215,20 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      - name: Cache Hit Report
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/build-cache-stats.jsonl" ]; then
+            PYTHONPATH=scripts/ci python3 -m build_cache report --stats-file "$RUNNER_TEMP/build-cache-stats.jsonl"
+          fi
+
   dotnet-cache-save:
     name: Cache (.NET)
-    needs: [select-runner, dotnet-build, dotnet-test]
+    needs: [select-runner, dotnet]
     timeout-minutes: 10
     environment: cache-writer
-    if: always() && needs.dotnet-build.result == 'success' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: always() && needs.dotnet.outputs.compiled == 'true' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     steps:
       - name: Checkout Repository
@@ -301,7 +284,7 @@ jobs:
     needs: [select-runner, angular-jest]
     timeout-minutes: 10
     environment: cache-writer
-    if: always() && needs.angular-jest.result == 'success' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: always() && needs.angular-jest.result == 'success' && needs.angular-jest.outputs.cache_hit_node_modules != 'true' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
     steps:
       - name: Checkout Repository
@@ -391,19 +374,19 @@ jobs:
 
   summary:
     name: Report
-    needs: [select-runner, telemetry, dotnet-build, dotnet-test, dotnet-cache-save, angular-cache-save, angular-jest]
+    needs: [select-runner, telemetry, dotnet, dotnet-cache-save, angular-cache-save, angular-jest]
     timeout-minutes: 5
     if: ${{ !cancelled() && needs.select-runner.result == 'success' }}
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    runs-on: ubuntu-latest
     steps:
       - name: Generate Pipeline Summary Report
         shell: bash
         run: |
-          HIT_NUGET="${{ needs.dotnet-build.outputs.cache_hit_nuget }}"
-          HIT_OUTPUTS="${{ needs.dotnet-build.outputs.cache_hit_dotnet_outputs }}"
+          HIT_NUGET="${{ needs.dotnet.outputs.cache_hit_nuget }}"
+          HIT_OUTPUTS="${{ needs.dotnet.outputs.cache_hit_dotnet_outputs }}"
           HIT_NODE="${{ needs.angular-jest.outputs.cache_hit_node_modules }}"
-          BUILD_MS="${{ needs.dotnet-build.outputs.build_duration_ms }}"
-          DOTNET_TEST_MS="${{ needs.dotnet-test.outputs.test_duration_ms }}"
+          BUILD_MS="${{ needs.dotnet.outputs.build_duration_ms }}"
+          DOTNET_TEST_MS="${{ needs.dotnet.outputs.test_duration_ms }}"
           ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
           RUNNER_LABEL="${{ needs.select-runner.outputs.runner_label }}"
 
@@ -429,17 +412,17 @@ jobs:
             echo ""
             echo "| Technology Stack | Target Runner | Duration | Status |"
             echo "| :--- | :--- | :--- | :--- |"
-            echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms** | ${{ needs.dotnet-build.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **.NET Unit & Integration Tests** | ${RUNNER_LABEL} | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet-test.result == 'success' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms** | ${{ needs.dotnet.outputs.compiled == 'true' && '✅ Success' || '❌ Failed' }} |"
+            echo "| **.NET Unit & Integration Tests** | ${RUNNER_LABEL} | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet.outputs.tested == 'true' && '✅ Success' || '❌ Failed' }} |"
             echo "| **Angular Jest Unit Tests** | ${RUNNER_LABEL} | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
             echo "| **Build Cache** | ${CACHE_ENDPOINT} | nuget: \`${HIT_NUGET:-false}\`, dotnet-outputs: \`${HIT_OUTPUTS:-false}\`, node_modules: \`${HIT_NODE:-false}\` | ${CACHE_STATE} |"
             echo ""
             echo "### Infrastructure Execution Model"
             echo "- 🏗️ **Runner Infrastructure:** ${RUNNER_LABEL}"
-            echo "- 🔄 **Graceful Fallback:** Fork-safe automatic degradation to GitHub-hosted runners when self-hosted infrastructure is unreachable."
+            echo "- 🔄 **Routing:** fork pull requests always run on GitHub-hosted runners; the repository variable \`CI_RUNNER\` sends every other run there when it is not \`proxmox\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ needs.dotnet-build.result }}" != "success" ] || [ "${{ needs.dotnet-test.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then
+          if [ "${{ needs.dotnet.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then
             echo "::error::One or more pipeline stages failed!"
             exit 1
           fi
