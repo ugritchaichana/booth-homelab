@@ -40,7 +40,7 @@ Option 3: `.github/workflows/sdet-callback.yml`, job `Report to the pull request
 
 ## Consequences
 
-- Fork pull requests get the same report as branches of this repository.
+- Fork pull requests get the same report as branches of this repository, by design. No fork run has shown it yet (limits and gaps, fork row).
 - `workflow_run` fires only from the default branch's copy of the workflow. Before a change merges, replay it by hand with `gh workflow run sdet-callback.yml -f run_id=<run id>`.
 - A run whose head is no open pull request's head (a push to `master`) writes the report to the callback's job summary only. A dispatched run on a pull request's head updates that pull request's comment.
 - Only the SDET pipeline is reported. The other workflows keep their own summaries.
