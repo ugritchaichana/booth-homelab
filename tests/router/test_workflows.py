@@ -47,6 +47,22 @@ def routed_env_violations(text):
     return found
 
 
+def callback_violations(text):
+    doc = yaml.safe_load(text)
+    jobs = doc["jobs"]
+    found = [] if doc.get("permissions") == {} else ["the workflow grants permissions above the jobs"]
+    writers = sorted(name for name, job in jobs.items() if (job.get("permissions") or {}).get("actions") == "write")
+    if writers != ["retry"]:
+        found.append(f"jobs with actions: write: {writers}")
+    if any("pull-requests" in (jobs.get(name, {}).get("permissions") or {}) for name in ("classify", "retry")):
+        found.append("a job other than report can write pull requests")
+    if set(jobs.get("retry", {}).get("needs", [])) != {"classify", "report"}:
+        found.append("retry does not wait for the report")
+    if "needs.classify.outputs.retry == 'true'" not in str(jobs.get("retry", {}).get("if")):
+        found.append("retry is not gated on the classifier")
+    return found
+
+
 def callers():
     return [p.name for p in sorted(WORKFLOWS.glob("*.yml")) if f"./.github/workflows/{PIPELINE}" in read(p.name)]
 
@@ -97,6 +113,28 @@ class RouterWorkflowTests(unittest.TestCase):
         mutated = re.sub(r"(  telemetry:\n(?:.*\n)*?)    env:\n      CACHE_URL: .*\n", r"\1", text, count=1)
         self.assertNotEqual(mutated, text)
         self.assertTrue(routed_env_violations(mutated))
+
+
+    def test_only_the_retry_job_can_rerun_and_only_after_the_report(self):
+        self.assertEqual(callback_violations(read("sdet-callback.yml")), [])
+
+    def test_mutation_retry_before_the_report_is_caught(self):
+        text = read("sdet-callback.yml")
+        mutated = text.replace("    needs: [classify, report]\n", "    needs: [classify]\n", 1)
+        self.assertNotEqual(mutated, text)
+        self.assertTrue(callback_violations(mutated))
+
+    def test_mutation_write_on_the_classifier_is_caught(self):
+        text = read("sdet-callback.yml")
+        mutated = text.replace("      actions: read\n      checks: read\n", "      actions: write\n      checks: read\n", 1)
+        self.assertNotEqual(mutated, text)
+        self.assertTrue(callback_violations(mutated))
+
+    def test_mutation_workflow_level_permissions_are_caught(self):
+        text = read("sdet-callback.yml")
+        mutated = text.replace("permissions: {}\n", "permissions:\n  actions: write\n", 1)
+        self.assertNotEqual(mutated, text)
+        self.assertTrue(callback_violations(mutated))
 
 
 if __name__ == "__main__":

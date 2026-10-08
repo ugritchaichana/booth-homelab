@@ -212,6 +212,51 @@ class DecideTests(unittest.TestCase):
         self.assertIn("previous attempt jobs HTTP 404", reason)
 
 
+class VerdictTests(unittest.TestCase):
+    def verdict(self, **overrides):
+        args = dict(attempt=1, conclusion="failure", proxmox=True, fingerprint="", error="", previous_fingerprint="")
+        args.update(overrides)
+        return runner_route.verdict(**args)
+
+    def test_an_infra_failure_on_attempt_one_is_retried_once(self):
+        retry, note = self.verdict(fingerprint="job lost its runner")
+        self.assertTrue(retry)
+        self.assertIn("job lost its runner", note)
+        self.assertIn("GitHub-hosted", note)
+
+    def test_a_test_failure_is_never_retried_and_the_note_says_why(self):
+        retry, note = self.verdict()
+        self.assertFalse(retry)
+        self.assertIn("Not retried", note)
+        self.assertIn("code or the tests", note)
+
+    def test_a_later_attempt_is_never_retried_again(self):
+        retry, note = self.verdict(attempt=2, fingerprint="job lost its runner")
+        self.assertFalse(retry)
+        self.assertIn("only attempt 1", note)
+
+    def test_the_retried_attempt_names_the_first_failure_and_where_it_ran(self):
+        for proxmox, where in ((False, "GitHub-hosted"), (True, "the Proxmox runner")):
+            with self.subTest(proxmox=proxmox):
+                retry, note = self.verdict(attempt=2, conclusion="success", proxmox=proxmox, previous_fingerprint="job lost its runner")
+                self.assertFalse(retry)
+                self.assertEqual(note, f"Attempt 1 failed on the Proxmox runner (job lost its runner); this attempt ran on {where}.")
+
+    def test_success_cancel_and_hosted_failures_get_no_note(self):
+        for overrides in ({"conclusion": "success"}, {"conclusion": "cancelled"}, {"proxmox": False, "fingerprint": "x"}):
+            with self.subTest(**overrides):
+                self.assertEqual(self.verdict(**overrides), (False, ""))
+
+    def test_an_unclassified_failure_is_not_retried_and_says_so(self):
+        retry, note = self.verdict(error="jobs of attempt 1 returned HTTP 500", fingerprint="x")
+        self.assertFalse(retry)
+        self.assertIn("could not be classified (jobs of attempt 1 returned HTTP 500)", note)
+
+    def test_the_note_is_one_line(self):
+        _, note = self.verdict(fingerprint="a\nretry=true")
+        self.assertNotIn("\n", note)
+
+
 class CliTests(unittest.TestCase):
     def run_cli(self, argv):
         out = io.StringIO()
@@ -257,6 +302,15 @@ class CliTests(unittest.TestCase):
             runpy.run_path(str(REPO / "scripts" / "ci" / "runner_route.py"), run_name="__main__")
         self.assertEqual(done.exception.code, 0)
         self.assertIn("hosted=true", out.getvalue())
+
+    def test_verdict_prints_retry_and_note(self):
+        out = self.run_cli(["verdict", "--attempt", "1", "--conclusion", "failure", "--proxmox", "true", "--fingerprint", "job lost its runner"])
+        self.assertEqual(out["retry"], "true")
+        self.assertIn("job lost its runner", out["note"])
+
+    def test_verdict_with_a_non_numeric_attempt_is_not_retried(self):
+        out = self.run_cli(["verdict", "--attempt", "null", "--conclusion", "failure", "--proxmox", "true", "--fingerprint", "x"])
+        self.assertEqual(out["retry"], "false")
 
     def test_decide_with_a_bad_status_is_an_api_error(self):
         out = self.run_cli(["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "000"])

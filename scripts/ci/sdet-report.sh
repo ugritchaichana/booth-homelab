@@ -25,7 +25,7 @@ jq -r '.jobs[] | select(.conclusion != "skipped") | select(.conclusion == "failu
 done
 
 python3 "$here/run_report.py" render --run "$work/run.json" --jobs "$work/jobs.json" --dotnet-dir "$work/dotnet" \
-  --jest-file "$work/angular/test-results/jest.json" --logs-dir "$work/logs" > "$work/body.md"
+  --jest-file "$work/angular/test-results/jest.json" --logs-dir "$work/logs" --note "${RUN_NOTE:-}" > "$work/body.md"
 cat "$work/body.md" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 gh api --paginate "repos/$REPOSITORY/pulls?state=open&per_page=100" | jq -s 'add' > "$work/pulls.json"

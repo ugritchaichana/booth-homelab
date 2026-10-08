@@ -80,6 +80,23 @@ def decide(forced_hosted, token_present, http_status, runners, previous_fingerpr
     return False, f"{online} of {total} Proxmox runners online (HTTP 200){note}"
 
 
+def verdict(attempt, conclusion, proxmox, fingerprint, error, previous_fingerprint):
+    if attempt > 1 and previous_fingerprint:
+        where = "the Proxmox runner" if proxmox else "GitHub-hosted"
+        return False, one_line(f"Attempt {attempt - 1} failed on the Proxmox runner ({previous_fingerprint}); this attempt ran on {where}.")
+    if conclusion != "failure":
+        return False, ""
+    if error:
+        return False, one_line(f"Not retried: attempt {attempt} could not be classified ({error}).")
+    if not proxmox:
+        return False, ""
+    if not fingerprint:
+        return False, "Not retried: no runner failure was found, so the failure comes from the code or the tests."
+    if attempt != 1:
+        return False, one_line(f"Not retried: attempt {attempt} failed on the Proxmox runner ({fingerprint}), and only attempt 1 is retried automatically.")
+    return True, one_line(f"Attempt 1 failed on the Proxmox runner ({fingerprint}); the whole run is rerun once on GitHub-hosted.")
+
+
 def load(path, default):
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -101,6 +118,13 @@ def main(argv=None):
     d.add_argument("--runners")
     d.add_argument("--previous-fingerprint", default="")
     d.add_argument("--previous-error", default="")
+    v = sub.add_parser("verdict")
+    v.add_argument("--attempt", required=True)
+    v.add_argument("--conclusion", default="")
+    v.add_argument("--proxmox", default="false")
+    v.add_argument("--fingerprint", default="")
+    v.add_argument("--error", default="")
+    v.add_argument("--previous-fingerprint", default="")
     c = sub.add_parser("classify")
     c.add_argument("--jobs", required=True)
     c.add_argument("--annotations-dir", required=True)
@@ -110,6 +134,11 @@ def main(argv=None):
                                 load(args.runners, None) if args.runners else None, args.previous_fingerprint, args.previous_error)
         print(f"hosted={str(hosted).lower()}")
         print(f"reason={reason}")
+    elif args.command == "verdict":
+        retry, note = verdict(status_code(args.attempt), args.conclusion, args.proxmox == "true", args.fingerprint, args.error,
+                              args.previous_fingerprint)
+        print(f"retry={str(retry).lower()}")
+        print(f"note={note}")
     else:
         jobs = load(args.jobs, {})
         jobs = jobs.get("jobs", []) if isinstance(jobs, dict) else []

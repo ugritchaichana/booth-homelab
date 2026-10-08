@@ -1,47 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-api="${GITHUB_API_URL:-https://api.github.com}"
-here="$(cd "$(dirname "$0")" && pwd)"
+: "${REPOSITORY:?}" "${RUN_ID:?}" "${FORCED_HOSTED:?}"
+# shellcheck source=scripts/ci/attempt-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/attempt-lib.sh"
 work="$(mktemp -d)"
 trap 'rm -r -f "$work"' EXIT
-
-fetch() {
-  printf 'Authorization: Bearer %s\n' "$2" | curl -sS -o "$3" -w '%{http_code}' --max-time 15 -H @- \
-    -H 'Accept: application/vnd.github+json' "$1" 2> "$3.err" || true
-}
-
-why() {
-  local message
-  message="$(jq -r '.message? // empty' "$1" 2> /dev/null | head -c 200 || true)"
-  echo "${message:-$(head -c 200 "$1.err" 2> /dev/null || true)}"
-}
 
 attempt="${RUN_ATTEMPT:-1}"
 previous_fingerprint=""
 previous_error=""
 if [ "$FORCED_HOSTED" != true ] && [ "$attempt" -gt 1 ]; then
-  previous=$((attempt - 1))
-  code="$(fetch "$api/repos/$REPOSITORY/actions/runs/$RUN_ID/attempts/$previous/jobs?per_page=100" "$GH_TOKEN" "$work/jobs.json")"
-  if [ "$code" = 200 ]; then
-    mkdir -p "$work/annotations"
-    while read -r id; do
-      [ -n "$id" ] || continue
-      code="$(fetch "$api/repos/$REPOSITORY/check-runs/$id/annotations" "$GH_TOKEN" "$work/annotations/$id.json")"
-      if [ "$code" != 200 ]; then
-        previous_error="annotations of attempt $previous returned HTTP $code"
-        echo "select-runner: $previous_error: $(why "$work/annotations/$id.json")"
-      fi
-    done < <(jq -r '.jobs[] | select(.conclusion == "failure") | .id' "$work/jobs.json" | tr -d '\r')
-    if [ -z "$previous_error" ]; then
-      classified="$(python3 "$here/runner_route.py" classify --jobs "$work/jobs.json" --annotations-dir "$work/annotations")"
-      echo "select-runner: attempt $previous classified: $(tr '\n' ' ' <<< "$classified")"
-      previous_fingerprint="$(sed -n 's/^fingerprint=//p' <<< "$classified")"
-    fi
-  else
-    previous_error="jobs of attempt $previous returned HTTP $code"
-    echo "select-runner: $previous_error: $(why "$work/jobs.json")"
-  fi
+  classified="$(classify_attempt "$RUN_ID" $((attempt - 1)) "$work/previous")"
+  echo "select-runner: attempt $((attempt - 1)) classified: $(tr '\n' ' ' <<< "$classified")"
+  previous_fingerprint="$(sed -n 's/^fingerprint=//p' <<< "$classified")"
+  previous_error="$(sed -n 's/^error=//p' <<< "$classified")"
 fi
 
 token_present=false
@@ -52,7 +24,7 @@ if [ "$FORCED_HOSTED" != true ] && [ -z "$previous_fingerprint" ] && [ -n "${RUN
   [ "$http_status" = 200 ] || echo "select-runner: runner health check returned HTTP $http_status: $(why "$work/runners.json")"
 fi
 
-decision="$(python3 "$here/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" \
+decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" \
   --http-status "$http_status" --runners "$work/runners.json" \
   --previous-fingerprint "$previous_fingerprint" --previous-error "$previous_error")"
 hosted="$(sed -n 's/^hosted=//p' <<< "$decision")"

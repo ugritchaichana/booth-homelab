@@ -207,6 +207,19 @@ class CliTests(unittest.TestCase):
                 handle.close()
             self.assertIn("### Failed tests (2)", out.read_text(encoding="utf-8"))
 
+    def test_render_command_shows_the_runner_note_neutralized(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "run.json").write_text(json.dumps(RUN), encoding="utf-8")
+            (Path(d) / "jobs.json").write_text(json.dumps({"jobs": []}), encoding="utf-8")
+            out = Path(d) / "body.md"
+            with mock.patch("sys.stdout", new=open(out, "w", encoding="utf-8")) as handle:
+                run_report.main(["render", "--run", str(Path(d) / "run.json"), "--jobs", str(Path(d) / "jobs.json"),
+                                 "--note", "Attempt 1 failed on the Proxmox runner (@team); rerun"])
+                handle.close()
+            body = out.read_text(encoding="utf-8")
+        self.assertIn("**Runner:** Attempt 1 failed on the Proxmox runner", body)
+        self.assertNotIn("(@team)", body)
+
     def test_pr_and_comment_commands_print_the_target(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "run.json").write_text(json.dumps(RUN), encoding="utf-8")
