@@ -1,0 +1,51 @@
+name: Run Report CI
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'scripts/ci/run_report.py'
+      - 'scripts/ci/sdet-report.sh'
+      - 'tests/report/**'
+      - 'tests/requirements-coverage-ci.txt'
+      - '.github/workflows/sdet-callback.yml'
+      - '.github/workflows/sdet-ci.yml'
+      - '.github/workflows/report-ci.yml'
+  pull_request:
+    paths:
+      - 'scripts/ci/run_report.py'
+      - 'scripts/ci/sdet-report.sh'
+      - 'tests/report/**'
+      - 'tests/requirements-coverage-ci.txt'
+      - '.github/workflows/sdet-callback.yml'
+      - '.github/workflows/sdet-ci.yml'
+      - '.github/workflows/report-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report-tests:
+    name: Run Report Parser Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install coverage.py
+        run: python -m pip install --require-hashes -r tests/requirements-coverage-ci.txt
+
+      - name: Run the Parser Tests, Measured
+        run: |
+          coverage run --branch --include='scripts/ci/run_report.py' -m unittest discover -s tests/report -v
+          coverage report -m --precision=2 --fail-under=93
+
+      - name: Shellcheck the Report Script
+        run: shellcheck scripts/ci/sdet-report.sh scripts/apps/run-angular-jest.sh

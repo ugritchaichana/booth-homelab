@@ -1,0 +1,582 @@
+{
+ "numFailedTestSuites": 1,
+ "numFailedTests": 1,
+ "numPassedTestSuites": 4,
+ "numPassedTests": 29,
+ "numPendingTestSuites": 0,
+ "numPendingTests": 1,
+ "numRuntimeErrorTestSuites": 0,
+ "numTodoTests": 0,
+ "numTotalTestSuites": 5,
+ "numTotalTests": 31,
+ "openHandles": [],
+ "snapshot": {
+  "added": 0,
+  "didUpdate": false,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0
+ },
+ "startTime": 1791451349519,
+ "success": false,
+ "testResults": [
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "Fixture failures"
+     ],
+     "duration": 59,
+     "failureDetails": [
+      {
+       "matcherResult": {
+        "actual": "``` @someone [object Object]",
+        "expected": "expected value",
+        "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"expected value\"\u001b[39m\nReceived: \u001b[31m\"``` @someone [object Object]\"\u001b[39m",
+        "name": "toBe",
+        "pass": false
+       }
+      }
+     ],
+     "failureMessages": [
+      "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"expected value\"\u001b[39m\nReceived: \u001b[31m\"``` @someone [object Object]\"\u001b[39m\n    at /opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/src/app/billing/fixture-failure.spec.ts:13:52\n    at _ZoneDelegate.invoke (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone.umd.js:416:32)\n    at ProxyZoneSpec.Object.<anonymous>.ProxyZoneSpec.onInvoke (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone-testing.umd.js:2176:43)\n    at _ZoneDelegate.invoke (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone.umd.js:415:38)\n    at ZoneImpl.run (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone.umd.js:147:47)\n    at Object.wrappedFunc (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone-testing.umd.js:450:38)\n    at Promise.then.completed (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/utils.js:298:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/utils.js:231:10)\n    at _callCircusTest (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:316:40)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at _runTest (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:252:3)\n    at _runTestsForDescribeBlock (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:126:9)\n    at _runTestsForDescribeBlock (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:121:9)\n    at run (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:71:3)\n    at runAndTransformResultsToJestFormat (/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)"
+     ],
+     "fullName": "Fixture failures formats a total with `backticks` and @someone in the message",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 0,
+     "retryReasons": [],
+     "status": "failed",
+     "title": "formats a total with `backticks` and @someone in the message"
+    },
+    {
+     "ancestorTitles": [
+      "Fixture failures"
+     ],
+     "duration": null,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "Fixture failures is skipped on purpose",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 0,
+     "retryReasons": [],
+     "status": "pending",
+     "title": "is skipped on purpose"
+    }
+   ],
+   "endTime": 1791451360135,
+   "message": "\u001b[1m\u001b[31m  \u001b[1m\u25cf \u001b[22m\u001b[1mFixture failures \u203a formats a total with `backticks` and @someone in the message\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"expected value\"\u001b[39m\n    Received: \u001b[31m\"``` @someone [object Object]\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 11 |\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 12 |\u001b[39m   it(\u001b[32m'formats a total with `backticks` and @someone in the message'\u001b[39m\u001b[33m,\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 13 |\u001b[39m     expect(\u001b[32m'```'\u001b[39m \u001b[33m+\u001b[39m \u001b[32m' @someone '\u001b[39m \u001b[33m+\u001b[39m \u001b[33mString\u001b[39m(service))\u001b[33m.\u001b[39mtoBe(\u001b[32m'expected value'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m    |\u001b[39m                                                    \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 14 |\u001b[39m   })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 15 |\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 16 |\u001b[39m   it\u001b[33m.\u001b[39mskip(\u001b[32m'is skipped on purpose'\u001b[39m\u001b[33m,\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat \u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/app/billing/fixture-failure.spec.ts\u001b[39m\u001b[0m\u001b[2m:13:52\u001b[22m\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat _ZoneDelegate.invoke (\u001b[22m\u001b[2mnode_modules/zone.js/bundles/zone.umd.js\u001b[2m:416:32)\u001b[22m\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat ProxyZoneSpec.Object.<anonymous>.ProxyZoneSpec.onInvoke (\u001b[22m\u001b[2mnode_modules/zone.js/bundles/zone-testing.umd.js\u001b[2m:2176:43)\u001b[22m\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat _ZoneDelegate.invoke (\u001b[22m\u001b[2mnode_modules/zone.js/bundles/zone.umd.js\u001b[2m:415:38)\u001b[22m\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat ZoneImpl.run (\u001b[22m\u001b[2mnode_modules/zone.js/bundles/zone.umd.js\u001b[2m:147:47)\u001b[22m\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.wrappedFunc (\u001b[22m\u001b[2mnode_modules/zone.js/bundles/zone-testing.umd.js\u001b[2m:450:38)\u001b[22m\u001b[2m\u001b[22m\n",
+   "name": "/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/src/app/billing/fixture-failure.spec.ts",
+   "startTime": 1791451352512,
+   "status": "failed",
+   "summary": ""
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)"
+     ],
+     "duration": 56,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) should be created",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should be created"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 11,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax should calculate 7% tax accurately on standard subtotal",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should calculate 7% tax accurately on standard subtotal"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 10,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax should round tax to two decimal places",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should round tax to two decimal places"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 7,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: 12.34 at 0.07 -> 0.86",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: 12.34 at 0.07 -> 0.86"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 8,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: 12.36 at 0.07 -> 0.87",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: 12.36 at 0.07 -> 0.87"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 9,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: 1.50 at 0.07 -> 0.11",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: 1.50 at 0.07 -> 0.11"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 5,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: 99.95 at 0.07 -> 7.00",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: 99.95 at 0.07 -> 7.00"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 6,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: 3.50 at 0.07 -> 0.25",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: 3.50 at 0.07 -> 0.25"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 7,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: -50.00 at 0.07 -> 0.00",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: -50.00 at 0.07 -> 0.00"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 6,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax shared fixture: 0.00 at 0.07 -> 0.00",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "shared fixture: 0.00 at 0.07 -> 0.00"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "calculateTax"
+     ],
+     "duration": 6,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) calculateTax should return 0 for negative amounts",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should return 0 for negative amounts"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "generateInvoiceId"
+     ],
+     "duration": 4,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) generateInvoiceId should format invoice ID with 6-digit zero padding",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 2,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should format invoice ID with 6-digit zero padding"
+    },
+    {
+     "ancestorTitles": [
+      "BillingService (Jest Unit Tests)",
+      "createInvoice"
+     ],
+     "duration": 5,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingService (Jest Unit Tests) createInvoice should generate complete invoice object with correct totals",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should generate complete invoice object with correct totals"
+    }
+   ],
+   "endTime": 1791451360247,
+   "message": "",
+   "name": "/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/src/app/billing/billing.service.spec.ts",
+   "startTime": 1791451352426,
+   "status": "passed",
+   "summary": ""
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)"
+     ],
+     "duration": 74,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) should be created",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should be created"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "validateVoucher"
+     ],
+     "duration": 11,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) validateVoucher should return true for valid voucher codes (case-insensitive)",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 3,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should return true for valid voucher codes (case-insensitive)"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "validateVoucher"
+     ],
+     "duration": 7,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) validateVoucher should return false for unknown voucher codes",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 2,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should return false for unknown voucher codes"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 9,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should calculate standard checkout without voucher correctly",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 6,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should calculate standard checkout without voucher correctly"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 8,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should apply fixed discount voucher (SAVE10) correctly",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 5,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should apply fixed discount voucher (SAVE10) correctly"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 5,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should apply percentage discount voucher (VIP20) correctly",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 5,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should apply percentage discount voucher (VIP20) correctly"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 6,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should ignore invalid voucher code and proceed with standard checkout",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 3,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should ignore invalid voucher code and proceed with standard checkout"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 6,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should clamp discount when fixed voucher exceeds subtotal",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 5,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should clamp discount when fixed voucher exceeds subtotal"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 9,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should clamp negative subtotal to zero",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 6,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should clamp negative subtotal to zero"
+    },
+    {
+     "ancestorTitles": [
+      "OrderService (Jest Unit Tests)",
+      "calculateCheckout"
+     ],
+     "duration": 6,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderService (Jest Unit Tests) calculateCheckout should accurately round taxable amount for percentage discount with fractional cents",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 5,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should accurately round taxable amount for percentage discount with fractional cents"
+    }
+   ],
+   "endTime": 1791451360274,
+   "message": "",
+   "name": "/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/src/app/order/order.service.spec.ts",
+   "startTime": 1791451352476,
+   "status": "passed",
+   "summary": ""
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "BillingSummaryComponent (Jest Component Tests)"
+     ],
+     "duration": 165,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingSummaryComponent (Jest Component Tests) should create the component",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should create the component"
+    },
+    {
+     "ancestorTitles": [
+      "BillingSummaryComponent (Jest Component Tests)"
+     ],
+     "duration": 61,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingSummaryComponent (Jest Component Tests) should render invoice details when input is provided",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 2,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should render invoice details when input is provided"
+    },
+    {
+     "ancestorTitles": [
+      "BillingSummaryComponent (Jest Component Tests)"
+     ],
+     "duration": 20,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "BillingSummaryComponent (Jest Component Tests) should not render billing-card when invoice is null",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should not render billing-card when invoice is null"
+    }
+   ],
+   "endTime": 1791451360364,
+   "message": "",
+   "name": "/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/src/app/billing/billing-summary.component.spec.ts",
+   "startTime": 1791451352482,
+   "status": "passed",
+   "summary": ""
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "OrderCheckoutComponent (Jest Component Tests)"
+     ],
+     "duration": 187,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderCheckoutComponent (Jest Component Tests) should create the checkout component",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 1,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should create the checkout component"
+    },
+    {
+     "ancestorTitles": [
+      "OrderCheckoutComponent (Jest Component Tests)"
+     ],
+     "duration": 30,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderCheckoutComponent (Jest Component Tests) should calculate checkout summary when button is clicked",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 5,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should calculate checkout summary when button is clicked"
+    },
+    {
+     "ancestorTitles": [
+      "OrderCheckoutComponent (Jest Component Tests)"
+     ],
+     "duration": 21,
+     "failureDetails": [],
+     "failureMessages": [],
+     "fullName": "OrderCheckoutComponent (Jest Component Tests) should display error message when invalid voucher code is entered",
+     "invocations": 1,
+     "location": null,
+     "numPassingAsserts": 2,
+     "retryReasons": [],
+     "status": "passed",
+     "title": "should display error message when invalid voucher code is entered"
+    }
+   ],
+   "endTime": 1791451360798,
+   "message": "",
+   "name": "/opt/actions-runner-1/_work/booth-homelab/booth-homelab/apps/frontend/src/app/order/order-checkout.component.spec.ts",
+   "startTime": 1791451352492,
+   "status": "passed",
+   "summary": ""
+  }
+ ],
+ "wasInterrupted": false
+}

@@ -528,6 +528,23 @@ After each job the job-completed hook writes `/run/actions-runner-N/restart`, an
 
 When the container is down, routed jobs queue for up to 24 hours: set `CI_RUNNER` to `hosted` and re-run them. To retire the runner, set the variable to `hosted`, deregister the three runners (Settings, Actions, Runners), and stop the container; the lab does not destroy guests (D86).
 
+### 3.8 The pull-request run report
+
+`sdet-callback.yml` runs after every SDET pipeline run, on hosted runners, and keeps one comment on the run's pull request up to date (ADR 0061). The comment lists:
+- per suite: passed, failed, skipped, the pass rate (passed over executed) and the execution rate;
+- every failed test, with its message and stack;
+- every job that failed outside the tests, with its failing step and the last 40 log lines.
+
+A run with no open pull request at its head writes the same report to the callback's job summary.
+
+| Task | Command |
+|---|---|
+| Report an older run again, or test a change to the callback before it merges | `gh workflow run sdet-callback.yml --ref <branch> -f run_id=<SDET run id>` |
+| Turn the report off | `gh workflow disable sdet-callback.yml` |
+| Check the parser offline | `python3 -m unittest discover -s tests/report -v` |
+
+The callback runs the default branch's copy of the workflow. It never checks out the pull request's code, and it treats every file and log of the run as untrusted text.
+
 ## 4. Verification and evidence
 
 ### 4.1 Offline suites (no host)

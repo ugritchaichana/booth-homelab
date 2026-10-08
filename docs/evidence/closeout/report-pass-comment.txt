@@ -1,0 +1,11 @@
+<!-- sdet-ci-report -->
+## ✅ SDET CI passed
+
+Run [37762756454](https://github.com/ugritchaichana/booth-homelab/actions/runs/37762756454) attempt 1 on `4e7f1fe` · Proxmox runner · conclusion `success`
+
+| Suite | Passed | Failed | Skipped | Pass rate | Executed |
+|---|---:|---:|---:|---:|---:|
+| .NET | 17 | 0 | 0 | 100.0% | 17 of 17 (100.0%) |
+| Angular | 29 | 0 | 0 | 100.0% | 29 of 29 (100.0%) |
+| **Total** | 46 | 0 | 0 | **100.0%** | 46 of 46 |
+

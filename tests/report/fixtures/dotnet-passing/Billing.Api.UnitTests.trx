@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="833e9481-6ba9-4832-8fb9-a09346a77c43" name="@ci-lxc-runner-v6 2026-10-08 09:02:13" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T09:02:13.7657946+00:00" queuing="2026-10-08T09:02:13.7657946+00:00" start="2026-10-08T09:02:13.0879088+00:00" finish="2026-10-08T09:02:13.8125348+00:00" />
+  <TestSettings name="default" id="e195f8ed-089e-4013-9525-20b3ea99e4ab">
+    <Deployment runDeploymentRoot="_ci-lxc-runner-v6_2026-10-08_09_02_13" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="22d7b0a6-bde7-4660-abee-808645a40f61" testId="72d8698f-ab32-a4e5-15a2-173f5a6811ec" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 0.00, rate: 0.07, expectedTax: 0.00)" computerName="ci-lxc-runner-v6" duration="00:00:00.0000022" startTime="2026-10-08T09:02:13.7086864+00:00" endTime="2026-10-08T09:02:13.7086864+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="22d7b0a6-bde7-4660-abee-808645a40f61" />
+    <UnitTestResult executionId="43312470-4d0a-47c8-bbeb-2ce72ad17a61" testId="92857c25-ff3d-b919-2222-89b8ac90edc2" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: -50.00, rate: 0.07, expectedTax: 0.00)" computerName="ci-lxc-runner-v6" duration="00:00:00.0000025" startTime="2026-10-08T09:02:13.7087492+00:00" endTime="2026-10-08T09:02:13.7087493+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="43312470-4d0a-47c8-bbeb-2ce72ad17a61" />
+    <UnitTestResult executionId="48b251e9-72ea-49f4-821d-034967b1eab9" testId="756e6396-1ddc-1eb0-387c-856c1ffc4a38" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 1.50, rate: 0.07, expectedTax: 0.11)" computerName="ci-lxc-runner-v6" duration="00:00:00.0000329" startTime="2026-10-08T09:02:13.7086153+00:00" endTime="2026-10-08T09:02:13.7086154+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="48b251e9-72ea-49f4-821d-034967b1eab9" />
+    <UnitTestResult executionId="68a2bbcd-853a-4b41-a8df-7467cbcae396" testId="bdadc64c-621d-9cb8-98d0-0a5a32aae1e1" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_CalculatesCorrectly" computerName="ci-lxc-runner-v6" duration="00:00:00.0000843" startTime="2026-10-08T09:02:13.7373684+00:00" endTime="2026-10-08T09:02:13.7373685+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="68a2bbcd-853a-4b41-a8df-7467cbcae396" />
+    <UnitTestResult executionId="770046db-7d5a-4039-9b62-acb763c722cc" testId="153815f9-c102-bb9d-6130-1486f77eecdc" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 12.36, rate: 0.07, expectedTax: 0.87)" computerName="ci-lxc-runner-v6" duration="00:00:00.0049741" startTime="2026-10-08T09:02:13.7047579+00:00" endTime="2026-10-08T09:02:13.7047801+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="770046db-7d5a-4039-9b62-acb763c722cc" />
+    <UnitTestResult executionId="d13db26d-2a53-4e94-adca-3b830a6fabac" testId="cd4e0925-d43f-bcf5-78e3-e424fed79c44" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 3.50, rate: 0.07, expectedTax: 0.25)" computerName="ci-lxc-runner-v6" duration="00:00:00.0000029" startTime="2026-10-08T09:02:13.7086573+00:00" endTime="2026-10-08T09:02:13.7086573+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d13db26d-2a53-4e94-adca-3b830a6fabac" />
+    <UnitTestResult executionId="81985bfa-103a-4886-8938-4d756bf0b41c" testId="4fd02811-1476-d99c-fcb8-cf1d5fe48bc1" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 99.95, rate: 0.07, expectedTax: 7.00)" computerName="ci-lxc-runner-v6" duration="00:00:00.0000036" startTime="2026-10-08T09:02:13.7087234+00:00" endTime="2026-10-08T09:02:13.7087234+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="81985bfa-103a-4886-8938-4d756bf0b41c" />
+    <UnitTestResult executionId="78a9ab74-47cd-4941-8456-2ad430611706" testId="7114d1e5-3d4d-77c3-ae96-22a6d603fb1b" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.GenerateInvoiceNumber_FormatsCorrectly" computerName="ci-lxc-runner-v6" duration="00:00:00.0014683" startTime="2026-10-08T09:02:13.7088304+00:00" endTime="2026-10-08T09:02:13.7088304+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="78a9ab74-47cd-4941-8456-2ad430611706" />
+    <UnitTestResult executionId="6f292072-f72d-4b5b-8798-9a75c79d7962" testId="8352f217-8088-8eaf-9a76-4a7c8c293a1c" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_NegativeAmount_ReturnsZero" computerName="ci-lxc-runner-v6" duration="00:00:00.0001553" startTime="2026-10-08T09:02:13.7088635+00:00" endTime="2026-10-08T09:02:13.7088636+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6f292072-f72d-4b5b-8798-9a75c79d7962" />
+    <UnitTestResult executionId="1b7e0c4f-2b54-4175-8e10-999915a6bdad" testId="f8361bad-0e77-d92e-084f-ee114cf10ac0" testName="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 12.34, rate: 0.07, expectedTax: 0.86)" computerName="ci-lxc-runner-v6" duration="00:00:00.0004075" startTime="2026-10-08T09:02:13.7082464+00:00" endTime="2026-10-08T09:02:13.7082464+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1b7e0c4f-2b54-4175-8e10-999915a6bdad" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 12.36, rate: 0.07, expectedTax: 0.87)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="153815f9-c102-bb9d-6130-1486f77eecdc">
+      <Execution id="770046db-7d5a-4039-9b62-acb763c722cc" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_CalculatesCorrectly" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="bdadc64c-621d-9cb8-98d0-0a5a32aae1e1">
+      <Execution id="68a2bbcd-853a-4b41-a8df-7467cbcae396" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_CalculatesCorrectly" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: -50.00, rate: 0.07, expectedTax: 0.00)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="92857c25-ff3d-b919-2222-89b8ac90edc2">
+      <Execution id="43312470-4d0a-47c8-bbeb-2ce72ad17a61" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 3.50, rate: 0.07, expectedTax: 0.25)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="cd4e0925-d43f-bcf5-78e3-e424fed79c44">
+      <Execution id="d13db26d-2a53-4e94-adca-3b830a6fabac" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 99.95, rate: 0.07, expectedTax: 7.00)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="4fd02811-1476-d99c-fcb8-cf1d5fe48bc1">
+      <Execution id="81985bfa-103a-4886-8938-4d756bf0b41c" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 1.50, rate: 0.07, expectedTax: 0.11)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="756e6396-1ddc-1eb0-387c-856c1ffc4a38">
+      <Execution id="48b251e9-72ea-49f4-821d-034967b1eab9" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 12.34, rate: 0.07, expectedTax: 0.86)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="f8361bad-0e77-d92e-084f-ee114cf10ac0">
+      <Execution id="1b7e0c4f-2b54-4175-8e10-999915a6bdad" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_MatchesSharedFixture(amount: 0.00, rate: 0.07, expectedTax: 0.00)" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="72d8698f-ab32-a4e5-15a2-173f5a6811ec">
+      <Execution id="22d7b0a6-bde7-4660-abee-808645a40f61" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_MatchesSharedFixture" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.GenerateInvoiceNumber_FormatsCorrectly" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="7114d1e5-3d4d-77c3-ae96-22a6d603fb1b">
+      <Execution id="78a9ab74-47cd-4941-8456-2ad430611706" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="GenerateInvoiceNumber_FormatsCorrectly" />
+    </UnitTest>
+    <UnitTest name="Billing.Api.UnitTests.InvoiceGeneratorTests.CalculateTax_NegativeAmount_ReturnsZero" storage="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/billing.api.unittests/bin/release/net8.0/billing.api.unittests.dll" id="8352f217-8088-8eaf-9a76-4a7c8c293a1c">
+      <Execution id="6f292072-f72d-4b5b-8798-9a75c79d7962" />
+      <TestMethod codeBase="/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/backend/tests/Billing.Api.UnitTests/bin/Release/net8.0/Billing.Api.UnitTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Billing.Api.UnitTests.InvoiceGeneratorTests" name="CalculateTax_NegativeAmount_ReturnsZero" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="72d8698f-ab32-a4e5-15a2-173f5a6811ec" executionId="22d7b0a6-bde7-4660-abee-808645a40f61" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="92857c25-ff3d-b919-2222-89b8ac90edc2" executionId="43312470-4d0a-47c8-bbeb-2ce72ad17a61" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="756e6396-1ddc-1eb0-387c-856c1ffc4a38" executionId="48b251e9-72ea-49f4-821d-034967b1eab9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bdadc64c-621d-9cb8-98d0-0a5a32aae1e1" executionId="68a2bbcd-853a-4b41-a8df-7467cbcae396" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="153815f9-c102-bb9d-6130-1486f77eecdc" executionId="770046db-7d5a-4039-9b62-acb763c722cc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cd4e0925-d43f-bcf5-78e3-e424fed79c44" executionId="d13db26d-2a53-4e94-adca-3b830a6fabac" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4fd02811-1476-d99c-fcb8-cf1d5fe48bc1" executionId="81985bfa-103a-4886-8938-4d756bf0b41c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7114d1e5-3d4d-77c3-ae96-22a6d603fb1b" executionId="78a9ab74-47cd-4941-8456-2ad430611706" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8352f217-8088-8eaf-9a76-4a7c8c293a1c" executionId="6f292072-f72d-4b5b-8798-9a75c79d7962" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f8361bad-0e77-d92e-084f-ee114cf10ac0" executionId="1b7e0c4f-2b54-4175-8e10-999915a6bdad" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="10" executed="10" passed="10" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.5.3.1+6b60a9e56a (64-bit .NET 8.0.31)
+[xUnit.net 00:00:00.08]   Discovering: Billing.Api.UnitTests
+[xUnit.net 00:00:00.16]   Discovered:  Billing.Api.UnitTests
+[xUnit.net 00:00:00.16]   Starting:    Billing.Api.UnitTests
+[xUnit.net 00:00:00.24]   Finished:    Billing.Api.UnitTests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
