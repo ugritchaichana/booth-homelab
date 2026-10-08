@@ -49,6 +49,7 @@ class ParseTests(unittest.TestCase):
         self.assertIn("CalculateTax_RoundsHalfUp", failure.name)
         self.assertIn("Expected: 7.01", failure.message)
         self.assertIn("FixtureFailureTests.cs:line 12", failure.stack)
+        self.assertNotIn("System.Reflection", failure.stack)
 
     def test_jest_failure_has_no_ansi_and_splits_message_from_stack(self):
         suite = run_report.parse_jest(FIXTURES / "jest-failing.json")
@@ -57,6 +58,8 @@ class ParseTests(unittest.TestCase):
         self.assertNotIn("\x1b", failure.message + failure.stack)
         self.assertIn('Expected: "expected value"', failure.message)
         self.assertTrue(failure.stack.lstrip().startswith("at "))
+        self.assertIn("fixture-failure.spec.ts:13:52", failure.stack)
+        self.assertNotIn("node_modules", failure.stack)
 
     def test_passing_jest(self):
         suite = run_report.parse_jest(FIXTURES / "jest-passing.json")
@@ -144,6 +147,10 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn("line 5\n", body)
         self.assertIn("| .NET | - | - | - | n/a | no test results |", body)
         self.assertIn("Proxmox runner", body)
+
+    def test_the_aggregating_report_job_is_not_listed_as_a_cause(self):
+        jobs = [{"id": 10, "name": "CI / Report", "conclusion": "failure", "steps": [{"name": "Generate Pipeline Summary Report", "conclusion": "failure"}]}]
+        self.assertEqual(run_report.failed_jobs(jobs, None, self.suites()), [])
 
     def test_a_failure_explained_by_tests_gets_no_log_tail(self):
         jobs = [{"id": 9, "name": "CI / Build and Test (.NET)", "conclusion": "failure", "steps": [{"name": "Execute Transitive Affected Tests", "conclusion": "failure"}]}]

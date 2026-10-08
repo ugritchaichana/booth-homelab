@@ -22,6 +22,8 @@ ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ", re.M)
 SUITE_OF_JOB = {".NET": ".NET", "Angular": "Angular"}
+DERIVED_JOBS = ("Report",)
+LIBRARY_FRAME = re.compile(r"/node_modules/|node:internal|\(<anonymous>\)|\bat (System|Microsoft|Xunit)\.")
 
 
 @dataclass
@@ -58,10 +60,15 @@ def read_capped(path, notes):
     return path.read_text(encoding="utf-8-sig", errors="replace")
 
 
+def own_frames(lines):
+    kept = [line for i, line in enumerate(lines) if i == 0 or not LIBRARY_FRAME.search(line)]
+    return "\n".join(kept[:MAX_STACK_LINES])
+
+
 def split_message(text):
     lines = clean(text).strip("\n").split("\n")
     at = next((i for i, line in enumerate(lines) if line.lstrip().startswith("at ")), len(lines))
-    return "\n".join(lines[:at]).strip(), "\n".join(lines[at:at + MAX_STACK_LINES])
+    return "\n".join(lines[:at]).strip(), own_frames(lines[at:])
 
 
 def parse_trx_dir(directory):
@@ -90,7 +97,7 @@ def parse_trx_dir(directory):
             info = result.find(f"{TRX}Output/{TRX}ErrorInfo")
             message = clean(info.findtext(f"{TRX}Message", "") if info is not None else "").strip()
             stack = clean(info.findtext(f"{TRX}StackTrace", "") if info is not None else "").strip("\n").split("\n")
-            suite.failures.append(Failure(".NET", result.get("testName", "unnamed test"), message, "\n".join(stack[:MAX_STACK_LINES])))
+            suite.failures.append(Failure(".NET", result.get("testName", "unnamed test"), message, own_frames(stack)))
     return suite
 
 
@@ -138,7 +145,7 @@ def failed_jobs(jobs, logs_dir, suites):
     explained = {s.name for s in suites if s.failures}
     found = []
     for job in jobs:
-        if job.get("conclusion") not in ("failure", "timed_out"):
+        if job.get("conclusion") not in ("failure", "timed_out") or job.get("name", "").split(" / ")[-1] in DERIVED_JOBS:
             continue
         step = next((s.get("name") for s in job.get("steps", []) if s.get("conclusion") in ("failure", "timed_out")), None)
         suite = next((v for k, v in SUITE_OF_JOB.items() if k in job.get("name", "")), None)
