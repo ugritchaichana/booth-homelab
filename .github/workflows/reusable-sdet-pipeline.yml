@@ -55,48 +55,48 @@ permissions:
 
 env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
-  CACHE_URL: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'http://10.99.17.10:8080' || '' }}
-  BUILD_CACHE_RUNNER_CLASS: ${{ !(inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab') && 'lxc-runner' || '' }}
 
 jobs:
   select-runner:
     name: Select Runner
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: read
+      checks: read
+      contents: read
     outputs:
       hosted: ${{ steps.decide.outputs.hosted }}
       dotnet_labels: ${{ steps.decide.outputs.dotnet_labels }}
       angular_labels: ${{ steps.decide.outputs.angular_labels }}
       runner_label: ${{ steps.decide.outputs.runner_label }}
+      route_reason: ${{ steps.decide.outputs.route_reason }}
     steps:
+      - name: Checkout Router
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+
       - name: Decide Runner Class
         id: decide
         shell: bash
         env:
-          HOSTED: ${{ inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab' }}
-        run: |
-          if [ "$HOSTED" = true ]; then
-            {
-              echo 'hosted=true'
-              echo 'dotnet_labels=["ubuntu-latest"]'
-              echo 'angular_labels=["ubuntu-latest"]'
-              echo 'runner_label=GitHub-Hosted (ubuntu-latest)'
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo 'hosted=false'
-              echo 'dotnet_labels=["self-hosted", "linux", "proxmox", "dotnet"]'
-              echo 'angular_labels=["self-hosted", "linux", "proxmox", "angular"]'
-              echo 'runner_label=Proxmox VE Self-Hosted (LXC)'
-            } >> "$GITHUB_OUTPUT"
-          fi
-          echo "Runner class: hosted=$HOSTED"
+          FORCED_HOSTED: ${{ inputs.force_ubuntu_runner || github.repository != 'ugritchaichana/booth-homelab' }}
+          RUNNER_STATUS_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: bash scripts/ci/select-runner.sh
 
   telemetry:
     name: Telemetry
     needs: [select-runner]
     timeout-minutes: 5
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
     steps:
       - name: Inspect Runner Telemetry
         shell: bash
@@ -126,6 +126,9 @@ jobs:
     needs: [select-runner]
     timeout-minutes: 30
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+      BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
     outputs:
       compiled: ${{ steps.compile.outcome == 'success' }}
       tested: ${{ steps.run-tests.outcome == 'success' }}
@@ -231,6 +234,9 @@ jobs:
     environment: cache-writer
     if: always() && needs.dotnet.outputs.compiled == 'true' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+      BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -288,6 +294,9 @@ jobs:
     environment: cache-writer
     if: always() && needs.angular-jest.result == 'success' && needs.angular-jest.outputs.cache_hit_node_modules != 'true' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+      BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -330,6 +339,9 @@ jobs:
     needs: [select-runner]
     timeout-minutes: 20
     runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+      BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
     outputs:
       angular_duration_ms: ${{ steps.run-angular.outputs.angular_duration_ms }}
       cache_hit_node_modules: ${{ steps.run-angular.outputs.cache_hit_node_modules }}
@@ -382,6 +394,9 @@ jobs:
     timeout-minutes: 5
     if: ${{ !cancelled() && needs.select-runner.result == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+      ROUTE_REASON: ${{ needs.select-runner.outputs.route_reason }}
     steps:
       - name: Generate Pipeline Summary Report
         shell: bash
@@ -423,7 +438,7 @@ jobs:
             echo ""
             echo "### Infrastructure Execution Model"
             echo "- 🏗️ **Runner Infrastructure:** ${RUNNER_LABEL}"
-            echo "- 🔄 **Routing:** fork pull requests always run on GitHub-hosted runners; the repository variable \`CI_RUNNER\` sends every other run there when it is not \`proxmox\`."
+            echo "- 🔄 **Routing:** ${ROUTE_REASON}"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ needs.dotnet.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then

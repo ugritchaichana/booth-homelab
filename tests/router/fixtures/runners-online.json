@@ -1,0 +1,125 @@
+{
+  "total_count": 3,
+  "runners": [
+    {
+      "id": 24,
+      "name": "pve01-ci-lxc-runner-1",
+      "os": "Linux",
+      "status": "online",
+      "busy": false,
+      "version": "2.338.0",
+      "labels": [
+        {
+          "id": 0,
+          "name": "self-hosted",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "Linux",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "X64",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "proxmox",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "dotnet",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "angular",
+          "type": "custom"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "name": "pve01-ci-lxc-runner-2",
+      "os": "Linux",
+      "status": "online",
+      "busy": false,
+      "version": "2.338.0",
+      "labels": [
+        {
+          "id": 0,
+          "name": "self-hosted",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "Linux",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "X64",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "proxmox",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "dotnet",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "angular",
+          "type": "custom"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "name": "pve01-ci-lxc-runner-3",
+      "os": "Linux",
+      "status": "online",
+      "busy": false,
+      "version": "2.338.0",
+      "labels": [
+        {
+          "id": 0,
+          "name": "self-hosted",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "Linux",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "X64",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "proxmox",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "dotnet",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "angular",
+          "type": "custom"
+        }
+      ]
+    }
+  ]
+}
