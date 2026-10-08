@@ -8,7 +8,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from .adapters import environment as env
 from .adapters.fs_store import FilesystemStore
@@ -79,7 +79,10 @@ def build_plan(args: argparse.Namespace, discover_outputs: bool) -> Plan:
     if env.git_inputs_dirty(root, input_paths):
         raise RuntimeError("working tree differs from HEAD under the input paths, the tree ids would not describe the inputs")
     trees = env.git_tree_ids(root, input_paths)
-    key = keys.outputs_key(platform, env.tool_version("dotnet"), args.configuration, trees, root.as_posix())
+    key_root = os.environ.get("BUILD_CACHE_KEY_ROOT") or root.as_posix()
+    if not (PurePosixPath(key_root).is_absolute() or PureWindowsPath(key_root).is_absolute()):
+        raise ValueError(f"BUILD_CACHE_KEY_ROOT must be an absolute path, got {key_root!r}")
+    key = keys.outputs_key(platform, env.tool_version("dotnet"), args.configuration, trees, key_root)
     artifact_root = Path(args.artifact_root) if args.artifact_root else root
     paths = env.discover_output_dirs(root, input_paths) if discover_outputs else []
     return Plan(key, artifact_root, paths, True, input_paths, extraction_rules(tuple(input_paths), frozenset({"bin", "obj"})))
