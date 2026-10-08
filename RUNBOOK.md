@@ -452,7 +452,7 @@ Role: operator, reaching the cache container as root: `ssh -F ~/.config/homelab/
 - Disable: empty `CACHE_URL` in `.github/workflows/reusable-sdet-pipeline.yml`; every restore answers "miss: no store configured" and builds run cold. Hosted runs already behave that way (row 68, hosted run with the cache disabled).
 - Measured behavior: `docs/handoff/results.md`.
 
-Client wiring (CI): `dotnet-build` restores `nuget` then `dotnet-outputs`; `angular-jest` restores `node_modules`; the two `*-cache-save` jobs write only on a push to the default branch, in environment `cache-writer`. Statuses in the job summary: restore `hit`, `miss`, `rejected` (digest mismatch or unsafe archive; the build runs cold), `error`; save `saved`, `skipped`, `refused` (401 or 403), `failed` (5xx). No status fails a job. Keys are content-addressed and outputs are restored only on an exact match (ADR 0049).
+Client wiring (CI): `dotnet` (Build and Test) restores `nuget` then `dotnet-outputs`; `angular-jest` restores `node_modules`; the two `*-cache-save` jobs write only on a push to the default branch, in environment `cache-writer`. Statuses in the job summary: restore `hit`, `miss`, `rejected` (digest mismatch or unsafe archive; the build runs cold), `error`; save `saved`, `skipped`, `refused` (401 or 403), `failed` (5xx). No status fails a job. Keys are content-addressed and outputs are restored only on an exact match (ADR 0049).
 
 ### 3.5 Secrets rotation
 
@@ -488,6 +488,45 @@ $pve sudo ls /var/lib/homelab/guest-firewall-guard/violations
 | `ERROR cannot read the policy` or `cannot list guests`; no guest was stopped | the guard is blind, exit 4 | rerun `site.yml`; check `pvesh` |
 
 A container created before its firewall exists is flagged at once; create guests stopped and start them only after a firewall read-back (the cache container does, ADR 0047, row 62, cache API).
+
+### 3.7 The CI runner (`ci-lxc-runner-v6`, VMID 9503)
+
+One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 16 GiB), entry `ci-lxc-runner` in `iac/tofu/stacks/guest/guests.yml` (slot 3; create it as in 2.10). It runs three runner instances, `pve01-ci-lxc-runner-1` to `-3`, from `/opt/actions-runner-N` as the user `runner`, which has no sudo. Labels: `self-hosted`, `linux`, `proxmox`, `dotnet`, `angular` (ADR 0060).
+
+1. Register and converge. Role: operator (WSL), with a token of an account that administers the repository.
+
+   ```sh
+   GH_TOKEN="$(gh auth token)" bash scripts/iac/ansible.sh iac/ansible/playbooks/ci-runner.yml -i iac/inventory/hosts.yml
+   ```
+
+   Expected: the last task lists three runners `online`; a second run reports `changed=0`. The registration token goes to `config.sh` on stdin and never appears in a log.
+
+2. Route CI. `sdet-ci.yml` uses the runner when the repository variable `CI_RUNNER` is `proxmox`; any other value, or no variable, means hosted runners. Fork pull requests always run hosted.
+
+   ```sh
+   gh variable set CI_RUNNER --body proxmox --repo <owner>/<repository>
+   gh variable set CI_RUNNER --body hosted --repo <owner>/<repository>
+   ```
+
+   One hosted run without changing the variable: `gh workflow run sdet-ci.yml -f force_ubuntu_runner=true`.
+
+3. Read a job. Every job on the runner starts with the job-start hook:
+
+| Line in the job log | Meaning |
+|---|---|
+| `runner-guard: allowed <event> on <repository>` | the job runs |
+| `runner-guard: refused: <reason>` | the job failed before its first step: a fork pull request, `pull_request_target`, another event or another repository |
+
+Health, as root on the host:
+
+```sh
+$pve sudo pct exec 9503 -- systemctl status 'actions-runner@*' 'actions-runner-restart@*.path'
+gh api repos/<owner>/<repository>/actions/runners -q '.runners[]|"\(.name) \(.status) busy=\(.busy)"'
+```
+
+After each job the job-completed hook writes `/run/actions-runner-N/restart`, and `actions-runner-restart@N.path` restarts that instance once its worker has exited. Without it the listener waits about 60 s before it takes the next job (actions/runner#4444).
+
+When the container is down, routed jobs queue for up to 24 hours: set `CI_RUNNER` to `hosted` and re-run them. To retire the runner, set the variable to `hosted`, deregister the three runners (Settings, Actions, Runners), and stop the container; the lab does not destroy guests (D86).
 
 ## 4. Verification and evidence
 

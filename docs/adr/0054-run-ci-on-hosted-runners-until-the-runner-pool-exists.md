@@ -1,6 +1,6 @@
 # 0054. Run CI on hosted runners until the runner pool exists
 
-- Status: Accepted
+- Status: Accepted; superseded in part by [0060](0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md) (the repository's own runs use the Proxmox runner when `CI_RUNNER` is `proxmox`)
 - Date: 2026-10-07
 - Deciders: operator
 - Decision log: D82 in docs/platform/requirements.md

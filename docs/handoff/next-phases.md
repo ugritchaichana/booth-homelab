@@ -94,9 +94,9 @@ If the receiving team's repository belongs to an organization, question 1 may no
 
 **DONE WHEN.** The full suite meets the targets for 5 consecutive runs; no old runner remains. **Proof.** The 5 run URLs and the baseline-versus-after table against the hosted baseline and the old self-hosted baseline in [results.md](results.md).
 
-**State today.** `reusable-sdet-pipeline.yml` is a `workflow_call` workflow with jobs for telemetry, build, test, cache save and report. The split into units such as `dotnet-build`, `dotnet-test`, `angular-test`, `cache-save`, `iac-validate` and `template-build`, callers that only compose with `uses:`, and the unit-to-runner-class table do not exist yet. actionlint cleanliness is part of the pass condition of R6 (reusable workflows).
+**State today.** `reusable-sdet-pipeline.yml` is a `workflow_call` workflow with jobs for telemetry, .NET build and test (one job, ADR 0060), Angular test, cache save and report. Splitting a unit into two jobs adds one job's GitHub round trips, about 14 s on the self-hosted runner against about 3 s hosted (row 77). The split into units such as `dotnet-build`, `dotnet-test`, `angular-test`, `cache-save`, `iac-validate` and `template-build`, callers that only compose with `uses:`, and the unit-to-runner-class table do not exist yet. actionlint cleanliness is part of the pass condition of R6 (reusable workflows).
 
-**Entry.** This phase changes shared CI: run a risk assessment first and record it in the plan (requirements.md section 7.3). Phase 5 entry gates 1 (fork routing) and 9 (JIT ephemeral runners before pull-request jobs) must be closed. The hosted routing of [ADR 0054](../adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md) must be removed in the cutover.
+**Entry.** This phase changes shared CI: run a risk assessment first and record it in the plan (requirements.md section 7.3). Phase 5 entry gates 1 (fork routing) and 9 (JIT ephemeral runners before pull-request jobs) must be closed. The hosted routing of [ADR 0054](../adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md), now the `CI_RUNNER` variable of [ADR 0060](../adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md), gives way to the router in the cutover.
 
 **Backlog.**
 

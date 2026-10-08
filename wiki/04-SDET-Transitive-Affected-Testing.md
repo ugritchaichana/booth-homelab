@@ -41,26 +41,18 @@ Per-test detail: [docs/knowledge/test-catalogue.md](https://github.com/ugritchai
 
 ```mermaid
 graph LR
-    S["Select Runner"] --> T["Telemetry"] & B["Build (.NET)"] & TD["Test (.NET)"] & CS["Cache save (.NET)"] & A["Test (Angular)"] & AS["Cache save (Angular)"] & R["Report"]
-    T --> B
-    B --> TD["Test (.NET)"]
-    B --> CS["Cache save (.NET)"]
-    TD --> CS
-    A["Test (Angular)"] --> AS["Cache save (Angular)"]
-    T --> R["Report"]
-    B --> R
-    TD --> R
-    CS --> R
-    AS --> R
-    A --> R
+    S["Select Runner"] --> T["Telemetry"] & D["Build and Test (.NET)"] & A["Test (Angular)"]
+    D --> CS["Cache save (.NET)"]
+    A --> AS["Cache save (Angular)"]
+    T & D & CS & A & AS --> R["Report"]
 ```
 
-The `select-runner` job picks the runner labels once; every other job needs it.
+The `select-runner` job picks the runner labels once; every other job needs it. `Report` runs on `ubuntu-latest` on both paths: it only prints, and a job on the self-hosted runner costs about 10 s more than on a hosted one ([ADR 0060](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md)).
 
 | Job | Restores | Saves |
 |---|---|---|
-| Build (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` | none; on a self-hosted default-branch push it packs the payloads as an artifact |
-| Cache save (.NET) | none | `nuget`, `dotnet-outputs`; default-branch push on self-hosted runners only, environment `cache-writer` |
+| Build and Test (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` | none; on a self-hosted default-branch push it packs the payloads as an artifact after the compile and before the tests |
+| Cache save (.NET) | none | `nuget`, `dotnet-outputs`; default-branch push on self-hosted runners only, when the compile succeeded (job output `compiled`, even if a test failed), environment `cache-writer` |
 | Test (Angular) | `node_modules`, `npm ci` on a miss | none; on a self-hosted default-branch push it packs `node_modules` as an artifact |
 | Cache save (Angular) | none | `node_modules`; same conditions as the .NET save |
 
@@ -70,7 +62,7 @@ Composite actions: `.github/actions/build-cache` (restore and save), `run-affect
 
 The `select-runner` job chooses `ubuntu-latest` when `force_ubuntu_runner` is true or the repository is not this one, and the labels `self-hosted`, `linux`, `proxmox` and `dotnet` or `angular` otherwise. `CACHE_URL` is set only on the self-hosted path, so a hosted run executes with the cache disabled.
 
-No self-hosted runner is online until the runner pool exists, so `sdet-ci.yml` forces hosted runners on push and pull request and defaults the dispatch input to true ([ADR 0054](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)); the override is removed at the workflow cutover. Fork pull requests would reach the self-hosted labels through the expression alone: [docs/handoff/limits-and-gaps.md](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/handoff/limits-and-gaps.md).
+`sdet-ci.yml` sets `force_ubuntu_runner` unless the repository variable `CI_RUNNER` is `proxmox`. A fork pull request, and a dispatch with `force_ubuntu_runner` true, run hosted whatever the variable says. On the self-hosted runner a job-start hook refuses every event except `push`, `workflow_dispatch`, `schedule` and a pull request from a branch of this repository, before the job's first step ([ADR 0060](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md); runbook 3.7). Back to hosted for every run: `gh variable set CI_RUNNER --body hosted`.
 
 ## Other workflows
 
