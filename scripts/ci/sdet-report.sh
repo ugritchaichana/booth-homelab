@@ -15,12 +15,13 @@ mkdir -p "$work/dotnet" "$work/angular" "$work/logs"
 gh run download "$RUN_ID" -R "$REPOSITORY" -n sdet-dotnet-test-results -D "$work/dotnet" 2> /dev/null || echo "sdet-report: no .NET test results in run $RUN_ID"
 gh run download "$RUN_ID" -R "$REPOSITORY" -n sdet-angular-results -D "$work/angular" 2> /dev/null || echo "sdet-report: no Angular test results in run $RUN_ID"
 jq -r '.jobs[] | select(.conclusion != "skipped") | select(.conclusion == "failure" or .conclusion == "timed_out" or (.name | test("NET|Angular"))) | .id' "$work/jobs.json" | tr -d '\r' | while read -r id; do
-  if gh api "repos/$REPOSITORY/actions/jobs/$id/logs" > "$work/logs/$id.full" 2> "$work/logs/$id.err" < /dev/null; then
+  url="${GITHUB_API_URL:-https://api.github.com}/repos/$REPOSITORY/actions/jobs/$id/logs"
+  if curl -fsSL --max-filesize 50000000 -H "Authorization: Bearer $GH_TOKEN" -o "$work/logs/$id.full" "$url" 2> "$work/logs/$id.err" < /dev/null; then
     tail -c 2000000 "$work/logs/$id.full" > "$work/logs/$id.log"
   else
     echo "sdet-report: no log for job $id: $(head -c 300 "$work/logs/$id.err")"
   fi
-  echo "sdet-report: job $id log $(wc -c < "$work/logs/$id.full") bytes"
+  echo "sdet-report: job $id log $(wc -c < "$work/logs/$id.full" 2> /dev/null || echo 0) bytes"
 done
 
 python3 "$here/run_report.py" render --run "$work/run.json" --jobs "$work/jobs.json" --dotnet-dir "$work/dotnet" \
