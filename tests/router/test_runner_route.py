@@ -134,6 +134,16 @@ class FingerprintTests(unittest.TestCase):
             step["conclusion"] = "success"
         self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
 
+    def test_a_failed_job_without_labels_is_not_considered(self):
+        jobs, annotations = scenario(RESTARTED)
+        dotnet(jobs).update(labels=None, runner_name=None)
+        self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
+
+    def test_a_failed_job_without_steps_is_not_infra(self):
+        jobs, annotations = scenario(RESTARTED)
+        dotnet(jobs)["steps"] = None
+        self.assertIsNone(runner_route.infra_fingerprint(jobs, {}))
+
     def test_a_cancelled_run_is_not_infra(self):
         jobs, annotations = scenario(RESTARTED)
         dotnet(jobs)["conclusion"] = "cancelled"
@@ -178,6 +188,13 @@ class DecideTests(unittest.TestCase):
         for runner in doc["runners"]:
             runner["labels"] = [label for label in runner["labels"] if label["name"] != "proxmox"]
         self.assertTrue(self.decide(runners=doc)[0])
+
+    def test_malformed_runner_entries_are_skipped(self):
+        doc = runners()
+        doc["runners"] = ["not a runner", {"status": "online", "labels": None}, doc["runners"][0]]
+        hosted, reason = self.decide(runners=doc)
+        self.assertFalse(hosted)
+        self.assertIn("1 of 1", reason)
 
     def test_forced_hosted_wins(self):
         hosted, reason = self.decide(forced_hosted=True)
@@ -279,6 +296,13 @@ class CliTests(unittest.TestCase):
     def test_classify_with_missing_inputs_is_not_infra(self):
         with tempfile.TemporaryDirectory() as d:
             out = self.run_cli(["classify", "--jobs", str(Path(d) / "absent.json"), "--annotations-dir", str(Path(d) / "absent")])
+        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "false"})
+
+    def test_classify_a_jobs_file_that_is_not_an_object(self):
+        with tempfile.TemporaryDirectory() as d:
+            listed = Path(d) / "jobs.json"
+            listed.write_text("[]", encoding="utf-8")
+            out = self.run_cli(["classify", "--jobs", str(listed), "--annotations-dir", d])
         self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "false"})
 
     def test_decide_reads_the_runners_file(self):
