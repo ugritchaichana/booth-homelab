@@ -1,0 +1,52 @@
+<!-- sdet-ci-report -->
+## ❌ SDET CI failed
+
+Run [37758605391](https://github.com/ugritchaichana/booth-homelab/actions/runs/37758605391) attempt 1 on `4d9c698` · Proxmox runner · conclusion `failure`
+
+| Suite | Passed | Failed | Skipped | Pass rate | Executed |
+|---|---:|---:|---:|---:|---:|
+| .NET | 10 | 1 | 0 | 90.9% | 11 of 11 (100.0%) |
+| Angular | 29 | 1 | 0 | 96.7% | 30 of 30 (100.0%) |
+| **Total** | 39 | 2 | 0 | **95.1%** | 41 of 41 |
+
+### Failed tests (2)
+
+<details open><summary>.NET: <code>Billing.Api.UnitTests.ReportDemoTests.CalculateTax_DeliberatelyWrongExpectation</code></summary>
+
+```text
+Assert.Equal() Failure: Values differ
+Expected: 7.01
+Actual:   7.00
+   at Billing.Api.UnitTests.ReportDemoTests.CalculateTax_DeliberatelyWrongExpectation() in /_/apps/backend/tests/Billing.Api.UnitTests/ReportDemoTests.cs:line 12
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+```
+</details>
+<details open><summary>Angular: <code>Report demo fails on purpose so the pull-request report shows a failure</code></summary>
+
+```text
+Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 3
+Received: 2
+    at /opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/src/app/billing/report-demo.spec.ts:3:19
+    at _ZoneDelegate.invoke (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone.umd.js:416:32)
+    at ProxyZoneSpec.Object.<anonymous>.ProxyZoneSpec.onInvoke (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone-testing.umd.js:2176:43)
+    at _ZoneDelegate.invoke (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone.umd.js:415:38)
+    at ZoneImpl.run (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone.umd.js:147:47)
+    at Object.wrappedFunc (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/zone.js/bundles/zone-testing.umd.js:450:38)
+    at Promise.then.completed (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTest (/opt/actions-runner-3/_work/booth-homelab/booth-homelab/apps/frontend/node_modules/jest-circus/build/run.js:252:3)
+```
+</details>
+
+### Failed jobs
+
+- <code>CI / Test (Angular)</code> failed at step <code>Execute Angular Jest Suite</code> on <code>pve01-ci-lxc-runner-3</code> · [job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37758605391/job/113249282073)
+- <code>CI / Build and Test (.NET)</code> failed at step <code>Execute Transitive Affected Tests (Unit &amp; Integration)</code> on <code>pve01-ci-lxc-runner-2</code> · [job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37758605391/job/113249282239)
+- <code>CI / Report</code> failed at step <code>Generate Pipeline Summary Report</code> on <code>GitHub Actions 1000002164</code> · [job log](https://github.com/ugritchaichana/booth-homelab/actions/runs/37758605391/job/113249698597)
+

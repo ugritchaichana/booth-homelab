@@ -1,0 +1,17 @@
+SDET Callback runs, dispatched with a run id before the workflow is on master (D94)
+== callback run 37758834084 (success), head 44ef9cb
+sdet-report: created the report comment on #119
+== callback run 37761375944 (success), head a38c2ea
+sdet-report: updated comment 6057158783 on #119
+== callback run 37762401816 (success), head 31cc9f0
+sdet-report: created the report comment on #118
+== callback run 37762935813 (success), head 4e7f1fe
+sdet-report: no log for job 113262978103: the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
+sdet-report: job 113262978103 log 0 bytes
+sdet-report: no log for job 113262978180: the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
+sdet-report: job 113262978180 log 0 bytes
+sdet-report: updated comment 6057688383 on #118
+== callback run 37763185407 (success), head 5007d48
+sdet-report: job 113262978103 log 18500 bytes
+sdet-report: job 113262978180 log 38981 bytes
+sdet-report: no open pull request has head 4e7f1fe7bb1672b54d8f1d35b70b98c0d9b022ad; the report is in the job summary only
