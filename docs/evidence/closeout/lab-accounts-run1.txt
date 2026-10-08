@@ -1,0 +1,101 @@
+
+PLAY [Keep root and a read-only visitor account on the host and every running guest] ***
+
+TASK [Require both passwords] **************************************************
+ok: [pve01]
+
+TASK [Install the account script on the host] **********************************
+changed: [pve01]
+
+TASK [Set root on the host; its visitor account is guest@pve] ******************
+changed: [pve01]
+
+TASK [Show the host result] ****************************************************
+ok: [pve01] => {
+    "msg": [
+        "root-password: changed",
+        "changed=1"
+    ]
+}
+
+TASK [Read the Proxmox roles, users and permissions] ***************************
+ok: [pve01] => (item=role)
+ok: [pve01] => (item=user)
+ok: [pve01] => (item=acl)
+
+TASK [Derive the visitor privileges from PVEAuditor plus VM.Console] ***********
+ok: [pve01]
+
+TASK [Create or update the visitor role] ***************************************
+changed: [pve01]
+
+TASK [Create the visitor user] *************************************************
+changed: [pve01]
+
+TASK [Grant the visitor role on the whole tree] ********************************
+changed: [pve01]
+
+TASK [Try the visitor login] ***************************************************
+ok: [pve01]
+
+TASK [Log in as root to set the visitor password] ******************************
+ok: [pve01]
+
+TASK [Set the visitor password through the API] ********************************
+changed: [pve01]
+
+TASK [Hash the passwords for the VM vendor snippet with a fixed salt, so a re-run writes the same file] ***
+ok: [pve01] => (item=(censored due to no_log))
+ok: [pve01] => (item=(censored due to no_log))
+
+TASK [Read the host root key the VMs trust, as containers are reached through pct] ***
+ok: [pve01]
+
+TASK [Write the vendor snippet that sets the accounts on guest-stack VMs at boot] ***
+changed: [pve01]
+
+TASK [List the running containers] *********************************************
+ok: [pve01]
+
+TASK [Copy the account script into each running container] *********************
+ok: [pve01] => (item=9050)
+ok: [pve01] => (item=9101)
+ok: [pve01] => (item=9501)
+
+TASK [Apply the accounts in each running container] ****************************
+changed: [pve01] => (item=(censored due to no_log))
+changed: [pve01] => (item=(censored due to no_log))
+changed: [pve01] => (item=(censored due to no_log))
+
+TASK [Remove the account script from each container] ***************************
+ok: [pve01] => (item=9050)
+ok: [pve01] => (item=9101)
+ok: [pve01] => (item=9501)
+
+TASK [Show the container results] **********************************************
+ok: [pve01] => {
+    "msg": [
+        [
+            "root-password: changed",
+            "guest-user: created",
+            "guest-password: changed",
+            "changed=3"
+        ],
+        [
+            "root-password: changed",
+            "guest-user: created",
+            "guest-password: changed",
+            "changed=3"
+        ],
+        [
+            "root-password: changed",
+            "guest-user: created",
+            "guest-password: changed",
+            "changed=3"
+        ]
+    ]
+}
+
+PLAY RECAP *********************************************************************
+pve01                      : ok=20   changed=8    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

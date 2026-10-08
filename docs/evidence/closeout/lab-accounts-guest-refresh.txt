@@ -1,0 +1,138 @@
+state copy: <user-home>/AppData/Local/homelab/tofu-state
+Acquiring state lock. This may take a few moments...
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all[0]: Read complete after 0s [id=e643ed8a-f5dc-484d-880d-fa3eda805710][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Read complete after 0s [id=8e373f75-5221-41fc-9f5d-3f5bbd0534f7][0m
+[0m[1mproxmox_virtual_environment_container.guest["demo-lxc-runner"]: Refreshing state... [id=9501][0m
+[0m[1mproxmox_virtual_environment_vm.guest["demo-vm-docker"]: Refreshing state... [id=9502][0m
+[0m[1mproxmox_virtual_environment_firewall_ipset.vm_ipfilter["demo-vm-docker"]: Refreshing state... [id=ipfilter-net0][0m
+
+[1m[36mNote:[0m[1m Objects have changed outside of OpenTofu
+[0m
+OpenTofu detected the following changes made outside of OpenTofu since the
+last "tofu apply" which may have affected this plan:
+
+[1m  # proxmox_virtual_environment_container.guest["demo-lxc-runner"][0m has changed
+[0m  [33m~[0m[0m resource "proxmox_virtual_environment_container" "guest" {
+        id                                   = "9501"
+      [33m~[0m[0m ipv4                                 = {
+          [32m+[0m[0m "eth0" = "10.99.16.101"
+        }
+      [33m~[0m[0m ipv6                                 = {
+          [32m+[0m[0m "eth0" = "fe80::be24:11ff:fe83:1529"
+        }
+      [33m~[0m[0m started                              = false [33m->[0m[0m true
+        tags                                 = [
+            "flavor-aws-t3.medium",
+            "flavor-guest",
+            "src-lxc-runner-v6",
+        ]
+        [90m# (16 unchanged attributes hidden)[0m[0m
+
+        [90m# (6 unchanged blocks hidden)[0m[0m
+    }
+
+[1m  # proxmox_virtual_environment_vm.guest["demo-vm-docker"][0m has changed
+[0m  [33m~[0m[0m resource "proxmox_virtual_environment_vm" "guest" {
+        id                                   = "9502"
+        name                                 = "demo-vm-docker-v7"
+      [33m~[0m[0m started                              = false [33m->[0m[0m true
+        tags                                 = [
+            "flavor-aws-t3.medium",
+            "flavor-guest",
+            "src-vm-docker-v7",
+        ]
+        [90m# (31 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m initialization {
+          [32m+[0m[0m vendor_data_file_id = "local:snippets/lab-accounts-vendor.yaml"
+            [90m# (3 unchanged attributes hidden)[0m[0m
+
+            [90m# (2 unchanged blocks hidden)[0m[0m
+        }
+
+        [90m# (6 unchanged blocks hidden)[0m[0m
+    }
+
+
+This is a refresh-only plan, so OpenTofu will not take any actions to undo
+these. If you were expecting these changes then you can apply this plan to
+record the updated values in the OpenTofu state without changing any remote
+objects.
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Changes to Outputs:
+  [33m~[0m[0m guests           = {
+      [33m~[0m[0m demo-lxc-runner = {
+            name           = "demo-lxc-runner-v6"
+            tags           = [
+                "flavor-aws-t3.medium",
+                "flavor-guest",
+                "src-lxc-runner-v6",
+            ]
+          [32m+[0m[0m vendor_snippet = [90mnull[0m[0m
+            [90m# (7 unchanged attributes hidden)[0m[0m
+        }
+      [33m~[0m[0m demo-vm-docker  = {
+            name           = "demo-vm-docker-v7"
+            tags           = [
+                "flavor-aws-t3.medium",
+                "flavor-guest",
+                "src-vm-docker-v7",
+            ]
+          [32m+[0m[0m vendor_snippet = "lab-accounts-vendor.yaml"
+            [90m# (7 unchanged attributes hidden)[0m[0m
+        }
+    }
+
+You can apply this plan to save these new output values to the OpenTofu
+state, without changing any real infrastructure.
+[0m[1m[32m
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+[0m[0m[1m[32m
+Outputs:
+
+[0mguests = {
+  "demo-lxc-runner" = {
+    "address" = "10.99.16.101"
+    "cores" = 2
+    "disk_gb" = 30
+    "flavor" = "aws/t3.medium"
+    "kind" = "lxc"
+    "memory_mb" = 4096
+    "name" = "demo-lxc-runner-v6"
+    "tags" = tolist([
+      "flavor-aws-t3.medium",
+      "flavor-guest",
+      "src-lxc-runner-v6",
+    ])
+    "vendor_snippet" = null
+    "vm_id" = 9501
+  }
+  "demo-vm-docker" = {
+    "address" = "10.99.16.102"
+    "cores" = 2
+    "disk_gb" = 30
+    "flavor" = "aws/t3.medium"
+    "kind" = "qemu"
+    "memory_mb" = 4096
+    "name" = "demo-vm-docker-v7"
+    "tags" = tolist([
+      "flavor-aws-t3.medium",
+      "flavor-guest",
+      "src-vm-docker-v7",
+    ])
+    "vendor_snippet" = "lab-accounts-vendor.yaml"
+    "vm_id" = 9502
+  }
+}
+template_sources = {
+  "lxc-runner" = 9202
+  "vm-docker" = 9302
+}

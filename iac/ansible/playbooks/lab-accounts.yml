@@ -1,0 +1,241 @@
+---
+- name: Keep root and a read-only visitor account on the host and every running guest
+  hosts: pve_hosts
+  gather_facts: false
+  become: true
+  vars_files:
+    - ../../tofu/stacks/r15-probe/probe.yml
+  vars:
+    lab_root_password: "{{ (lookup('community.sops.sops', inventory_dir ~ '/../secrets/hosts/pve01.sops.yaml') | from_yaml).root_password }}"
+    lab_accounts: "{{ lookup('community.sops.sops', inventory_dir ~ '/../secrets/hosts/pve01-lab-accounts.sops.yaml') | from_yaml }}"
+    lab_stdin: "{{ lab_root_password }}\n{{ lab_accounts.guest_password }}\n"
+    lab_script: /root/lab-account-apply.sh
+    lab_snippet: /var/lib/vz/snippets/lab-accounts-vendor.yaml
+    lab_snippet_id: local:snippets/lab-accounts-vendor.yaml
+    lab_guest_role: LabGuest
+    lab_api: https://127.0.0.1:8006/api2/json
+    lab_salt: "{{ (inventory_hostname ~ '-lab-accounts') | hash('sha256') }}"
+    lab_ssh_options: [-o, BatchMode=yes, -o, ConnectTimeout=10, -o, StrictHostKeyChecking=accept-new]
+  tasks:
+    - name: Require both passwords
+      ansible.builtin.assert:
+        that:
+          - lab_root_password | length >= 8
+          - lab_accounts.guest_password | length >= 8
+        quiet: true
+      no_log: true
+
+    - name: Install the account script on the host
+      ansible.builtin.copy:
+        src: ../../../scripts/iac/lab-account-apply.sh
+        dest: "{{ lab_script }}"
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Set root on the host; its visitor account is guest@pve
+      ansible.builtin.command:
+        argv: [bash, "{{ lab_script }}", --root-only]
+        stdin: "{{ lab_stdin }}"
+      register: lab_host_result
+      changed_when: "'changed=0' not in lab_host_result.stdout"
+      no_log: true
+
+    - name: Show the host result
+      ansible.builtin.debug:
+        msg: "{{ lab_host_result.stdout_lines }}"
+
+    - name: Read the Proxmox roles, users and permissions
+      ansible.builtin.command:
+        argv: [pveum, "{{ item }}", list, --output-format, json]
+      loop: [role, user, acl]
+      register: lab_pve_lists
+      changed_when: false
+
+    - name: Derive the visitor privileges from PVEAuditor plus VM.Console
+      ansible.builtin.set_fact:
+        lab_roles: "{{ lab_pve_lists.results[0].stdout | from_json }}"
+        lab_users: "{{ (lab_pve_lists.results[1].stdout | from_json) | map(attribute='userid') | list }}"
+        lab_acls: "{{ lab_pve_lists.results[2].stdout | from_json }}"
+        lab_guest_privs: >-
+          {{ (((lab_pve_lists.results[0].stdout | from_json) | selectattr('roleid', 'equalto', 'PVEAuditor') | first).privs.split(',')
+          + ['VM.Console']) | unique | sort | join(',') }}
+
+    - name: Create or update the visitor role
+      ansible.builtin.command:
+        argv: [pveum, role, "{{ 'modify' if lab_existing | length else 'add' }}", "{{ lab_guest_role }}", --privs, "{{ lab_guest_privs }}"]
+      vars:
+        lab_existing: "{{ lab_roles | selectattr('roleid', 'equalto', lab_guest_role) | list }}"
+      when: lab_existing | length == 0 or (lab_existing[0].privs.split(',') | sort | join(',')) != lab_guest_privs
+      changed_when: true
+
+    - name: Create the visitor user
+      ansible.builtin.command:
+        argv: [pveum, user, add, "{{ lab_accounts.guest_pve_user }}", --comment, "Read-only visitor"]
+      when: lab_accounts.guest_pve_user not in lab_users
+      changed_when: true
+
+    - name: Grant the visitor role on the whole tree
+      ansible.builtin.command:
+        argv: [pveum, acl, modify, /, --users, "{{ lab_accounts.guest_pve_user }}", --roles, "{{ lab_guest_role }}"]
+      when: >-
+        lab_acls | selectattr('path', 'equalto', '/') | selectattr('ugid', 'equalto', lab_accounts.guest_pve_user)
+        | selectattr('roleid', 'equalto', lab_guest_role) | list | length == 0
+      changed_when: true
+
+    - name: Try the visitor login
+      ansible.builtin.uri:
+        url: "{{ lab_api }}/access/ticket"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: "{{ lab_accounts.guest_pve_user }}"
+          password: "{{ lab_accounts.guest_password }}"
+        validate_certs: false
+        status_code: [200, 401]
+      register: lab_guest_login
+      no_log: true
+
+    - name: Log in as root to set the visitor password
+      ansible.builtin.uri:
+        url: "{{ lab_api }}/access/ticket"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: root@pam
+          password: "{{ lab_root_password }}"
+        validate_certs: false
+      register: lab_root_login
+      when: lab_guest_login.status != 200
+      no_log: true
+
+    - name: Set the visitor password through the API
+      ansible.builtin.uri:
+        url: "{{ lab_api }}/access/password"
+        method: PUT
+        body_format: form-urlencoded
+        body:
+          userid: "{{ lab_accounts.guest_pve_user }}"
+          password: "{{ lab_accounts.guest_password }}"
+          confirmation-password: "{{ lab_root_password }}"
+        headers:
+          Cookie: "PVEAuthCookie={{ lab_root_login.json.data.ticket }}"
+          CSRFPreventionToken: "{{ lab_root_login.json.data.CSRFPreventionToken }}"
+        validate_certs: false
+      when: lab_guest_login.status != 200
+      changed_when: true
+      no_log: true
+
+    - name: Hash the passwords for the VM vendor snippet with a fixed salt, so a re-run writes the same file
+      ansible.builtin.command:
+        argv: [openssl, passwd, "-6", -salt, "{{ lab_salt[:16] }}", -stdin]
+        stdin: "{{ item }}"
+      loop: ["{{ lab_root_password }}", "{{ lab_accounts.guest_password }}"]
+      register: lab_hashes
+      changed_when: false
+      no_log: true
+
+    - name: Write the vendor snippet that sets the accounts on guest-stack VMs at every boot
+      ansible.builtin.template:
+        src: templates/lab-accounts-vendor.yaml.j2
+        dest: "{{ lab_snippet }}"
+        owner: root
+        group: root
+        mode: "0600"
+      vars:
+        lab_root_hash: "{{ lab_hashes.results[0].stdout }}"
+        lab_guest_hash: "{{ lab_hashes.results[1].stdout }}"
+      no_log: true
+
+    - name: List the running containers
+      ansible.builtin.shell:
+        cmd: set -o pipefail && pct list | awk 'NR > 1 && $2 == "running" {print $1}'
+        executable: /bin/bash
+      register: lab_containers
+      changed_when: false
+
+    - name: Copy the account script into each running container
+      ansible.builtin.command:
+        argv: [pct, push, "{{ item }}", "{{ lab_script }}", "{{ lab_script }}", --perms, "0700"]
+      loop: "{{ lab_containers.stdout_lines }}"
+      changed_when: false
+
+    - name: Apply the accounts in each running container
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ item }}", --, bash, "{{ lab_script }}"]
+        stdin: "{{ lab_stdin }}"
+      loop: "{{ lab_containers.stdout_lines }}"
+      register: lab_container_results
+      changed_when: "'changed=0' not in lab_container_results.stdout"
+      no_log: true
+
+    - name: Remove the account script from each container
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ item }}", --, rm, -f, "{{ lab_script }}"]
+      loop: "{{ lab_containers.stdout_lines }}"
+      changed_when: false
+
+    - name: Show the container results
+      ansible.builtin.debug:
+        msg: "{{ lab_container_results.results | map(attribute='stdout_lines') | list }}"
+
+    - name: List running VMs with their address, login and key
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          for id in $(qm list | awk 'NR > 1 && $3 == "running" {print $1}'); do
+            config="$(qm config "$id")"
+            address="$(printf '%s\n' "$config" | sed -nE 's/^ipconfig0:.*ip=([0-9.]+).*/\1/p')"
+            if [ "$id" = "{{ r15_guests.vm.vm_id }}" ]; then
+              echo "$id $address {{ r15_guests.vm.login_user }} {{ r15_control_key }} {{ r15_known_hosts }}"
+            elif printf '%s\n' "$config" | grep -q "^cicustom:.*vendor={{ lab_snippet_id }}"; then
+              echo "$id $address snippet - -"
+            else
+              echo "$id $address none - -"
+            fi
+          done
+        executable: /bin/bash
+      register: lab_vms
+      changed_when: false
+      tags: [lab_vms]
+
+    - name: Refuse a running VM with no way in
+      ansible.builtin.assert:
+        that: item.split()[2] != 'none'
+        fail_msg: "VM {{ item.split()[0] }} has neither the probe login nor the vendor snippet; add vendor_snippet to its guests.yml entry and reboot it"
+        quiet: true
+      loop: "{{ lab_vms.stdout_lines }}"
+      tags: [lab_vms]
+
+    - name: Copy the account script into each VM reachable over SSH
+      ansible.builtin.command:
+        argv: "{{ ['ssh', '-i', vm[3], '-o', 'UserKnownHostsFile=' ~ vm[4]] + lab_ssh_options + [vm[2] ~ '@' ~ vm[1], copy_cmd] }}"
+        stdin: "{{ lookup('ansible.builtin.file', '../../../scripts/iac/lab-account-apply.sh') }}"
+      vars:
+        vm: "{{ item.split() }}"
+        sudo_prefix: "{{ '' if vm[2] == 'root' else 'sudo -n ' }}"
+        copy_cmd: "{{ sudo_prefix }}tee {{ lab_script }} >/dev/null && {{ sudo_prefix }}chmod 0700 {{ lab_script }}"
+      loop: "{{ lab_vms.stdout_lines | reject('search', ' snippet ') | list }}"
+      changed_when: false
+      tags: [lab_vms]
+
+    - name: Apply the accounts in each VM reachable over SSH
+      ansible.builtin.command:
+        argv: "{{ ['ssh', '-i', vm[3], '-o', 'UserKnownHostsFile=' ~ vm[4]] + lab_ssh_options + [vm[2] ~ '@' ~ vm[1], apply_cmd] }}"
+        stdin: "{{ lab_stdin }}"
+      vars:
+        vm: "{{ item.split() }}"
+        sudo_prefix: "{{ '' if vm[2] == 'root' else 'sudo -n ' }}"
+        apply_cmd: "{{ sudo_prefix }}bash {{ lab_script }} && {{ sudo_prefix }}rm -f {{ lab_script }}"
+      loop: "{{ lab_vms.stdout_lines | reject('search', ' snippet ') | list }}"
+      register: lab_vm_results
+      changed_when: "'changed=0' not in lab_vm_results.stdout"
+      no_log: true
+      tags: [lab_vms]
+
+    - name: Show the VM results; snippet VMs take the accounts at every boot
+      ansible.builtin.debug:
+        msg:
+          over_ssh: "{{ lab_vm_results.results | map(attribute='stdout_lines') | list }}"
+          at_boot: "{{ lab_vms.stdout_lines | select('search', ' snippet ') | map('split') | map('first') | list }}"
+      tags: [lab_vms]

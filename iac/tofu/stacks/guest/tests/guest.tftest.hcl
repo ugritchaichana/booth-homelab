@@ -413,3 +413,45 @@ run "guest_key_that_does_not_end_in_its_template_class_is_rejected" {
 
   expect_failures = [output.guests]
 }
+
+run "a_vm_guest_takes_its_vendor_snippet_and_a_guest_without_one_gets_none" {
+  command = plan
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.guest["demo-vm-docker"].initialization[0].vendor_data_file_id == "local:snippets/lab-accounts-vendor.yaml"
+    error_message = "The VM guest must pass its vendor_snippet as cloud-init vendor data from local snippets storage."
+  }
+}
+
+run "a_vm_guest_without_a_vendor_snippet_gets_no_vendor_data" {
+  command = plan
+
+  variables {
+    host = "case-mixed-case-flavor"
+  }
+
+  assert {
+    condition     = output.guests["azure-vm-docker"].vendor_snippet == null
+    error_message = "A VM guest without vendor_snippet must get no vendor data."
+  }
+}
+
+run "a_vendor_snippet_that_is_not_a_plain_file_name_is_rejected" {
+  command = plan
+
+  variables {
+    host = "case-bad-snippet"
+  }
+
+  expect_failures = [output.guests]
+}
+
+run "a_vendor_snippet_on_a_container_is_rejected" {
+  command = plan
+
+  variables {
+    host = "case-snippet-on-lxc"
+  }
+
+  expect_failures = [output.guests]
+}

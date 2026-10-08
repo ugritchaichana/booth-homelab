@@ -1,0 +1,115 @@
+Acquiring state lock. This may take a few moments...
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates: Reading...[0m[0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_pool.templates: Read complete after 0s [id=templates][0m
+[0m[1mmodule.template_source["vm-docker"].data.proxmox_virtual_environment_vms.all[0]: Read complete after 0s [id=512e86dc-4191-4db4-84ad-749eae58f101][0m
+[0m[1mmodule.template_source["lxc-runner"].data.proxmox_virtual_environment_containers.all[0]: Read complete after 0s [id=accdb417-69a4-478f-ad50-1752171037f3][0m
+[0m[1mproxmox_virtual_environment_container.guest["demo-lxc-runner"]: Refreshing state... [id=9501][0m
+[0m[1mproxmox_virtual_environment_vm.guest["demo-vm-docker"]: Refreshing state... [id=9502][0m
+[0m[1mproxmox_virtual_environment_firewall_ipset.vm_ipfilter["demo-vm-docker"]: Refreshing state... [id=ipfilter-net0][0m
+
+OpenTofu used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+[31m-[0m/[32m+[0m destroy and then create replacement[0m
+
+OpenTofu will perform the following actions:
+
+[1m  # proxmox_virtual_environment_vm.guest["demo-vm-docker"][0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "proxmox_virtual_environment_vm" "guest" {
+      [33m~[0m[0m boot_order                           = [
+          [31m-[0m[0m "scsi0",
+        ] -> (known after apply)
+      [32m+[0m[0m hotplug                              = (known after apply)
+      [33m~[0m[0m id                                   = "9502" -> (known after apply)
+      [33m~[0m[0m ipv4_addresses                       = [] -> (known after apply)
+      [33m~[0m[0m ipv6_addresses                       = [] -> (known after apply)
+      [33m~[0m[0m mac_addresses                        = [
+          [31m-[0m[0m "BC:24:11:33:70:E1",
+        ] -> (known after apply)
+        name                                 = "demo-vm-docker-v7"
+      [33m~[0m[0m network_device                       = [
+          [33m~[0m[0m {
+              [31m-[0m[0m disconnected = false
+              [33m~[0m[0m mac_address  = "BC:24:11:33:70:E1" -> (known after apply)
+              [31m-[0m[0m trunks       = ""
+                [90m# (8 unchanged attributes hidden)[0m[0m
+            },
+        ]
+      [33m~[0m[0m network_interface_names              = [] -> (known after apply)
+      [32m+[0m[0m pool_id                              = "homelab"
+      [33m~[0m[0m started                              = true [33m->[0m[0m false
+        tags                                 = [
+            "flavor-aws-t3.medium",
+            "flavor-guest",
+            "src-vm-docker-v7",
+        ]
+        [90m# (25 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m cpu {
+          [31m-[0m[0m flags      = [] [90m-> null[0m[0m
+          [33m~[0m[0m units      = 0 -> (known after apply)
+            [90m# (6 unchanged attributes hidden)[0m[0m
+        }
+
+      [33m~[0m[0m disk {
+          [33m~[0m[0m file_format       = "raw" -> (known after apply)
+          [33m~[0m[0m path_in_datastore = "vm-9502-disk-0" -> (known after apply)
+            [90m# (11 unchanged attributes hidden)[0m[0m
+        }
+
+      [33m~[0m[0m initialization {
+          [32m+[0m[0m file_format          = (known after apply)
+          [31m-[0m[0m interface            = "ide2" [90m-> null[0m[0m
+          [32m+[0m[0m meta_data_file_id    = (known after apply)
+          [32m+[0m[0m network_data_file_id = (known after apply)
+          [32m+[0m[0m type                 = (known after apply)
+          [33m~[0m[0m upgrade              = true -> (known after apply)
+          [32m+[0m[0m user_data_file_id    = (known after apply)
+          [32m+[0m[0m vendor_data_file_id  = "local:snippets/lab-accounts-vendor.yaml" [31m# forces replacement[0m[0m
+            [90m# (1 unchanged attribute hidden)[0m[0m
+
+            [90m# (2 unchanged blocks hidden)[0m[0m
+        }
+
+      [33m~[0m[0m vga {
+          [32m+[0m[0m clipboard = (known after apply)
+          [32m+[0m[0m memory    = (known after apply)
+          [32m+[0m[0m type      = (known after apply)
+        } -> (known after apply)
+
+        [90m# (4 unchanged blocks hidden)[0m[0m
+    }
+
+[1mPlan:[0m 1 to add, 0 to change, 1 to destroy.
+[0m
+Changes to Outputs:
+  [33m~[0m[0m guests           = {
+      [33m~[0m[0m demo-lxc-runner = {
+            name           = "demo-lxc-runner-v6"
+            tags           = [
+                "flavor-aws-t3.medium",
+                "flavor-guest",
+                "src-lxc-runner-v6",
+            ]
+          [32m+[0m[0m vendor_snippet = [90mnull[0m[0m
+            [90m# (7 unchanged attributes hidden)[0m[0m
+        }
+      [33m~[0m[0m demo-vm-docker  = {
+            name           = "demo-vm-docker-v7"
+            tags           = [
+                "flavor-aws-t3.medium",
+                "flavor-guest",
+                "src-vm-docker-v7",
+            ]
+          [32m+[0m[0m vendor_snippet = "lab-accounts-vendor.yaml"
+            [90m# (7 unchanged attributes hidden)[0m[0m
+        }
+    }
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Note: You didn't use the -out option to save this plan, so OpenTofu can't
+guarantee to take exactly these actions if you run "tofu apply" now.

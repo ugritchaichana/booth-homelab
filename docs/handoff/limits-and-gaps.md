@@ -49,6 +49,7 @@ All gates must be shown, not asserted, before the first runner registers. The fu
 
 | Gap | What closes it | Source |
 |---|---|---|
+| Templates keep root locked and carry no visitor account: a new container gets the lab accounts only when `lab-accounts.yml` runs again, and a new guest-stack VM only if its `guests.yml` entry names `vendor_snippet`; a password change reaches a guest-stack VM at its next boot | `new-guest.sh` runs the playbook after an apply, or the template build adds the accounts | [ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md), D92 |
 | Backups to another device, general object storage and a timed restore do not exist | Phase 7 | [next-phases.md](next-phases.md) |
 | OpenTofu state is local to one operator workstation | A shared, locked, encrypted backend chosen by the receiving team (not the cache) | ADR 0013, 0051 |
 | A second real host was planned, never applied | Adding a host by [operations.md](operations.md) | R5 (baseline capabilities) |

@@ -69,6 +69,19 @@ guests:
       flavor: aws/t3.medium
       template_class: vm-docker
       slot: 2
+      vendor_snippet: lab-accounts-vendor.yaml
+  case-bad-snippet:
+    demo-vm-docker:
+      flavor: aws/t3.medium
+      template_class: vm-docker
+      slot: 2
+      vendor_snippet: ../etc/passwd
+  case-snippet-on-lxc:
+    demo-lxc-runner:
+      flavor: aws/t3.medium
+      template_class: lxc-runner
+      slot: 1
+      vendor_snippet: lab-accounts-vendor.yaml
   other-host:
     other-host-guest-lxc-runner:
       flavor: aws/t3.medium
