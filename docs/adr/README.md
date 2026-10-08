@@ -101,3 +101,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0058 | [Keep Proxmox login hardening off in the reference lab and document it for adopters](0058-keep-proxmox-login-hardening-off-in-the-reference-lab.md) | Accepted |
 | 0059 | [Open the reference lab to visitors](0059-open-the-reference-lab-to-visitors.md) | Accepted |
 | 0060 | [Run own CI on one persistent runner container behind a job-start guard](0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md) | Accepted |
+| 0061 | [Report each SDET run on its pull request from a workflow_run callback](0061-report-each-sdet-run-on-its-pull-request-from-a-workflow-run-callback.md) | Accepted |

@@ -24,7 +24,8 @@ if [ ! -d "node_modules" ]; then
 fi
 
 echo "==> Running Jest Unit Tests for Angular..."
-npx jest --ci --colors --coverage
+mkdir -p test-results
+npx jest --ci --colors --coverage --json --outputFile=test-results/jest.json
 
 END_TIME=$(date +%s%N)
 DURATION_MS=$(( (END_TIME - START_TIME) / 1000000 ))

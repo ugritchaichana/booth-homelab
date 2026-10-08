@@ -18,6 +18,7 @@ obj/
 *.user
 *.suo
 *.trx
+!tests/report/fixtures/**/*.trx
 TestResults/
 
 # Node & Nx
@@ -27,6 +28,7 @@ dist/
 .angular/
 tmp/
 coverage/
+test-results/
 
 # Environment & Secrets
 .env
