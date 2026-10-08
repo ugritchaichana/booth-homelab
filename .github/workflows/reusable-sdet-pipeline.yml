@@ -133,6 +133,7 @@ jobs:
       cache_hit_dotnet_outputs: ${{ steps.restore-outputs.outputs.hit }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
       test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
+      workspace: ${{ github.workspace }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -275,6 +276,7 @@ jobs:
         env:
           CACHE_WRITER_PASSWORD: ${{ secrets.CACHE_WRITER_PASSWORD }}
           BUILD_CACHE_WRITER_TOKEN: '1'
+          BUILD_CACHE_KEY_ROOT: ${{ needs.dotnet.outputs.workspace }}
         with:
           mode: save
           kind: dotnet-outputs
