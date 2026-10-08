@@ -6,8 +6,7 @@ Every named gap, who owns it, and the evidence that closes it. "Owner" means the
 
 | Gap | Owner step | What closes it | Source |
 |---|---|---|---|
-| Cache-writer branch policy: environment `cache-writer` has no deployment branch policy, so a workflow from any branch of the repository can name it and receive the writer credential. Forks never receive it | Repository administrator, before the first runner (Phase 5 entry gate) | Set "selected branches" to the default branch only, rotate the writer password, read back `deployment_branch_policy` non-null | ADR 0050; row 62 (cache API), row 70 (security hardening) |
-| Fork pull-request approval is not set to "all external contributors" | Repository administrator, now | The setting changed, and a fork pull-request run shown not to start without approval | row 27 (routing), owner actions in requirements.md |
+| Fork pull-request approval: set to "all external contributors" on 2026-10-08 ([read-back](../evidence/closeout/owner-gaps-readback.txt)), not yet shown on a real fork pull request | Repository administrator with a second account, or Phase 6 | A fork pull-request run shown not to start without approval | row 27 (routing), owner actions in requirements.md |
 | The routing expression sends fork pull requests to self-hosted runners | Phase 5 gate, then the Phase 6 router | Fork events routed to hosted in the workflows; a fork run on hosted shown by a run id | row 27 (routing); D17 (public-repo CI on a host with private networks) |
 | Save jobs have never run in environment `cache-writer` on the new platform; the self-hosted path has never run, and hosted CI does not use the cache ([ADR 0054](../adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)) | Phase 5 first runners; Phase 6 | A default-branch push runs the save jobs on a JIT runner, a later run hits, and a canary proves the writer credential is absent from every step that runs third-party code | row 68 (hosted run); ADR 0053 |
 | Cache egress: the cache container keeps public IPv4 egress through `guest-egress`, so a compromised cache service could call out | Phase 7 | An egress group without `public-v4` for the cache, opened only during converge; R15 cache rows show the outbound negative | Phase 4 security review |
@@ -54,7 +53,6 @@ All gates must be shown, not asserted, before the first runner registers. The fu
 | OpenTofu state is local to one operator workstation | A shared, locked, encrypted backend chosen by the receiving team (not the cache) | ADR 0013, 0051 |
 | A second real host was planned, never applied | Adding a host by [operations.md](operations.md) | R5 (baseline capabilities) |
 | Rebuild from zero by someone who was not there; run on a non-Proxmox host | Phase 8 | R2 (runbook), R10 (portability), R18 (handoff-ready) |
-| The two old runners of the retired host are still registered | Repository administrator deregisters them on an explicit go (Phase 6) | requirements.md section 2.1 |
 | The probe's link-local target is a stale hand-edited value after an SDN re-apply | The probe derives the address at run time | [real-host-defects.md](../knowledge/real-host-defects.md), open findings |
 | Provisioner cannot set tags at create; deleting a downloaded volume needs one operator `pvesm free` | Accepted limitation; do not widen the token | row 48 (token boundary) |
 | Janitor for runs stuck on offline self-hosted runners | Phase 6 backlog, see [next-phases.md](next-phases.md) | closed pull request [#49](https://github.com/ugritchaichana/booth-homelab/pull/49), "feat: actions janitor cancels runs stuck on offline self-hosted runners and raises an alert issue" |
@@ -72,6 +70,13 @@ Each needs a host converge proof or is Phase 5 work.
 - `scripts/proxmox/ephemeral/` sits beside the install scripts but belongs to the Phase 5 runner design; decide its home there ([next-phases.md](next-phases.md), Phase 5 starting points).
 - `.github/workflows/sdet-ci.yml` passes `secrets: inherit` to the reusable pipeline instead of naming the secrets it needs.
 - `scripts/iac/cache-writer-secret.sh`, `new-guest.sh`, `render-ssh-config.sh` and `tofu.sh` each define their own helper functions such as `die`; there is no shared `scripts/iac/lib.sh`.
+
+## Closed gaps
+
+| Gap | Closed | Evidence |
+|---|---|---|
+| Cache-writer branch policy: a workflow from any branch could name environment `cache-writer` and receive the writer credential | 2026-10-08: selected branches, `master` only; the writer password rotated afterwards and converged on the cache host | [owner-gaps-readback.txt](../evidence/closeout/owner-gaps-readback.txt), [rotate-converge-2.txt](../evidence/closeout/rotate-converge-2.txt) |
+| The two old runners of the retired host were still registered | 2026-10-08: deregistered; the runners API lists 0 runners | [owner-gaps-readback.txt](../evidence/closeout/owner-gaps-readback.txt) |
 
 ## Reference-machine limits (do not inherit)
 

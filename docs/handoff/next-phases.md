@@ -39,7 +39,7 @@ Expected: the first prints a long encoded string (the script above treats HTTP 2
 4. A per-runner firewall read-back (clones inherit the template firewall).
 5. An alert on stale templates or failed builds, and a path to bump the runner pin.
 6. The cache writer credential is held only by save steps that run the cache client on artifacts the same run built, checked by a canary on a real runner.
-7. The `cache-writer` environment has a branch policy ([limits-and-gaps.md](limits-and-gaps.md), first security gap), and the writer password is rotated after it is set.
+7. The `cache-writer` environment has a branch policy, and the writer password is rotated after it is set. Met 2026-10-08 ([limits-and-gaps.md](limits-and-gaps.md), closed gaps).
 8. The controller's identity holds no privilege on the cache container's pool or the cache vnet; closes when `pvesh set` on the cache container returns 403 with the controller token.
 9. Runners are JIT and ephemeral before they take any pull-request job.
 10. An alarm on cache writes outside writer jobs.
@@ -51,17 +51,15 @@ Expected: the first prints a long encoded string (the script above treats HTTP 2
 16. A test keeps the runner-class expression in the workflow `env` and the `select-runner` job identical (close-out security review).
 17. `wiki-sync` tells an uninitialised wiki apart from an auth or network failure, and checks the commit result (close-out security review).
 
-The close-out security review also recommends deregistering the two offline runners of the retired host now rather than in Phase 6: a pull request can name self-hosted labels in its own workflow file, so registered runners, not the routing expression, are the real exposure.
+The close-out security review recommended deregistering the two offline runners of the retired host before Phase 6: a pull request can name self-hosted labels in its own workflow file, so registered runners, not the routing expression, are the real exposure. Done 2026-10-08; the runners API lists 0 runners.
 
-Open items of the Phase 4 security review (an independent review of the Phase 4 branch; nothing blocked closing Phase 4): the branch policy (gate 7), the cache container's pool (gate 8), guard alerting and cache egress (both Phase 7, see [limits-and-gaps.md](limits-and-gaps.md)).
+Open items of the Phase 4 security review (an independent review of the Phase 4 branch; nothing blocked closing Phase 4): the cache container's pool (gate 8), guard alerting and cache egress (both Phase 7, see [limits-and-gaps.md](limits-and-gaps.md)).
 
 ### Owner steps
 
 | Step | Who |
 |---|---|
 | Create two fine-grained tokens scoped to the one repository: Administration read and write for the controller (JIT configuration), Administration read for the router job (pool availability) | Repository administrator |
-| Set the `cache-writer` environment to selected branches, then rotate the writer password | Repository administrator |
-| Set fork pull-request approval to all external contributors | Repository administrator |
 | Create the controller's PVE token with a role of its own, separate from the provisioner and backup identities | Operator, reviewed by the technical lead |
 | Decide how a stopped pool is detected (D21, VM start policy, is suspended: the lab machines stay running) | Technical lead |
 
@@ -106,7 +104,7 @@ If the receiving team's repository belongs to an organization, question 1 may no
 |---|---|
 | Janitor for runs stuck on offline self-hosted runners | From closed pull request [#49](https://github.com/ugritchaichana/booth-homelab/pull/49), "feat: actions janitor cancels runs stuck on offline self-hosted runners and raises an alert issue" (head `46b3c56`). Replace the retired runner names with the pool labels and keep a dry run on pull requests |
 
-**Owner steps.** The explicit go to deregister the two runners of the retired host (requirements.md section 2.1; the runners API lists them); any GitHub setting beyond secrets (branch protection, visibility, SHA pinning of actions) is the repository administrator's (section 2.2).
+**Owner steps.** Any GitHub setting beyond secrets (branch protection, visibility, SHA pinning of actions) is the repository administrator's (section 2.2).
 
 ## Phase 7: Observability, backups and storage
 

@@ -75,6 +75,21 @@
       "src": "plans:booth-homelab-closeout/raw/rename-final-state.txt",
       "dest": "docs/evidence/closeout/rename-final-state.txt",
       "proves": "Guest names: the guard reports ok, 9 guests; the cache serves from a probe; the container list shows the new names"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/owner-gaps-readback.txt",
+      "dest": "docs/evidence/closeout/owner-gaps-readback.txt",
+      "proves": "D89: GitHub read-backs before and after the owner-authorized steps: runners 0, fork approval all external contributors, cache-writer limited to master, writer secret updated, stale wiki pages removed"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rotate-converge-1.txt",
+      "dest": "docs/evidence/closeout/rotate-converge-1.txt",
+      "proves": "D89: cache role converge after the writer rotation, bcrypt hash written and bazel-remote restarted (changed=2)"
+    },
+    {
+      "src": "plans:booth-homelab-closeout/raw/rotate-converge-2.txt",
+      "dest": "docs/evidence/closeout/rotate-converge-2.txt",
+      "proves": "D89: second converge, the stored hash verifies against the rotated password (changed=0)"
     }
   ]
 }

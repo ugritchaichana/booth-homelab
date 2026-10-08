@@ -1,0 +1,109 @@
+
+PLAY [Start the cache container only after its firewall reads back correctly] ***
+
+TASK [Gate the first start on the firewall read-back] **************************
+included: <user-home>/Desktop/Project/_wt-ownergaps/iac/ansible/playbooks/tasks/cache-start-gate.yml for pve01
+
+TASK [Read the container config] ***********************************************
+ok: [pve01]
+
+TASK [Read the container firewall options] *************************************
+ok: [pve01]
+
+TASK [Read the container firewall rules] ***************************************
+ok: [pve01]
+
+TASK [Require the runner-class firewall and the NIC on the cache vnet before the first start] ***
+ok: [pve01]
+
+TASK [Read the container status] ***********************************************
+ok: [pve01]
+
+TASK [Start the container now that the firewall is in place] *******************
+skipping: [pve01]
+
+TASK [Wait for ssh on the cache address] ***************************************
+ok: [pve01]
+
+PLAY [Prepare the cache container for Ansible] *********************************
+
+TASK [Install python3 when the template lacks it] ******************************
+ok: [build-cache]
+
+PLAY [Configure the build cache service] ***************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [build-cache]
+
+TASK [Apply the cache_service role] ********************************************
+included: cache_service for build-cache
+
+TASK [cache_service : Assert the inputs before changing anything] **************
+ok: [build-cache] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [cache_service : Assert the writer password reached the role] *************
+ok: [build-cache]
+
+TASK [cache_service : Install the packages the role needs] *********************
+ok: [build-cache]
+
+TASK [cache_service : Create the service group] ********************************
+ok: [build-cache]
+
+TASK [cache_service : Create the service user without a shell or a home] *******
+ok: [build-cache]
+
+TASK [cache_service : Require the data directory to be the mount point] ********
+ok: [build-cache]
+
+TASK [cache_service : Create the data directory on the mount point] ************
+ok: [build-cache]
+
+TASK [cache_service : Create the binary directory for the version] *************
+ok: [build-cache]
+
+TASK [cache_service : Create the quarantine directory outside the cache directory] ***
+ok: [build-cache]
+
+TASK [cache_service : Install the wait that holds the start until the listen address exists] ***
+ok: [build-cache]
+
+TASK [cache_service : Install the sweep that quarantines blobs whose content does not match their name] ***
+ok: [build-cache]
+
+TASK [cache_service : Download the pinned bazel-remote binary and verify its digest] ***
+ok: [build-cache]
+
+TASK [cache_service : Point the stable path at the pinned version] *************
+ok: [build-cache]
+
+TASK [cache_service : Create the configuration directory] **********************
+ok: [build-cache]
+
+TASK [cache_service : Create the htpasswd file with its final owner and mode] ***
+ok: [build-cache]
+
+TASK [cache_service : Check the stored writer hash against the password] *******
+ok: [build-cache]
+
+TASK [cache_service : Write the bcrypt hash of the writer password, reading it from stdin] ***
+skipping: [build-cache]
+
+TASK [cache_service : Install the systemd unit] ********************************
+ok: [build-cache]
+
+TASK [cache_service : Apply pending restarts before the readiness check] *******
+
+TASK [cache_service : Enable and start the service] ****************************
+ok: [build-cache]
+
+TASK [cache_service : Wait for the HTTP listener] ******************************
+ok: [build-cache]
+
+PLAY RECAP *********************************************************************
+build-cache                : ok=22   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+pve01                      : ok=7    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

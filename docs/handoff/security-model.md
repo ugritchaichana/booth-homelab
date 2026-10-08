@@ -41,7 +41,7 @@ Two limits of the provisioner token that the receiving team will meet: it cannot
 - Reads are anonymous: a pull-request job holds nothing to leak. Writes need one credential (`ci-writer`), held only as the secret `CACHE_WRITER_PASSWORD` of environment `cache-writer` (ADR 0050).
 - The credential sits only in the environment of the save steps. Those steps run the cache client over artifacts uploaded by the same run's build and test jobs, so no install script or build runs beside it. A workflow test rejects any use of the secret outside the save steps (row 70, security hardening; `tests/cache/test_workflow_secrets.py`).
 - The server verifies the sha256 of every blob on upload (500 on mismatch, nothing stored); the client verifies digests on restore, extracts only the planned paths, caps size and members, and refuses an interpreter older than the tarfile fixes (row 62, cache API; row 65, cache edge cases; row 70, security hardening).
-- Owner step, not done: the branch policy of environment `cache-writer` ([limits-and-gaps.md](limits-and-gaps.md), first security gap; ADR 0050).
+- Done 2026-10-08: environment `cache-writer` accepts only `master`, and the writer password was rotated after the policy was set ([limits-and-gaps.md](limits-and-gaps.md), closed gaps; ADR 0050).
 - Traffic is plain HTTP on a private vnet; Basic credentials are visible to anything that can sniff that segment (ADR 0050). Revisit before the cache leaves the host.
 
 ## Secrets handling

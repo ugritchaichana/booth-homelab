@@ -267,7 +267,7 @@ A bazel-remote container on its own routed vnet serves content-addressed caches 
    bash scripts/iac/cache-writer-secret.sh --repo <owner>/<repository>
    ```
 
-5. Owner, GitHub setting, no command: Settings, Environments, `cache-writer`, Deployment branches and tags, Selected branches, `master`. Until it is set, any branch's workflow that names the environment receives the secret (`docs/handoff/limits-and-gaps.md`, first security gap).
+5. Owner, GitHub setting, no command: Settings, Environments, `cache-writer`, Deployment branches and tags, Selected branches, `master`. Until it is set, any branch's workflow that names the environment receives the secret (ADR 0050). Set on this repository 2026-10-08.
 
 6. Create the container, stopped.
 
