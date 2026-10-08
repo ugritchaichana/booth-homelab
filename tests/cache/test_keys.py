@@ -68,6 +68,11 @@ class OutputsKeyTests(unittest.TestCase):
     def test_changes_when_the_workspace_root_changes(self):
         self.assertNotEqual(out(root="/home/runner/work/other"), out())
 
+    def test_entries_saved_under_the_first_outputs_schema_are_unreachable(self):
+        first = {"schema": 1, "namespace": keys.OUTPUT_KIND, "platform": keys._platform_record(PLATFORM), "toolchain": "8.0.425",
+                 "configuration": "Release", "workspace_root": "/home/runner/work/repo", "trees": keys._sorted_pairs(TREES)}
+        self.assertNotEqual(out(), f"{keys.OUTPUT_KIND}-{keys.digest(first)}")
+
     def test_rejects_empty_trees(self):
         with self.assertRaises(ValueError):
             out(trees={})

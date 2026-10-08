@@ -64,6 +64,28 @@ class CliTests(unittest.TestCase):
             cli.main(["report", "--stats-file", str(self.stats)])
         self.assertIn("dotnet-outputs: 1/2 hit (50.0%)", out.getvalue())
 
+    def save_from(self, root, key_root):
+        args = ["save", "--kind", "dotnet-outputs", "--root", str(root), "--store", f"fs:{self.store}", "--runner-class", "test", *self.save_args()]
+        with mock.patch.dict(os.environ, {"BUILD_CACHE_KEY_ROOT": key_root}), redirect_stdout(StringIO()) as out:
+            code = cli.main(args)
+        return code, json.loads(out.getvalue().splitlines()[-1])
+
+    def test_a_save_job_in_another_checkout_keys_the_entry_by_the_build_root(self):
+        save_job = self.tmp / "save-job"
+        git(self.tmp, "clone", "-q", str(self.repo), str(save_job))
+        shutil.copytree(self.repo / "apps" / "backend" / "obj", save_job / "apps" / "backend" / "obj")
+        self.assertEqual(self.save_from(save_job, self.repo.as_posix()), (0, mock.ANY))
+        shutil.rmtree(self.repo / "apps" / "backend" / "obj")
+        self.assertEqual(self.run_cli("restore")[1]["status"], "hit")
+        with redirect_stdout(StringIO()) as out:
+            cli.main(["restore", "--kind", "dotnet-outputs", "--root", str(save_job), "--store", f"fs:{self.store}", "--runner-class", "test"])
+        self.assertEqual(json.loads(out.getvalue().splitlines()[-1])["status"], "miss")
+
+    def test_a_relative_key_root_is_refused(self):
+        code, record = self.save_from(self.repo, "relative/build/root")
+        self.assertEqual((code, record["status"]), (0, "skipped"))
+        self.assertIn("absolute", record["detail"])
+
     def test_save_after_a_verified_hit_in_the_same_job_is_skipped_and_after_a_miss_is_written(self):
         self.run_cli("restore")
         self.assertEqual(self.run_cli("save", *self.save_args())[1]["status"], "saved")

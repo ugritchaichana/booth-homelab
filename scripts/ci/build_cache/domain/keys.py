@@ -7,6 +7,7 @@ from typing import Mapping
 from .models import Platform
 
 SCHEMA = 1
+OUTPUTS_SCHEMA = 2
 DEPENDENCY_KINDS = ("nuget", "node_modules")
 OUTPUT_KIND = "dotnet-outputs"
 KINDS = DEPENDENCY_KINDS + (OUTPUT_KIND,)
@@ -64,7 +65,7 @@ def outputs_key(
     if not tree_ids:
         raise ValueError("an output key needs at least one input tree id")
     record = {
-        "schema": SCHEMA,
+        "schema": OUTPUTS_SCHEMA,
         "namespace": OUTPUT_KIND,
         "platform": _platform_record(platform),
         "toolchain": sdk_version,
