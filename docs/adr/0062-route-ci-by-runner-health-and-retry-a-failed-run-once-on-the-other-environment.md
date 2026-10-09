@@ -62,8 +62,8 @@ The callback runs three jobs, each with its own permissions; the workflow grants
 
 The retry rules:
 
-- **What is retried.** Attempt 1 with conclusion `failure` or `timed_out`, whatever the cause and wherever it ran.
-- **What is not.** `success`, `cancelled` and `startup_failure` (a run that never started cannot be rerun), and attempt 2 or later.
+- **What is retried.** Attempt 1 with conclusion `failure` or `timed_out`, whatever the cause and wherever it ran. Attempt 1 with conclusion `cancelled` is retried only when a Proxmox job lost its runner. A runner lost in the Angular job (run 37883774581) left that job and the whole run `cancelled`, with the annotation "The operation was canceled.".
+- **What is not.** `success` and `startup_failure` (a run that never started cannot be rerun) are never retried, and neither is attempt 2 or later. A run cancelled on purpose is not retried either: a person's cancel leaves "The run was canceled by @user." on its jobs (run 37883999894), and a concurrency cancel leaves "Canceling since a higher priority waiting request ... exists" (documented, not measured).
 - **Why the whole run.** `--failed` would reuse the first attempt's `Select Runner` outputs and land on the same environment again.
 
 ### The cause label
@@ -78,6 +78,7 @@ The fingerprint no longer gates the retry; it tells the pull-request author whet
 | Signal | Label | Source |
 |---|---|---|
 | The job failed with a runner assigned, a step ended `cancelled`, and no step failed | runner lost | measured twice: runner instance 1 restarted during the .NET test step (run 37766869178), then instance 2 (run 37772130618) |
+| The job was cancelled with a step `cancelled`, no step failed, and the annotation "The operation was canceled.", with no deliberate-cancel annotation in the run | runner lost | measured: instance 1 restarted during the Angular Jest step (run 37883774581) |
 | An annotation says "The runner has received a shutdown signal" or "lost communication with the server" | runner lost | documented by GitHub, not measured |
 | The job failed with no runner assigned, or its first failed step is `Set up job` or a checkout | runner or setup | documented, not measured |
 | A timeout, or a test, compile or `Set up runner` step failed | the failing job and step | measured: run 37758605391 |

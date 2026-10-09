@@ -22,6 +22,7 @@ CANCELLED_STEP = "Execute Transitive Affected Tests (Unit & Integration)"
 ANGULAR_CAUSE = 'job "CI / Test (Angular)" failed in step "Execute Angular Jest Suite"'
 TIMEOUT = "The job running on runner pve01-ci-lxc-runner-1 has exceeded the maximum execution time of 30 minutes."
 SHUTDOWN = "The runner has received a shutdown signal. This can happen when the runner service is stopped, or a manually started runner is canceled."
+USER_CANCEL = "The run was canceled by @owner."
 LOST = "The self-hosted runner: pve01-ci-lxc-runner-1 lost communication with the server. Verify the machine is running and has a healthy network connection."
 
 
@@ -145,10 +146,6 @@ class FingerprintTests(unittest.TestCase):
         dotnet(jobs)["steps"] = None
         self.assertIsNone(runner_route.infra_fingerprint(jobs, {}))
 
-    def test_a_cancelled_run_is_not_infra(self):
-        jobs, annotations = scenario(RESTARTED)
-        dotnet(jobs)["conclusion"] = "cancelled"
-        self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
 
     def test_fingerprint_is_one_bounded_line(self):
         jobs, annotations = scenario(RESTARTED)
@@ -182,6 +179,40 @@ class CauseTests(unittest.TestCase):
         for job in jobs:
             job["conclusion"] = "success"
         self.assertEqual(runner_route.failure_cause(jobs, {}), "")
+
+    def test_a_job_cancelled_under_a_lost_runner_is_a_runner_loss(self):
+        jobs, annotations = scenario(RESTARTED)
+        dotnet(jobs)["conclusion"] = "cancelled"
+        found = runner_route.infra_fingerprint(jobs, annotations)
+        self.assertIn(CANCELLED_STEP, found)
+        self.assertEqual(runner_route.failure_cause(jobs, annotations), found)
+
+    def test_a_cancelled_job_without_the_cancel_annotation_is_only_named(self):
+        jobs, annotations = scenario(RESTARTED)
+        dotnet(jobs)["conclusion"] = "cancelled"
+        annotations[dotnet(jobs)["id"]] = []
+        self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
+        self.assertEqual(runner_route.failure_cause(jobs, annotations), f'job "{DOTNET_JOB}" was cancelled in step "{CANCELLED_STEP}"')
+
+    def test_a_run_cancelled_by_a_person_is_never_a_runner_loss(self):
+        jobs, annotations = scenario(RESTARTED)
+        dotnet(jobs)["conclusion"] = "cancelled"
+        annotations[dotnet(jobs)["id"]] = failure(USER_CANCEL)
+        self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
+        for message in (USER_CANCEL, "Canceling since a higher priority waiting request for 'sdet-ci' exists"):
+            with self.subTest(message=message[:20]):
+                jobs, annotations = scenario(RESTARTED)
+                annotations[113276792869] = failure(message)
+                self.assertIsNone(runner_route.infra_fingerprint(jobs, annotations))
+
+    def test_a_failed_job_outranks_a_cancelled_one(self):
+        jobs, annotations = scenario(TEST_FAILURE)
+        jobs.insert(0, {"name": "CI / Telemetry", "conclusion": "cancelled", "labels": ["proxmox"], "runner_name": "pve01-ci-lxc-runner-1", "steps": None})
+        self.assertEqual(runner_route.failure_cause(jobs, annotations), ANGULAR_CAUSE)
+
+    def test_a_cancelled_job_without_a_cancelled_step(self):
+        job = {"name": "CI / Telemetry", "conclusion": "cancelled", "labels": ["ubuntu-latest"], "steps": None}
+        self.assertEqual(runner_route.failure_cause([job], {}), 'job "CI / Telemetry" was cancelled')
 
 
 class DecideTests(unittest.TestCase):
@@ -280,7 +311,7 @@ class DecideTests(unittest.TestCase):
 
 class VerdictTests(unittest.TestCase):
     def verdict(self, **overrides):
-        args = dict(attempt=1, conclusion="failure", proxmox=True, cause=ANGULAR_CAUSE, error="", previous_env="", previous_cause="")
+        args = dict(attempt=1, conclusion="failure", proxmox=True, cause=ANGULAR_CAUSE, error="", previous_env="", previous_cause="", infra=False)
         args.update(overrides)
         return runner_route.verdict(**args)
 
@@ -306,6 +337,16 @@ class VerdictTests(unittest.TestCase):
         retry, note = self.verdict(cause="")
         self.assertTrue(retry)
         self.assertIn("(no failed job found)", note)
+
+    def test_a_run_cancelled_by_a_lost_runner_is_retried(self):
+        retry, note = self.verdict(conclusion="cancelled", infra=True, cause="job x lost its runner")
+        self.assertTrue(retry)
+        self.assertEqual(note, "Attempt 1 failed on the Proxmox runner (job x lost its runner); the whole run is rerun once, on the other environment unless it must stay on GitHub-hosted.")
+
+    def test_a_cancelled_retry_after_a_lost_runner_is_red(self):
+        retry, note = self.verdict(attempt=2, conclusion="cancelled", infra=True, cause="job y lost its runner", previous_env="proxmox", previous_cause="job x")
+        self.assertFalse(retry)
+        self.assertTrue(note.startswith("Failed again: attempt 1 failed on the Proxmox runner (job x)"), note)
 
     def test_success_cancel_and_startup_failure_are_never_retried(self):
         for conclusion in ("success", "cancelled", "startup_failure", ""):
@@ -405,6 +446,10 @@ class CliTests(unittest.TestCase):
         out = self.run_cli(["verdict", "--attempt", "2", "--conclusion", "success", "--proxmox", "false", "--previous-env", "proxmox",
                             "--previous-cause", "job a failed"])
         self.assertEqual(out, {"retry": "false", "note": "Passed on retry: attempt 1 failed on the Proxmox runner (job a failed); attempt 2 passed on GitHub-hosted."})
+
+    def test_verdict_reads_the_runner_loss_flag(self):
+        out = self.run_cli(["verdict", "--attempt", "1", "--conclusion", "cancelled", "--proxmox", "true", "--cause", "job x lost its runner", "--infra", "true"])
+        self.assertEqual(out["retry"], "true")
 
     def test_verdict_with_a_non_numeric_attempt_is_not_retried(self):
         out = self.run_cli(["verdict", "--attempt", "null", "--conclusion", "failure", "--proxmox", "true", "--cause", "x"])

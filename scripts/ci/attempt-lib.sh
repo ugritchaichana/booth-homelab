@@ -38,7 +38,7 @@ classify_attempt() {
     echo "error=jobs of attempt $attempt returned HTTP $code: $(why "$dir/jobs.json")"
     return 0
   fi
-  ids="$(jq -r '.jobs[] | select(.conclusion == "failure") | .id' "$dir/jobs.json" 2> "$dir/jq.err" | tr -d '\r')" || { echo "error=jobs of attempt $attempt are not readable: $(head -c 200 "$dir/jq.err")"; return 0; }
+  ids="$(jq -r '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | .id' "$dir/jobs.json" 2> "$dir/jq.err" | tr -d '\r')" || { echo "error=jobs of attempt $attempt are not readable: $(head -c 200 "$dir/jq.err")"; return 0; }
   for id in $ids; do
     code="$(fetch "$api/repos/$REPOSITORY/check-runs/$id/annotations" "$GH_TOKEN" "$dir/annotations/$id.json")"
     if [ "$code" != 200 ]; then
