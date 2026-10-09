@@ -503,7 +503,7 @@ One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 
 
 2. Route CI. `Select Runner` decides each run and prints why, as `Runner route (attempt N): <runner> because <reason>`, in its log, the run summary and the pull-request comment (ADR 0062):
    - **Forced hosted.** `CI_RUNNER` other than `proxmox`, a fork pull request, or a dispatch with `force_ubuntu_runner=true`.
-   - **Rerun after a runner failure.** A rerun of an attempt that failed on Proxmox with an infra fingerprint runs hosted.
+   - **Rerun of an attempt on Proxmox.** A rerun of an attempt that ran on Proxmox runs hosted, whatever the cause. A rerun of an attempt on hosted goes back to the health check.
    - **Health check.** Otherwise it lists the runners with the secret `RUNNER_STATUS_TOKEN`. One online `proxmox` runner keeps the run on Proxmox, busy or not. None online sends it to hosted. Without the token, or on an API error, `CI_RUNNER` decides.
 
    ```sh
@@ -546,12 +546,13 @@ When the container is down, new runs go to hosted by themselves. Jobs already qu
 
 A run with no open pull request at its head writes the same report to the callback's job summary.
 
-Before the report, the job `Classify the finished attempt` reads the attempt (ADR 0062). After the report, `Retry once on GitHub-hosted` reruns the whole run once, and only when all of these hold:
-- it is attempt 1 of a failed run that ran on Proxmox;
-- the failure carries an infra fingerprint;
-- no real failure vetoes it.
+Before the report, the job `Classify the finished attempt` reads the attempt and the one before it (ADR 0062). After the report, `Retry once on GitHub-hosted` reruns the whole run once:
+- it acts when attempt 1 ended `failure` or `timed_out`, whatever the cause;
+- it never acts on attempt 2, or on `cancelled` or `startup_failure`.
 
-The comment's `Runner:` line says why a run was or was not retried. Attempt 2 routes to hosted and reports on the same comment.
+Attempt 2 runs on the other environment: hosted after Proxmox, and Proxmox after hosted when a runner is online and the run is not forced to hosted. If attempt 2 fails too, the run is red.
+
+The comment's `Runner:` line names the cause of attempt 1's failure: the runner-loss fingerprint, or the first failed job and step. After a pass on the retry the header reads "passed on attempt 2", so a flaky test stays visible.
 
 | Task | Command |
 |---|---|
