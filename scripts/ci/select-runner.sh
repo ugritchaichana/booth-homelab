@@ -24,30 +24,17 @@ if [ "$FORCED_HOSTED" != true ] && [ -z "$previous_fingerprint" ] && [ -n "${RUN
   [ "$http_status" = 200 ] || echo "select-runner: runner health check returned HTTP $http_status: $(why "$work/runners.json")"
 fi
 
-decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" \
-  --http-status "$http_status" --runners "$work/runners.json" \
-  --previous-fingerprint "$previous_fingerprint" --previous-error "$previous_error")"
+decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" --http-status "$http_status" --runners "$work/runners.json" --previous-fingerprint "$previous_fingerprint" --previous-error "$previous_error")"
 hosted="$(sed -n 's/^hosted=//p' <<< "$decision")"
 reason="$(sed -n 's/^reason=//p' <<< "$decision")"
 
 if [ "$hosted" = true ]; then
   label='GitHub-Hosted (ubuntu-latest)'
-  {
-    echo 'hosted=true'
-    echo 'dotnet_labels=["ubuntu-latest"]'
-    echo 'angular_labels=["ubuntu-latest"]'
-  } >> "$GITHUB_OUTPUT"
+  printf '%s\n' 'hosted=true' 'dotnet_labels=["ubuntu-latest"]' 'angular_labels=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
 else
   label='Proxmox VE Self-Hosted (LXC)'
-  {
-    echo 'hosted=false'
-    echo 'dotnet_labels=["self-hosted", "linux", "proxmox", "dotnet"]'
-    echo 'angular_labels=["self-hosted", "linux", "proxmox", "angular"]'
-  } >> "$GITHUB_OUTPUT"
+  printf '%s\n' 'hosted=false' 'dotnet_labels=["self-hosted", "linux", "proxmox", "dotnet"]' 'angular_labels=["self-hosted", "linux", "proxmox", "angular"]' >> "$GITHUB_OUTPUT"
 fi
-{
-  echo "runner_label=$label"
-  echo "route_reason=$reason"
-} >> "$GITHUB_OUTPUT"
+printf '%s\n' "runner_label=$label" "route_reason=$reason" >> "$GITHUB_OUTPUT"
 echo "Runner route (attempt $attempt): $label because $reason"
 echo "**Runner route (attempt $attempt):** $label because $reason" >> "$GITHUB_STEP_SUMMARY"

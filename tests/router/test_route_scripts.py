@@ -12,6 +12,7 @@ SELECT = REPO / "scripts" / "ci" / "select-runner.sh"
 CLASSIFY = REPO / "scripts" / "ci" / "sdet-classify.sh"
 RUNNER_TOKEN = "runner-status-token-value"
 RUN_TOKEN = "github-token-value"
+WRAPPER = os.environ.get("SCRIPT_COVERAGE", "").split()
 STUB = """#!/usr/bin/env python3
 import json, os, sys
 args = sys.argv[1:]
@@ -77,7 +78,8 @@ class ScriptCase(unittest.TestCase):
                        RUNNER_STATUS_TOKEN=RUNNER_TOKEN, GH_TOKEN=RUN_TOKEN, REPOSITORY="owner/repo", RUN_ID="9", RUN_ATTEMPT="1",
                        GITHUB_API_URL="https://api.example.invalid", GITHUB_OUTPUT=str(stub / "output"), GITHUB_STEP_SUMMARY=str(stub / "summary"))
             env.update(env_overrides)
-            done = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True)
+            command = WRAPPER + [str(script)] if WRAPPER else ["bash", str(script)]
+            done = subprocess.run(command, env=env, capture_output=True, text=True)
             self.assertEqual(done.returncode, expect_rc, done.stdout + done.stderr)
             outputs = dict(line.split("=", 1) for line in text(stub / "output").splitlines())
             calls = text(stub / "calls.log").splitlines() if (stub / "calls.log").exists() else []
@@ -155,6 +157,12 @@ class SelectRunnerTests(ScriptCase):
         outputs, _, _, _ = self.run_select(routes, attempt=2)
         self.assertEqual(outputs["hosted"], "false")
         self.assertIn("annotations of attempt 1 returned HTTP 000", outputs["route_reason"])
+
+    def test_an_unreadable_jobs_document_is_noted_and_not_treated_as_infra(self):
+        routes = {"/runs/9/attempts/1/jobs?per_page=100": [200, "not json"], "/actions/runners?per_page=100": [200, runners()]}
+        outputs, _, _, _ = self.run_select(routes, attempt=2)
+        self.assertEqual(outputs["hosted"], "false")
+        self.assertIn("jobs of attempt 1 are not readable", outputs["route_reason"])
 
 
 @unittest.skipIf(os.name == "nt" or not shutil.which("jq"), "needs a POSIX shell and jq")

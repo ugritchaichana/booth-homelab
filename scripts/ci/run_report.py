@@ -95,8 +95,10 @@ def parse_trx_dir(directory):
             if result.get("outcome") not in ("Failed", "Error", "Timeout", "Aborted"):
                 continue
             info = result.find(f"{TRX}Output/{TRX}ErrorInfo")
-            message = clean(info.findtext(f"{TRX}Message", "") if info is not None else "").strip()
-            stack = clean(info.findtext(f"{TRX}StackTrace", "") if info is not None else "").strip("\n").split("\n")
+            if info is None:
+                info = ET.Element("ErrorInfo")
+            message = clean(info.findtext(f"{TRX}Message", "")).strip()
+            stack = clean(info.findtext(f"{TRX}StackTrace", "")).strip("\n").split("\n")
             suite.failures.append(Failure(".NET", result.get("testName", "unnamed test"), message, own_frames(stack)))
     return suite
 
@@ -154,7 +156,7 @@ def failed_jobs(jobs, logs_dir, suites):
         if suite not in explained and log and log.is_file():
             notes = []
             text = read_capped(log, notes)
-            tail = "\n".join(clean(TIMESTAMP.sub("", text or "")).rstrip("\n").split("\n")[-MAX_LOG_LINES:]) if text else "\n".join(notes)
+            tail = "\n".join(clean(TIMESTAMP.sub("", text)).rstrip("\n").split("\n")[-MAX_LOG_LINES:]) if text else "\n".join(notes)
         found.append({"name": job.get("name", "job"), "step": step, "url": job.get("html_url"), "runner": job.get("runner_name"), "tail": tail})
     return found
 

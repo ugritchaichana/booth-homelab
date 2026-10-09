@@ -79,6 +79,6 @@ It retries only attempt 1 of a failed run that ran on Proxmox with an infra fing
 - **Token exposure.** Any workflow on a branch of this repository can read the token; forks never receive it. This rests on the owner being the only collaborator (security model).
 - **Rerun attempts trigger the callback.** A rerun started with `GITHUB_TOKEN` still fires `workflow_run` when it completes: attempt 2 of run 37772130618 fired callback 37772441144 two seconds after it ended. The comment therefore shows the retried attempt.
 - **Testing a change before merge.** Replay the callback from the branch with `gh workflow run sdet-callback.yml --ref <branch> -f run_id=<id>`, which runs all three jobs.
-- **Coverage.** `runner_route.py` is held at 100% line, branch and condition coverage. `tests/condition_coverage.py` measures conditions, which coverage.py does not.
+- **Coverage.** `runner_route.py` and `run_report.py` are held at 100% line, branch and condition coverage in CI. `tests/condition_coverage.py` measures conditions, which coverage.py does not. The three shell scripts reach 100% line coverage under kcov, locally only ([coverage.md](../knowledge/coverage.md)).
 - **To turn it off.** Delete the secret to route by `CI_RUNNER` alone, or run `gh workflow disable sdet-callback.yml` to stop the retry.
 - **Evidence.** [router-live-runs.txt](../evidence/closeout/router-live-runs.txt).

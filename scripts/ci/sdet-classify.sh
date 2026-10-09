@@ -27,9 +27,7 @@ if [ "$attempt" -gt 1 ]; then
 fi
 echo "sdet-classify: run $RUN_ID attempt $attempt $conclusion; this attempt: $(tr '\n' ' ' <<< "$current"); previous: $(tr '\n' ' ' <<< "$previous")"
 
-verdict="$(python3 "$lib_dir/runner_route.py" verdict --attempt "$attempt" --conclusion "$conclusion" \
-  --proxmox "$(field proxmox "$current")" --fingerprint "$(field fingerprint "$current")" --error "$(field error "$current")" \
-  --previous-fingerprint "$(field fingerprint "$previous")")"
+verdict="$(python3 "$lib_dir/runner_route.py" verdict --attempt "$attempt" --conclusion "$conclusion" --proxmox "$(field proxmox "$current")" --fingerprint "$(field fingerprint "$current")" --error "$(field error "$current")" --previous-fingerprint "$(field fingerprint "$previous")")"
 echo "$verdict" >> "$GITHUB_OUTPUT"
 echo "sdet-classify: $(tr '\n' ' ' <<< "$verdict")"
 note="$(field note "$verdict")"

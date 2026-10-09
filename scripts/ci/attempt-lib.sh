@@ -16,20 +16,20 @@ why() {
 }
 
 classify_attempt() {
-  local run_id="$1" attempt="$2" dir="$3" code id
+  local run_id="$1" attempt="$2" dir="$3" code id ids
   mkdir -p "$dir/annotations"
   code="$(fetch "$api/repos/$REPOSITORY/actions/runs/$run_id/attempts/$attempt/jobs?per_page=100" "$GH_TOKEN" "$dir/jobs.json")"
   if [ "$code" != 200 ]; then
     echo "error=jobs of attempt $attempt returned HTTP $code: $(why "$dir/jobs.json")"
     return 0
   fi
-  while read -r id; do
-    [ -n "$id" ] || continue
+  ids="$(jq -r '.jobs[] | select(.conclusion == "failure") | .id' "$dir/jobs.json" 2> "$dir/jq.err" | tr -d '\r')" || { echo "error=jobs of attempt $attempt are not readable: $(head -c 200 "$dir/jq.err")"; return 0; }
+  for id in $ids; do
     code="$(fetch "$api/repos/$REPOSITORY/check-runs/$id/annotations" "$GH_TOKEN" "$dir/annotations/$id.json")"
     if [ "$code" != 200 ]; then
       echo "error=annotations of attempt $attempt returned HTTP $code: $(why "$dir/annotations/$id.json")"
       return 0
     fi
-  done < <(jq -r '.jobs[] | select(.conclusion == "failure") | .id' "$dir/jobs.json" | tr -d '\r')
+  done
   python3 "$lib_dir/runner_route.py" classify --jobs "$dir/jobs.json" --annotations-dir "$dir/annotations"
 }
