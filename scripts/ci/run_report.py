@@ -95,8 +95,10 @@ def parse_trx_dir(directory):
             if result.get("outcome") not in ("Failed", "Error", "Timeout", "Aborted"):
                 continue
             info = result.find(f"{TRX}Output/{TRX}ErrorInfo")
-            message = clean(info.findtext(f"{TRX}Message", "") if info is not None else "").strip()
-            stack = clean(info.findtext(f"{TRX}StackTrace", "") if info is not None else "").strip("\n").split("\n")
+            if info is None:
+                info = ET.Element("ErrorInfo")
+            message = clean(info.findtext(f"{TRX}Message", "")).strip()
+            stack = clean(info.findtext(f"{TRX}StackTrace", "")).strip("\n").split("\n")
             suite.failures.append(Failure(".NET", result.get("testName", "unnamed test"), message, own_frames(stack)))
     return suite
 
@@ -154,7 +156,7 @@ def failed_jobs(jobs, logs_dir, suites):
         if suite not in explained and log and log.is_file():
             notes = []
             text = read_capped(log, notes)
-            tail = "\n".join(clean(TIMESTAMP.sub("", text or "")).rstrip("\n").split("\n")[-MAX_LOG_LINES:]) if text else "\n".join(notes)
+            tail = "\n".join(clean(TIMESTAMP.sub("", text)).rstrip("\n").split("\n")[-MAX_LOG_LINES:]) if text else "\n".join(notes)
         found.append({"name": job.get("name", "job"), "step": step, "url": job.get("html_url"), "runner": job.get("runner_name"), "tail": tail})
     return found
 
@@ -165,8 +167,12 @@ def fence(text):
     return f"{ticks}text\n{text}\n{ticks}"
 
 
+def plain(text):
+    return clean(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("@", "@​").replace("\n", " ")
+
+
 def inline(text):
-    return "<code>" + clean(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("@", "@​").replace("\n", " ") + "</code>"
+    return "<code>" + plain(text) + "</code>"
 
 
 def rate(part, whole):
@@ -178,12 +184,16 @@ def runner_class(jobs):
     return "Proxmox runner" if any(n.startswith("pve") for n in names) else "GitHub-hosted"
 
 
-def render(run, jobs, suites, hits, failures_jobs):
+def render(run, jobs, suites, hits, failures_jobs, note=""):
     failed_tests = [f for s in suites for f in s.failures]
     ok = run.get("conclusion") == "success"
-    head = [MARKER, f"## {'✅ SDET CI passed' if ok else '❌ SDET CI failed'}", ""]
-    head.append(f"Run [{run.get('id')}]({run.get('html_url')}) attempt {run.get('run_attempt', 1)} on `{str(run.get('head_sha', ''))[:7]}` · "
+    attempt = run.get("run_attempt", 1)
+    passed = "✅ SDET CI passed" + (f" on attempt {attempt}" if attempt != 1 else "")
+    head = [MARKER, f"## {passed if ok else '❌ SDET CI failed'}", ""]
+    head.append(f"Run [{run.get('id')}]({run.get('html_url')}) attempt {attempt} on `{str(run.get('head_sha', ''))[:7]}` · "
                 f"{runner_class(jobs)} · conclusion `{run.get('conclusion')}`")
+    if note:
+        head += ["", f"**Runner:** {plain(note)}"]
     head += ["", "| Suite | Passed | Failed | Skipped | Pass rate | Executed |", "|---|---:|---:|---:|---:|---:|"]
     for s in suites:
         if s.total or s.notes:
@@ -255,6 +265,7 @@ def main(argv=None):
     r.add_argument("--dotnet-dir")
     r.add_argument("--jest-file")
     r.add_argument("--logs-dir")
+    r.add_argument("--note", default="")
     p = sub.add_parser("pr")
     p.add_argument("--run", required=True)
     p.add_argument("--pulls", required=True)
@@ -274,7 +285,7 @@ def main(argv=None):
             log = Path(args.logs_dir) / f"{job.get('id')}.log" if args.logs_dir else None
             if log and log.is_file():
                 hits.update(restore_hits(read_capped(log, []) or ""))
-        sys.stdout.write(render(load(args.run, {}), jobs, suites, hits, failed_jobs(jobs, args.logs_dir, suites)))
+        sys.stdout.write(render(load(args.run, {}), jobs, suites, hits, failed_jobs(jobs, args.logs_dir, suites), args.note))
     return 0
 
 

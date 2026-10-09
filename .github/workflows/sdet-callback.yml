@@ -11,20 +11,49 @@ on:
         required: true
         type: string
 
-permissions:
-  actions: read
-  contents: read
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: sdet-callback-${{ github.event.workflow_run.id || inputs.run_id }}
   cancel-in-progress: false
 
 jobs:
+  classify:
+    name: Classify the finished attempt
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    outputs:
+      retry: ${{ steps.classify.outputs.retry }}
+      note: ${{ steps.classify.outputs.note }}
+    steps:
+      - name: Checkout Classifier
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+
+      - name: Classify the Attempt
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+        run: bash scripts/ci/sdet-classify.sh
+
   report:
     name: Report to the pull request
+    needs: [classify]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -36,4 +65,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          RUN_NOTE: ${{ needs.classify.outputs.note }}
         run: bash scripts/ci/sdet-report.sh
+
+  retry:
+    name: Retry once on GitHub-hosted
+    needs: [classify, report]
+    if: ${{ !cancelled() && needs.classify.outputs.retry == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun the Whole Run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          NOTE: ${{ needs.classify.outputs.note }}
+        run: |
+          echo "sdet-retry: $NOTE"
+          gh run rerun "$RUN_ID" --repo "$REPOSITORY"
+          echo "**Retry:** $NOTE" >> "$GITHUB_STEP_SUMMARY"

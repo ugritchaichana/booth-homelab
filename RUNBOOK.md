@@ -501,7 +501,10 @@ One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 
 
    Expected: the last task lists three runners `online`; a second run reports `changed=0`. The registration token goes to `config.sh` on stdin and never appears in a log.
 
-2. Route CI. `sdet-ci.yml` uses the runner when the repository variable `CI_RUNNER` is `proxmox`; any other value, or no variable, means hosted runners. Fork pull requests always run hosted.
+2. Route CI. `Select Runner` decides each run and prints why, as `Runner route (attempt N): <runner> because <reason>`, in its log, the run summary and the pull-request comment (ADR 0062):
+   - **Forced hosted.** `CI_RUNNER` other than `proxmox`, a fork pull request, or a dispatch with `force_ubuntu_runner=true`.
+   - **Rerun of an attempt on Proxmox.** A rerun of an attempt that ran on Proxmox runs hosted, whatever the cause. A rerun of an attempt on hosted goes back to the health check.
+   - **Health check.** Otherwise it lists the runners with the secret `RUNNER_STATUS_TOKEN`. One online `proxmox` runner keeps the run on Proxmox, busy or not. None online sends it to hosted. Without the token, or on an API error, `CI_RUNNER` decides.
 
    ```sh
    gh variable set CI_RUNNER --body proxmox --repo <owner>/<repository>
@@ -509,6 +512,12 @@ One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 
    ```
 
    One hosted run without changing the variable: `gh workflow run sdet-ci.yml -f force_ubuntu_runner=true`.
+
+   The status token is a fine-grained personal access token. Its resource owner is the repository owner, it covers only this repository, and its one permission is Administration read-only. Create it under Settings, Developer settings, Fine-grained tokens. Store it with `gh secret set RUNNER_STATUS_TOKEN --repo <owner>/<repository>`, pasting the value at the prompt and never on the command line.
+
+   Rotate it before it expires by repeating both steps. An expired token shows `runner health check failed (HTTP 401)` in the route reason, and routing falls back to `CI_RUNNER`.
+
+   Prove the hosted route. Stop the instances with `$pve sudo pct exec 9503 -- systemctl stop actions-runner@1 actions-runner@2 actions-runner@3`. Wait until the runners API lists all three `offline`, then dispatch `gh workflow run sdet-ci.yml --ref <branch>`. Expected: `no Proxmox runner online (HTTP 200, 0 of 3)` and every job on `GitHub Actions` runners. Start the instances again with `systemctl start` and the same unit names.
 
 3. Read a job. Every job on the runner starts with the job-start hook:
 
@@ -526,7 +535,7 @@ gh api repos/<owner>/<repository>/actions/runners -q '.runners[]|"\(.name) \(.st
 
 After each job the job-completed hook writes `/run/actions-runner-N/restart`, and `actions-runner-restart@N.path` restarts that instance once its worker has exited. Without it the listener waits about 60 s before it takes the next job (actions/runner#4444).
 
-When the container is down, routed jobs queue for up to 24 hours: set `CI_RUNNER` to `hosted` and re-run them. To retire the runner, set the variable to `hosted`, deregister the three runners (Settings, Actions, Runners), and stop the container; the lab does not destroy guests (D86).
+When the container is down, new runs go to hosted by themselves. Jobs already queued on Proxmox wait for up to 24 hours, because there is no watchdog (ADR 0062): cancel and re-run them, and the re-run checks again. A run whose runner died mid-job is rerun once on hosted by the callback (3.8). To retire the runner, set the variable to `hosted`, deregister the three runners (Settings, Actions, Runners), and stop the container; the lab does not destroy guests (D86).
 
 ### 3.8 The pull-request run report
 
@@ -537,10 +546,20 @@ When the container is down, routed jobs queue for up to 24 hours: set `CI_RUNNER
 
 A run with no open pull request at its head writes the same report to the callback's job summary.
 
+Before the report, the job `Classify the finished attempt` reads the attempt and the one before it (ADR 0062). After the report, `Retry once on GitHub-hosted` reruns the whole run once:
+- it acts when attempt 1 ended `failure` or `timed_out`, whatever the cause;
+- it also acts when attempt 1 ended `cancelled` because a Proxmox runner was lost (the annotation "The operation was canceled." on a job with a cancelled step);
+- it never acts on attempt 2, on `startup_failure`, or on a deliberate cancel ("The run was canceled by @user.").
+
+Attempt 2 runs on the other environment: hosted after Proxmox, and Proxmox after hosted when a runner is online and the run is not forced to hosted. If attempt 2 fails too, the run is red.
+
+The comment's `Runner:` line names the cause of attempt 1's failure: the runner-loss fingerprint, or the first failed job and step. After a pass on the retry the header reads "passed on attempt 2", so a flaky test stays visible.
+
 | Task | Command |
 |---|---|
 | Report an older run again, or test a change to the callback before it merges | `gh workflow run sdet-callback.yml --ref <branch> -f run_id=<SDET run id>` |
-| Turn the report off | `gh workflow disable sdet-callback.yml` |
+| Turn the report and the retry off | `gh workflow disable sdet-callback.yml` |
+| Check the router offline | `python3 -m unittest discover -s tests/router -v`; condition coverage: `python3 tests/condition_coverage.py scripts/ci/runner_route.py tests/router` |
 | Check the parser offline | `python3 -m unittest discover -s tests/report -v` |
 
 The callback runs the default branch's copy of the workflow. It never checks out the pull request's code, and it treats every file and log of the run as untrusted text.

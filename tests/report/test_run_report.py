@@ -1,6 +1,7 @@
 import io
 import json
 import re
+import runpy
 import sys
 import tempfile
 import unittest
@@ -207,6 +208,19 @@ class CliTests(unittest.TestCase):
                 handle.close()
             self.assertIn("### Failed tests (2)", out.read_text(encoding="utf-8"))
 
+    def test_render_command_shows_the_runner_note_neutralized(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "run.json").write_text(json.dumps(RUN), encoding="utf-8")
+            (Path(d) / "jobs.json").write_text(json.dumps({"jobs": []}), encoding="utf-8")
+            out = Path(d) / "body.md"
+            with mock.patch("sys.stdout", new=open(out, "w", encoding="utf-8")) as handle:
+                run_report.main(["render", "--run", str(Path(d) / "run.json"), "--jobs", str(Path(d) / "jobs.json"),
+                                 "--note", "Attempt 1 failed on the Proxmox runner (@team); rerun"])
+                handle.close()
+            body = out.read_text(encoding="utf-8")
+        self.assertIn("**Runner:** Attempt 1 failed on the Proxmox runner", body)
+        self.assertNotIn("(@team)", body)
+
     def test_pr_and_comment_commands_print_the_target(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "run.json").write_text(json.dumps(RUN), encoding="utf-8")
@@ -216,6 +230,172 @@ class CliTests(unittest.TestCase):
                 run_report.main(["pr", "--run", str(Path(d) / "run.json"), "--pulls", str(Path(d) / "pulls.json")])
                 run_report.main(["comment", "--comments", str(Path(d) / "comments.json")])
             self.assertEqual(out.getvalue().split("\n")[:2], ["4", ""])
+
+
+TRX_NS = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
+
+
+def trx(counters, results=""):
+    return f'<TestRun xmlns="{TRX_NS}"><ResultSummary><Counters {counters}/></ResultSummary><Results>{results}</Results></TestRun>'
+
+
+class ParseEdgeTests(unittest.TestCase):
+    def test_project_frames_after_library_frames_are_kept(self):
+        lines = ["Error: boom", "    at Object.<anonymous> (/w/node_modules/jest/run.js:1:1)", "    at src/app/a.spec.ts:3:4"]
+        self.assertEqual(run_report.own_frames(lines), "Error: boom\n    at src/app/a.spec.ts:3:4")
+
+    def test_a_trx_path_that_is_not_a_directory_gives_an_empty_suite(self):
+        suite = run_report.parse_trx_dir(FIXTURES / "jest-passing.json")
+        self.assertEqual((suite.total, suite.notes), (0, []))
+
+    def test_non_numeric_counters_are_ignored(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "a.trx").write_text(trx('total="3" executed="3" passed="n/a" failed="1"'), encoding="utf-8")
+            suite = run_report.parse_trx_dir(d)
+        self.assertEqual((suite.total, suite.passed, suite.failed, suite.skipped), (3, 0, 1, 0))
+
+    def test_a_failed_result_without_error_info_has_an_empty_message_and_stack(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = '<UnitTestResult testName="Bare.Test" outcome="Failed"/>'
+            (Path(d) / "a.trx").write_text(trx('total="1" executed="1" passed="0" failed="1"', result), encoding="utf-8")
+            failure = run_report.parse_trx_dir(d).failures[0]
+        self.assertEqual((failure.name, failure.message, failure.stack), ("Bare.Test", "", ""))
+
+    def test_an_oversized_jest_file_is_noted(self):
+        with mock.patch.object(run_report, "MAX_FILE_BYTES", 10):
+            suite = run_report.parse_jest(FIXTURES / "jest-passing.json")
+        self.assertEqual(suite.total, 0)
+        self.assertIn("larger than", suite.notes[0])
+
+    def test_failed_assertions_and_files_without_messages_still_count(self):
+        data = {"numTotalTests": 1, "numFailedTests": 1, "testResults": [
+            {"name": "a.spec.ts", "status": "failed", "assertionResults": [{"fullName": "a works", "status": "failed"}]},
+            {"name": "/w/b.spec.ts", "status": "failed", "assertionResults": []}]}
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "jest.json").write_text(json.dumps(data), encoding="utf-8")
+            failures = run_report.parse_jest(Path(d) / "jest.json").failures
+        self.assertEqual([(f.name, f.message) for f in failures], [("a works", ""), ("b.spec.ts", "the test file failed to run")])
+
+    def test_a_broken_restore_record_is_skipped(self):
+        log = '{"op": "restore", "kind": "nuget"\n{"op": "restore", "kind": "node_modules", "status": "hit"}\n'
+        self.assertEqual(run_report.restore_hits(log), {"node_modules": "hit"})
+
+
+class FailedJobEdgeTests(unittest.TestCase):
+    def job(self, job_id, name):
+        return {"id": job_id, "name": name, "conclusion": "failure", "steps": [{"name": "Set up job", "conclusion": "failure"}]}
+
+    def test_a_job_outside_the_suites_without_logs_is_listed_without_a_tail(self):
+        found = run_report.failed_jobs([self.job(1, "CI / Telemetry")], None, [run_report.Suite(".NET")])
+        self.assertEqual((found[0]["step"], found[0]["tail"]), ("Set up job", ""))
+
+    def test_a_missing_log_file_leaves_the_tail_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            found = run_report.failed_jobs([self.job(2, "CI / Telemetry")], d, [])
+        self.assertEqual(found[0]["tail"], "")
+
+    def test_an_oversized_log_is_noted_in_place_of_the_tail(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "3.log").write_text("x" * 50, encoding="utf-8")
+            with mock.patch.object(run_report, "MAX_FILE_BYTES", 10):
+                found = run_report.failed_jobs([self.job(3, "CI / Telemetry")], d, [])
+        self.assertIn("3.log skipped: larger than 10 bytes", found[0]["tail"])
+
+
+class RenderEdgeTests(unittest.TestCase):
+    def test_skipped_jobs_do_not_decide_the_runner_class(self):
+        jobs = [{"conclusion": "skipped", "runner_name": "pve01-ci-lxc-runner-1"}, {"conclusion": "success", "runner_name": "GitHub Actions 1"}]
+        self.assertEqual(run_report.runner_class(jobs), "GitHub-hosted")
+
+    def test_a_run_that_passed_on_a_later_attempt_says_so_in_the_header(self):
+        note = "Passed on retry: attempt 1 failed on the Proxmox runner (job a failed); attempt 2 passed on GitHub-hosted."
+        body = run_report.render(dict(RUN, conclusion="success", run_attempt=2), [], [], {}, [], note)
+        self.assertIn("## ✅ SDET CI passed on attempt 2", body)
+        self.assertIn(f"**Runner:** {note}", body)
+        self.assertIn("## ✅ SDET CI passed\n", run_report.render(dict(RUN, conclusion="success"), [], [], {}, []))
+
+    def test_a_passing_run_shows_cache_hits_and_suite_notes(self):
+        run = dict(RUN, conclusion="success")
+        noted = run_report.Suite(".NET", notes=["a.trx unreadable: syntax error"])
+        body = run_report.render(run, [], [noted, run_report.Suite("Angular", 2, 2)], {"nuget": "hit"}, [])
+        self.assertIn("## ✅ SDET CI passed", body)
+        self.assertIn("| .NET | 0 | 0 | 0 | n/a | 0 of 0 (n/a) |", body)
+        self.assertIn("Cache restore: `nuget` hit", body)
+        self.assertIn("- Note: <code>a.trx unreadable: syntax error</code>", body)
+
+    def test_a_failure_without_message_or_stack_says_so(self):
+        suites = [run_report.Suite(".NET", 1, 0, 1, 0, [run_report.Failure(".NET", "t", "", "")])]
+        self.assertIn("no message recorded", run_report.render(RUN, [], suites, {}, []))
+
+    def test_a_job_without_step_runner_or_tail(self):
+        job = {"name": "CI / Telemetry", "step": None, "runner": None, "url": "https://example.invalid/job/1", "tail": ""}
+        body = run_report.render(RUN, [], [], {}, [job])
+        self.assertIn("failed at step <code>unknown</code> on <code>no runner</code>", body)
+        self.assertNotIn("```", body)
+
+    def test_failed_jobs_are_cut_at_the_body_limit(self):
+        jobs = [{"name": f"job {i}", "step": "s", "runner": "r", "url": "u", "tail": "y" * 5000} for i in range(30)]
+        body = run_report.render(RUN, [], [], {}, jobs)
+        self.assertIn("Truncated: more failed jobs are listed on the run page.", body)
+        self.assertLessEqual(len(body), run_report.MAX_BODY_CHARS + 1)
+
+
+class TargetEdgeTests(unittest.TestCase):
+    def test_missing_head_fields_never_match(self):
+        pulls = [{"number": 1, "state": "open"},
+                 {"number": 2, "state": "open", "head": {"sha": "abc1234def"}},
+                 {"number": 3, "state": "open", "head": {"sha": "abc1234def", "repo": {"full_name": "owner/repo"}}}]
+        self.assertIsNone(run_report.resolve_pr(RUN, pulls[:2]))
+        self.assertIsNone(run_report.resolve_pr({k: v for k, v in RUN.items() if k != "head_repository"}, pulls[2:]))
+
+    def test_comments_without_an_author_or_body_are_skipped(self):
+        self.assertIsNone(run_report.find_comment([{"id": 1, "body": run_report.MARKER}, {"id": 2, "user": {"login": run_report.BOT_LOGIN}}]))
+
+
+class CliEdgeTests(unittest.TestCase):
+    def test_load_falls_back_when_there_is_no_file(self):
+        self.assertEqual(run_report.load(None, {"a": 1}), {"a": 1})
+        self.assertEqual(run_report.load("/nonexistent/run.json", []), [])
+
+    def test_pr_without_a_match_prints_nothing_and_a_found_comment_prints_its_id(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "run.json").write_text(json.dumps(RUN), encoding="utf-8")
+            (Path(d) / "pulls.json").write_text("[]", encoding="utf-8")
+            comment = [{"id": 77, "user": {"login": run_report.BOT_LOGIN}, "body": run_report.MARKER}]
+            (Path(d) / "comments.json").write_text(json.dumps(comment), encoding="utf-8")
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+                run_report.main(["pr", "--run", str(Path(d) / "run.json"), "--pulls", str(Path(d) / "pulls.json")])
+                run_report.main(["comment", "--comments", str(Path(d) / "comments.json")])
+        self.assertEqual(out.getvalue().split("\n")[:2], ["", "77"])
+
+    def render(self, d, logs_dir=None):
+        argv = ["render", "--run", str(Path(d) / "run.json"), "--jobs", str(Path(d) / "jobs.json")]
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            run_report.main(argv + (["--logs-dir", logs_dir] if logs_dir else []))
+        return out.getvalue()
+
+    def test_render_reads_cache_hits_from_the_job_logs_it_can_read(self):
+        jobs = {"jobs": [{"id": 1, "name": "CI / Build and Test (.NET)", "conclusion": "success"},
+                         {"id": 2, "name": "CI / Test (Angular)", "conclusion": "success"},
+                         {"id": 3, "name": "CI / Telemetry", "conclusion": "success"}]}
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "run.json").write_text(json.dumps(RUN), encoding="utf-8")
+            (Path(d) / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
+            logs = Path(d) / "logs"
+            logs.mkdir()
+            (logs / "1.log").write_text('{"op": "restore", "kind": "nuget", "status": "hit"}\n', encoding="utf-8")
+            (logs / "2.log").write_text("z" * 500, encoding="utf-8")
+            with mock.patch.object(run_report, "MAX_FILE_BYTES", 100):
+                with_logs = self.render(d, str(logs))
+            without_logs = self.render(d)
+        self.assertIn("Cache restore: `nuget` hit", with_logs)
+        self.assertNotIn("Cache restore", without_logs)
+
+    def test_the_script_entry_point_exits_with_the_command_status(self):
+        argv = ["run_report.py", "comment", "--comments", "/nonexistent/comments.json"]
+        with mock.patch.object(sys, "argv", argv), mock.patch("sys.stdout", new_callable=io.StringIO) as out, self.assertRaises(SystemExit) as done:
+            runpy.run_path(str(REPO / "scripts" / "ci" / "run_report.py"), run_name="__main__")
+        self.assertEqual((done.exception.code, out.getvalue()), (0, "\n"))
 
 
 if __name__ == "__main__":

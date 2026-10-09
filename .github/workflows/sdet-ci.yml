@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       force_ubuntu_runner:
-        description: 'Force GitHub-hosted ubuntu-latest; otherwise the repository variable CI_RUNNER decides'
+        description: 'Force GitHub-hosted ubuntu-latest; otherwise CI_RUNNER and the runner health check decide'
         required: false
         type: boolean
         default: false
@@ -16,6 +16,7 @@ on:
 permissions:
   contents: read
   actions: read
+  checks: read
 
 jobs:
   pipeline:
