@@ -382,6 +382,18 @@ class VerdictTests(unittest.TestCase):
         _, note = self.verdict(cause="a\nretry=true")
         self.assertNotIn("\n", note)
 
+    def test_long_causes_are_clipped_and_the_note_keeps_its_ending(self):
+        long = "job " + "x" * 400
+        _, note = self.verdict(attempt=2, cause=long, previous_env="proxmox", previous_cause=long)
+        self.assertTrue(note.endswith("No further retry, so the run is red."), note[-60:])
+        self.assertLessEqual(len(note), runner_route.NOTE_TEXT)
+        _, note = self.verdict(attempt=2, conclusion="success", cause="", previous_env="proxmox", previous_cause=long)
+        self.assertTrue(note.endswith("attempt 2 passed on the Proxmox runner."), note[-60:])
+        _, note = self.verdict(cause=long)
+        self.assertTrue(note.endswith("unless it must stay on GitHub-hosted."), note[-60:])
+        _, note = self.verdict(cause="", error=long)
+        self.assertTrue(note.endswith("unless it must stay on GitHub-hosted."), note[-60:])
+
 
 class CliTests(unittest.TestCase):
     def run_cli(self, argv):

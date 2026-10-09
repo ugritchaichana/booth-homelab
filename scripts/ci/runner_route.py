@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 MAX_TEXT = 300
+CAUSE_TEXT = 150
+NOTE_TEXT = 600
 PROXMOX_LABEL = "proxmox"
 TIMEOUT = "exceeded the maximum execution time"
 RUNNER_LOSS = ("The runner has received a shutdown signal", "lost communication with the server")
@@ -17,8 +19,8 @@ OPERATION_CANCELED = "The operation was canceled."
 DELIBERATE_CANCEL = ("was canceled by", "Canceling since a higher priority")
 
 
-def one_line(text):
-    return re.sub(r"[\x00-\x1f\x7f]+", " ", str(text)).strip()[:MAX_TEXT]
+def one_line(text, limit=MAX_TEXT):
+    return re.sub(r"[\x00-\x1f\x7f]+", " ", str(text)).strip()[:limit]
 
 
 def is_proxmox(job):
@@ -116,25 +118,25 @@ def decide(forced_hosted, token_present, http_status, runners, previous_env="", 
 
 def verdict(attempt, conclusion, proxmox, cause, error, previous_env, previous_cause, infra=False):
     where = "" if error else f" on {env_name(proxmox)}"
-    why = cause or (f"not classified: {error}" if error else "no failed job found")
+    why = one_line(cause or (f"not classified: {error}" if error else "no failed job found"), CAUSE_TEXT)
     failed = conclusion in RETRYABLE or (conclusion == "cancelled" and infra)
     if attempt == 1:
         if not failed:
             return False, ""
-        return True, one_line(f"Attempt 1 failed{where} ({why}); the whole run is rerun once, on the other environment unless it must stay on GitHub-hosted.")
+        return True, one_line(f"Attempt 1 failed{where} ({why}); the whole run is rerun once, on the other environment unless it must stay on GitHub-hosted.", NOTE_TEXT)
     if attempt < 1 or not (failed or conclusion == "success"):
         return False, ""
     if not previous_env:
         prior = f"attempt {attempt - 1} could not be read"
     elif previous_cause:
-        prior = f"attempt {attempt - 1} failed on {env_name(previous_env == 'proxmox')} ({previous_cause})"
+        prior = f"attempt {attempt - 1} failed on {env_name(previous_env == 'proxmox')} ({one_line(previous_cause, CAUSE_TEXT)})"
     else:
         prior = f"attempt {attempt - 1} ran on {env_name(previous_env == 'proxmox')} with no failed job"
     if conclusion == "success":
         lead = "Passed on retry" if previous_cause else "Rerun passed"
-        return False, one_line(f"{lead}: {prior}; attempt {attempt} passed{where}.")
+        return False, one_line(f"{lead}: {prior}; attempt {attempt} passed{where}.", NOTE_TEXT)
     lead = "Failed again" if previous_cause else "Rerun failed"
-    return False, one_line(f"{lead}: {prior}; attempt {attempt} failed{where} ({why}). No further retry, so the run is red.")
+    return False, one_line(f"{lead}: {prior}; attempt {attempt} failed{where} ({why}). No further retry, so the run is red.", NOTE_TEXT)
 
 
 def load(path, default):
