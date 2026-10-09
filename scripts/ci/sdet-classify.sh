@@ -14,20 +14,18 @@ if [ "$code" != 200 ]; then
 fi
 attempt="$(jq -r '.run_attempt' "$work/run.json" | tr -d '\r')"
 conclusion="$(jq -r '.conclusion // ""' "$work/run.json" | tr -d '\r')"
-field() { sed -n "s/^$1=//p" <<< "$2"; }
 
 current=""
-if [ "$conclusion" = failure ]; then
+previous=""
+if [ "$conclusion" = failure ] || [ "$conclusion" = timed_out ] || [ "$attempt" -gt 1 ]; then
   current="$(classify_attempt "$RUN_ID" "$attempt" "$work/current")"
 fi
-previous=""
 if [ "$attempt" -gt 1 ]; then
   previous="$(classify_attempt "$RUN_ID" $((attempt - 1)) "$work/previous")"
-  current="${current:-$(classify_attempt "$RUN_ID" "$attempt" "$work/current")}"
 fi
 echo "sdet-classify: run $RUN_ID attempt $attempt $conclusion; this attempt: $(tr '\n' ' ' <<< "$current"); previous: $(tr '\n' ' ' <<< "$previous")"
 
-verdict="$(python3 "$lib_dir/runner_route.py" verdict --attempt "$attempt" --conclusion "$conclusion" --proxmox "$(field proxmox "$current")" --fingerprint "$(field fingerprint "$current")" --error "$(field error "$current")" --previous-fingerprint "$(field fingerprint "$previous")")"
+verdict="$(python3 "$lib_dir/runner_route.py" verdict --attempt "$attempt" --conclusion "$conclusion" --proxmox "$(field proxmox "$current")" --cause "$(field cause "$current")" --error "$(field error "$current")" --previous-env "$(attempt_env "$previous")" --previous-cause "$(field cause "$previous")")"
 echo "$verdict" >> "$GITHUB_OUTPUT"
 echo "sdet-classify: $(tr '\n' ' ' <<< "$verdict")"
 note="$(field note "$verdict")"

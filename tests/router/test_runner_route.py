@@ -19,6 +19,7 @@ RESTARTED = FIXTURES / "runner-restarted.json"
 TEST_FAILURE = FIXTURES / "test-failure.json"
 DOTNET_JOB = "CI / Build and Test (.NET)"
 CANCELLED_STEP = "Execute Transitive Affected Tests (Unit & Integration)"
+ANGULAR_CAUSE = 'job "CI / Test (Angular)" failed in step "Execute Angular Jest Suite"'
 TIMEOUT = "The job running on runner pve01-ci-lxc-runner-1 has exceeded the maximum execution time of 30 minutes."
 SHUTDOWN = "The runner has received a shutdown signal. This can happen when the runner service is stopped, or a manually started runner is canceled."
 LOST = "The self-hosted runner: pve01-ci-lxc-runner-1 lost communication with the server. Verify the machine is running and has a healthy network connection."
@@ -157,9 +158,35 @@ class FingerprintTests(unittest.TestCase):
         self.assertLessEqual(len(found), runner_route.MAX_TEXT)
 
 
+class CauseTests(unittest.TestCase):
+    def test_a_runner_loss_names_its_fingerprint(self):
+        jobs, annotations = scenario(RESTARTED)
+        self.assertEqual(runner_route.failure_cause(jobs, annotations), runner_route.infra_fingerprint(jobs, annotations))
+
+    def test_a_test_failure_names_the_first_failed_job_and_step_not_the_report(self):
+        self.assertEqual(runner_route.failure_cause(*scenario(TEST_FAILURE)), ANGULAR_CAUSE)
+
+    def test_only_the_report_job_failed_gives_no_cause(self):
+        jobs, annotations = scenario(RESTARTED)
+        report = [j for j in jobs if j["name"] == "CI / Report"]
+        self.assertEqual(runner_route.failure_cause(report, annotations), "")
+
+    def test_a_failed_job_without_a_failed_step_or_steps(self):
+        for steps in ([{"name": "Set up job", "conclusion": "success"}], None):
+            with self.subTest(steps=steps):
+                job = {"name": "CI / Telemetry", "conclusion": "failure", "labels": ["ubuntu-latest"], "steps": steps}
+                self.assertEqual(runner_route.failure_cause([job], {}), 'job "CI / Telemetry" failed')
+
+    def test_a_passing_attempt_has_no_cause(self):
+        jobs, _ = scenario(RESTARTED)
+        for job in jobs:
+            job["conclusion"] = "success"
+        self.assertEqual(runner_route.failure_cause(jobs, {}), "")
+
+
 class DecideTests(unittest.TestCase):
     def decide(self, **overrides):
-        args = dict(forced_hosted=False, token_present=True, http_status=200, runners=runners(), previous_fingerprint="", previous_error="")
+        args = dict(forced_hosted=False, token_present=True, http_status=200, runners=runners(), previous_env="", previous_cause="", previous_error="")
         args.update(overrides)
         return runner_route.decide(**args)
 
@@ -196,15 +223,32 @@ class DecideTests(unittest.TestCase):
         self.assertFalse(hosted)
         self.assertIn("1 of 1", reason)
 
-    def test_forced_hosted_wins(self):
-        hosted, reason = self.decide(forced_hosted=True)
-        self.assertTrue(hosted)
-        self.assertIn("forced", reason)
+    def test_forced_hosted_wins_on_every_attempt(self):
+        for previous_env in ("", "hosted", "proxmox"):
+            with self.subTest(previous_env=previous_env):
+                hosted, reason = self.decide(forced_hosted=True, previous_env=previous_env)
+                self.assertTrue(hosted)
+                self.assertIn("forced", reason)
 
-    def test_an_infra_failure_in_the_previous_attempt_routes_hosted(self):
-        hosted, reason = self.decide(previous_fingerprint="job lost its runner")
-        self.assertTrue(hosted)
-        self.assertIn("job lost its runner", reason)
+    def test_a_rerun_after_an_attempt_on_proxmox_switches_to_hosted_whatever_the_cause(self):
+        for cause in (ANGULAR_CAUSE, ""):
+            with self.subTest(cause=cause):
+                hosted, reason = self.decide(previous_env="proxmox", previous_cause=cause, runners=None, http_status=0)
+                self.assertTrue(hosted)
+                self.assertIn("so this rerun switches to GitHub-hosted", reason)
+                self.assertEqual(cause in reason, True)
+
+    def test_a_rerun_after_an_attempt_on_hosted_goes_to_proxmox_when_a_runner_is_online(self):
+        hosted, reason = self.decide(previous_env="hosted")
+        self.assertFalse(hosted)
+        self.assertIn("the previous attempt ran on GitHub-hosted", reason)
+        self.assertIn("3 of 3", reason)
+
+    def test_a_rerun_after_hosted_stays_hosted_when_no_runner_is_online(self):
+        doc = runners()
+        for runner in doc["runners"]:
+            runner["status"] = "offline"
+        self.assertTrue(self.decide(previous_env="hosted", runners=doc)[0])
 
     def test_without_a_token_the_variable_decides(self):
         hosted, reason = self.decide(token_present=False, http_status=0, runners=None)
@@ -228,49 +272,73 @@ class DecideTests(unittest.TestCase):
         self.assertFalse(hosted)
         self.assertIn("previous attempt jobs HTTP 404", reason)
 
+    def test_the_reason_is_one_line(self):
+        hosted, reason = self.decide(previous_env="proxmox", previous_cause="a\nhosted=false")
+        self.assertTrue(hosted)
+        self.assertNotIn("\n", reason)
+
 
 class VerdictTests(unittest.TestCase):
     def verdict(self, **overrides):
-        args = dict(attempt=1, conclusion="failure", proxmox=True, fingerprint="", error="", previous_fingerprint="")
+        args = dict(attempt=1, conclusion="failure", proxmox=True, cause=ANGULAR_CAUSE, error="", previous_env="", previous_cause="")
         args.update(overrides)
         return runner_route.verdict(**args)
 
-    def test_an_infra_failure_on_attempt_one_is_retried_once(self):
-        retry, note = self.verdict(fingerprint="job lost its runner")
+    def test_any_failure_of_attempt_one_is_retried_once(self):
+        for conclusion in ("failure", "timed_out"):
+            for cause in (ANGULAR_CAUSE, "job lost its runner"):
+                with self.subTest(conclusion=conclusion, cause=cause):
+                    retry, note = self.verdict(conclusion=conclusion, cause=cause)
+                    self.assertTrue(retry)
+                    self.assertEqual(note, f"Attempt 1 failed on the Proxmox runner ({cause}); the whole run is rerun once, on the other environment unless it must stay on GitHub-hosted.")
+
+    def test_a_failure_on_hosted_is_retried_too(self):
+        retry, note = self.verdict(proxmox=False)
         self.assertTrue(retry)
-        self.assertIn("job lost its runner", note)
-        self.assertIn("GitHub-hosted", note)
+        self.assertIn("failed on GitHub-hosted", note)
 
-    def test_a_test_failure_is_never_retried_and_the_note_says_why(self):
-        retry, note = self.verdict()
+    def test_a_failure_that_could_not_be_classified_is_still_retried(self):
+        retry, note = self.verdict(cause="", error="jobs of attempt 1 returned HTTP 500")
+        self.assertTrue(retry)
+        self.assertIn("Attempt 1 failed (not classified: jobs of attempt 1 returned HTTP 500)", note)
+
+    def test_a_failure_with_no_failed_job_is_still_retried(self):
+        retry, note = self.verdict(cause="")
+        self.assertTrue(retry)
+        self.assertIn("(no failed job found)", note)
+
+    def test_success_cancel_and_startup_failure_are_never_retried(self):
+        for conclusion in ("success", "cancelled", "startup_failure", ""):
+            with self.subTest(conclusion=conclusion):
+                self.assertEqual(self.verdict(conclusion=conclusion), (False, ""))
+
+    def test_a_second_failure_is_red_with_no_further_retry(self):
+        retry, note = self.verdict(attempt=2, proxmox=False, cause="job b failed", previous_env="proxmox", previous_cause="job a failed")
         self.assertFalse(retry)
-        self.assertIn("Not retried", note)
-        self.assertIn("code or the tests", note)
+        self.assertEqual(note, "Failed again: attempt 1 failed on the Proxmox runner (job a failed); attempt 2 failed on GitHub-hosted (job b failed). No further retry, so the run is red.")
 
-    def test_a_later_attempt_is_never_retried_again(self):
-        retry, note = self.verdict(attempt=2, fingerprint="job lost its runner")
+    def test_a_pass_on_retry_is_labelled_with_the_first_failure(self):
+        retry, note = self.verdict(attempt=2, conclusion="success", proxmox=False, cause="", previous_env="proxmox", previous_cause="job a failed")
         self.assertFalse(retry)
-        self.assertIn("only attempt 1", note)
+        self.assertEqual(note, "Passed on retry: attempt 1 failed on the Proxmox runner (job a failed); attempt 2 passed on GitHub-hosted.")
 
-    def test_the_retried_attempt_names_the_first_failure_and_where_it_ran(self):
-        for proxmox, where in ((False, "GitHub-hosted"), (True, "the Proxmox runner")):
-            with self.subTest(proxmox=proxmox):
-                retry, note = self.verdict(attempt=2, conclusion="success", proxmox=proxmox, previous_fingerprint="job lost its runner")
-                self.assertFalse(retry)
-                self.assertEqual(note, f"Attempt 1 failed on the Proxmox runner (job lost its runner); this attempt ran on {where}.")
+    def test_a_rerun_of_an_attempt_without_failures_is_not_called_a_retry(self):
+        self.assertEqual(self.verdict(attempt=2, conclusion="success", previous_env="hosted")[1],
+                         "Rerun passed: attempt 1 ran on GitHub-hosted with no failed job; attempt 2 passed on the Proxmox runner.")
+        self.assertEqual(self.verdict(attempt=3, previous_env="hosted")[1],
+                         f"Rerun failed: attempt 2 ran on GitHub-hosted with no failed job; attempt 3 failed on the Proxmox runner ({ANGULAR_CAUSE}). No further retry, so the run is red.")
 
-    def test_success_cancel_and_hosted_failures_get_no_note(self):
-        for overrides in ({"conclusion": "success"}, {"conclusion": "cancelled"}, {"proxmox": False, "fingerprint": "x"}):
-            with self.subTest(**overrides):
-                self.assertEqual(self.verdict(**overrides), (False, ""))
-
-    def test_an_unclassified_failure_is_not_retried_and_says_so(self):
-        retry, note = self.verdict(error="jobs of attempt 1 returned HTTP 500", fingerprint="x")
+    def test_an_unreadable_previous_attempt_is_said_so(self):
+        retry, note = self.verdict(attempt=2, conclusion="success")
         self.assertFalse(retry)
-        self.assertIn("could not be classified (jobs of attempt 1 returned HTTP 500)", note)
+        self.assertIn("attempt 1 could not be read", note)
+
+    def test_later_attempts_that_did_not_finish_and_attempt_zero_get_nothing(self):
+        self.assertEqual(self.verdict(attempt=2, conclusion="cancelled", previous_env="proxmox"), (False, ""))
+        self.assertEqual(self.verdict(attempt=0), (False, ""))
 
     def test_the_note_is_one_line(self):
-        _, note = self.verdict(fingerprint="a\nretry=true")
+        _, note = self.verdict(cause="a\nretry=true")
         self.assertNotIn("\n", note)
 
 
@@ -287,23 +355,24 @@ class CliTests(unittest.TestCase):
         self.assertEqual(out["infra"], "true")
         self.assertEqual(out["proxmox"], "true")
         self.assertIn(CANCELLED_STEP, out["fingerprint"])
+        self.assertEqual(out["cause"], out["fingerprint"])
 
     def test_classify_a_test_failure(self):
         with tempfile.TemporaryDirectory() as d:
             out = self.run_cli(["classify"] + unpacked(TEST_FAILURE, Path(d)))
-        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "true"})
+        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "true", "cause": ANGULAR_CAUSE})
 
     def test_classify_with_missing_inputs_is_not_infra(self):
         with tempfile.TemporaryDirectory() as d:
             out = self.run_cli(["classify", "--jobs", str(Path(d) / "absent.json"), "--annotations-dir", str(Path(d) / "absent")])
-        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "false"})
+        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "false", "cause": ""})
 
     def test_classify_a_jobs_file_that_is_not_an_object(self):
         with tempfile.TemporaryDirectory() as d:
             listed = Path(d) / "jobs.json"
             listed.write_text("[]", encoding="utf-8")
             out = self.run_cli(["classify", "--jobs", str(listed), "--annotations-dir", d])
-        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "false"})
+        self.assertEqual(out, {"infra": "false", "fingerprint": "", "proxmox": "false", "cause": ""})
 
     def test_decide_reads_the_runners_file(self):
         out = self.run_cli(["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "200",
@@ -311,12 +380,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(out["hosted"], "false")
         self.assertIn("3 of 3", out["reason"])
 
-    def test_decide_with_a_broken_runners_file(self):
+    def test_decide_switches_after_an_attempt_on_proxmox(self):
         with tempfile.TemporaryDirectory() as d:
             broken = Path(d) / "runners.json"
             broken.write_text("{not json", encoding="utf-8")
             out = self.run_cli(["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "200", "--runners", str(broken),
-                                "--previous-fingerprint", "x\ny", "--previous-error", ""])
+                                "--previous-env", "proxmox", "--previous-cause", "x\ny", "--previous-error", ""])
         self.assertEqual(out["hosted"], "true")
         self.assertNotIn("\n", out["reason"])
 
@@ -328,12 +397,17 @@ class CliTests(unittest.TestCase):
         self.assertIn("hosted=true", out.getvalue())
 
     def test_verdict_prints_retry_and_note(self):
-        out = self.run_cli(["verdict", "--attempt", "1", "--conclusion", "failure", "--proxmox", "true", "--fingerprint", "job lost its runner"])
+        out = self.run_cli(["verdict", "--attempt", "1", "--conclusion", "failure", "--proxmox", "true", "--cause", "job lost its runner"])
         self.assertEqual(out["retry"], "true")
         self.assertIn("job lost its runner", out["note"])
 
+    def test_verdict_reads_the_previous_attempt(self):
+        out = self.run_cli(["verdict", "--attempt", "2", "--conclusion", "success", "--proxmox", "false", "--previous-env", "proxmox",
+                            "--previous-cause", "job a failed"])
+        self.assertEqual(out, {"retry": "false", "note": "Passed on retry: attempt 1 failed on the Proxmox runner (job a failed); attempt 2 passed on GitHub-hosted."})
+
     def test_verdict_with_a_non_numeric_attempt_is_not_retried(self):
-        out = self.run_cli(["verdict", "--attempt", "null", "--conclusion", "failure", "--proxmox", "true", "--fingerprint", "x"])
+        out = self.run_cli(["verdict", "--attempt", "null", "--conclusion", "failure", "--proxmox", "true", "--cause", "x"])
         self.assertEqual(out["retry"], "false")
 
     def test_decide_with_a_bad_status_is_an_api_error(self):

@@ -11,7 +11,7 @@ import condition_coverage  # noqa: E402
 
 SAMPLE = """
 def both(a, b):
-    return a and b
+    return 1 if a and b else 0
 
 
 def pick(items, flag, stop):
@@ -19,6 +19,10 @@ def pick(items, flag, stop):
         flag = False
     kept = [i for i in items if i > 1]
     return (kept or []) if not stop else None
+
+
+def fallback(value, default):
+    return value or default
 
 
 if __name__ == "__main__":
@@ -45,14 +49,15 @@ class ConditionCoverageTests(unittest.TestCase):
     def test_loop_comprehension_negation_and_conditional_tests_are_sites(self):
         _, sites, _ = module(SAMPLE)
         texts = [text for _, text in sites]
-        for expected in ("flag", "i > 1", "kept", "stop"):
+        for expected in ("flag", "i > 1", "kept", "stop", "value"):
             self.assertIn(expected, texts)
         self.assertEqual(texts.count("flag"), 1)
 
-    def test_literals_and_the_main_guard_are_not_conditions(self):
+    def test_literals_the_main_guard_and_a_value_fallback_are_not_conditions(self):
         _, sites, _ = module(SAMPLE)
         texts = [text for _, text in sites]
         self.assertNotIn("[]", texts)
+        self.assertNotIn("default", texts)
         self.assertFalse(any("__name__" in text for text in texts))
 
     def test_every_site_seen_both_ways_leaves_no_gap(self):
@@ -61,12 +66,14 @@ class ConditionCoverageTests(unittest.TestCase):
             sample.both(a, b)
         for items, flag, stop in (([0, 2], True, False), ([0], False, False), ([0], False, True)):
             sample.pick(items, flag, stop)
+        sample.fallback(1, 0)
+        sample.fallback(0, 1)
         self.assertEqual(condition_coverage.missing(sites, seen), [])
 
     def test_main_enforces_the_floor_and_the_test_result(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
-            (root / "target.py").write_text("def f(a, b):\n    return a and b\n", encoding="utf-8")
+            (root / "target.py").write_text("def f(a, b):\n    return 1 if a and b else 0\n", encoding="utf-8")
             tests = root / "tests"
             tests.mkdir()
             cases = {"half": "f(True, True)", "full": "f(True, True); f(True, False); f(False, True)", "red": "self.fail('red')"}

@@ -1,4 +1,4 @@
-"""Condition coverage: run a test directory against an instrumented module and require every atomic condition to be seen both true and false."""
+"""Condition coverage: run a test directory against an instrumented module and require every atomic condition of every decision to be seen both true and false."""
 import argparse
 import ast
 import sys
@@ -12,7 +12,10 @@ class Instrument(ast.NodeTransformer):
         self.sites = []
 
     def condition(self, node):
-        if isinstance(node, (ast.BoolOp, ast.Constant, ast.List, ast.Tuple, ast.Dict, ast.Set)):
+        if isinstance(node, ast.BoolOp):
+            node.values[-1] = self.condition(node.values[-1])
+            return node
+        if isinstance(node, (ast.Constant, ast.List, ast.Tuple, ast.Dict, ast.Set)):
             return node
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
             node.operand = self.condition(node.operand)
@@ -23,7 +26,7 @@ class Instrument(ast.NodeTransformer):
 
     def visit_BoolOp(self, node):
         self.generic_visit(node)
-        node.values = [self.condition(value) for value in node.values]
+        node.values[:-1] = [self.condition(value) for value in node.values[:-1]]
         return node
 
     def visit_If(self, node):

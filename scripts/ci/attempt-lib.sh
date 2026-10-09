@@ -15,6 +15,21 @@ why() {
   echo "${message:-$(head -c 200 "$1.err" 2> /dev/null || true)}"
 }
 
+field() {
+  sed -n "s/^$1=//p" <<< "$2"
+}
+
+attempt_env() {
+  if [ -z "$1" ] || [ -n "$(field error "$1")" ]; then
+    return 0
+  fi
+  if [ "$(field proxmox "$1")" = true ]; then
+    echo proxmox
+  else
+    echo hosted
+  fi
+}
+
 classify_attempt() {
   local run_id="$1" attempt="$2" dir="$3" code id ids
   mkdir -p "$dir/annotations"

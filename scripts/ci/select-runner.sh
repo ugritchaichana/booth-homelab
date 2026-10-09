@@ -7,24 +7,22 @@ work="$(mktemp -d)"
 trap 'rm -r -f "$work"' EXIT
 
 attempt="${RUN_ATTEMPT:-1}"
-previous_fingerprint=""
-previous_error=""
+classified=""
 if [ "$FORCED_HOSTED" != true ] && [ "$attempt" -gt 1 ]; then
   classified="$(classify_attempt "$RUN_ID" $((attempt - 1)) "$work/previous")"
   echo "select-runner: attempt $((attempt - 1)) classified: $(tr '\n' ' ' <<< "$classified")"
-  previous_fingerprint="$(sed -n 's/^fingerprint=//p' <<< "$classified")"
-  previous_error="$(sed -n 's/^error=//p' <<< "$classified")"
 fi
+previous_env="$(attempt_env "$classified")"
 
 token_present=false
 http_status=0
-if [ "$FORCED_HOSTED" != true ] && [ -z "$previous_fingerprint" ] && [ -n "${RUNNER_STATUS_TOKEN:-}" ]; then
+if [ "$FORCED_HOSTED" != true ] && [ "$previous_env" != proxmox ] && [ -n "${RUNNER_STATUS_TOKEN:-}" ]; then
   token_present=true
   http_status="$(fetch "$api/repos/$REPOSITORY/actions/runners?per_page=100" "$RUNNER_STATUS_TOKEN" "$work/runners.json")"
   [ "$http_status" = 200 ] || echo "select-runner: runner health check returned HTTP $http_status: $(why "$work/runners.json")"
 fi
 
-decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" --http-status "$http_status" --runners "$work/runners.json" --previous-fingerprint "$previous_fingerprint" --previous-error "$previous_error")"
+decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" --http-status "$http_status" --runners "$work/runners.json" --previous-env "$previous_env" --previous-cause "$(field cause "$classified")" --previous-error "$(field error "$classified")")"
 hosted="$(sed -n 's/^hosted=//p' <<< "$decision")"
 reason="$(sed -n 's/^reason=//p' <<< "$decision")"
 

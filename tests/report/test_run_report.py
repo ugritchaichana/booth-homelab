@@ -307,6 +307,13 @@ class RenderEdgeTests(unittest.TestCase):
         jobs = [{"conclusion": "skipped", "runner_name": "pve01-ci-lxc-runner-1"}, {"conclusion": "success", "runner_name": "GitHub Actions 1"}]
         self.assertEqual(run_report.runner_class(jobs), "GitHub-hosted")
 
+    def test_a_run_that_passed_on_a_later_attempt_says_so_in_the_header(self):
+        note = "Passed on retry: attempt 1 failed on the Proxmox runner (job a failed); attempt 2 passed on GitHub-hosted."
+        body = run_report.render(dict(RUN, conclusion="success", run_attempt=2), [], [], {}, [], note)
+        self.assertIn("## ✅ SDET CI passed on attempt 2", body)
+        self.assertIn(f"**Runner:** {note}", body)
+        self.assertIn("## ✅ SDET CI passed\n", run_report.render(dict(RUN, conclusion="success"), [], [], {}, []))
+
     def test_a_passing_run_shows_cache_hits_and_suite_notes(self):
         run = dict(RUN, conclusion="success")
         noted = run_report.Suite(".NET", notes=["a.trx unreadable: syntax error"])

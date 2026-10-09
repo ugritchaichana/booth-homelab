@@ -54,10 +54,27 @@ def previous_attempt(scenario):
     return attempt_routes(scenario)
 
 
+def on_hosted(scenario, attempt, passed):
+    doc = json.loads(text(FIXTURES / f"{scenario}.json"))
+    for job in doc["jobs"]["jobs"]:
+        job.update(labels=["ubuntu-latest"], runner_name="GitHub Actions 1")
+        if passed and job["conclusion"] == "failure":
+            job["conclusion"] = "success"
+    routes = {f"/runs/9/attempts/{attempt}/jobs?per_page=100": [200, json.dumps(doc["jobs"])]}
+    for job_id, annotations in doc["annotations"].items():
+        routes[f"/check-runs/{job_id}/annotations"] = [200, json.dumps(annotations)]
+    return routes
+
+
 def hosted_success(attempt):
+    return on_hosted("runner-restarted", attempt, True)
+
+
+def proxmox_success(attempt):
     doc = json.loads(text(FIXTURES / "runner-restarted.json"))["jobs"]
     for job in doc["jobs"]:
-        job.update(labels=["ubuntu-latest"], runner_name="GitHub Actions 1", conclusion="success" if job["conclusion"] == "failure" else job["conclusion"])
+        if job["conclusion"] == "failure":
+            job["conclusion"] = "success"
     return {f"/runs/9/attempts/{attempt}/jobs?per_page=100": [200, json.dumps(doc)]}
 
 
@@ -98,7 +115,7 @@ class SelectRunnerTests(ScriptCase):
         outputs, calls, _, summary = self.run_select({"/actions/runners?per_page=100": [200, runners()]})
         self.assertEqual(outputs["hosted"], "false")
         self.assertEqual(outputs["dotnet_labels"], '["self-hosted", "linux", "proxmox", "dotnet"]')
-        self.assertIn("3 of 3 Proxmox runners online (HTTP 200)", outputs["route_reason"])
+        self.assertEqual(outputs["route_reason"], "3 of 3 Proxmox runners online (HTTP 200)")
         self.assertIn("Runner route (attempt 1)", summary)
         self.assertEqual(calls, [f"https://api.example.invalid/repos/owner/repo/actions/runners?per_page=100 Authorization: Bearer {RUNNER_TOKEN}"])
 
@@ -129,26 +146,41 @@ class SelectRunnerTests(ScriptCase):
         outputs, calls, _, _ = self.run_select({}, forced="true")
         self.assertEqual((outputs["hosted"], calls), ("true", []))
 
-    def test_an_infra_failure_in_attempt_one_routes_attempt_two_hosted_with_the_run_token(self):
+    def test_a_runner_loss_on_proxmox_switches_the_rerun_to_hosted_with_the_run_token(self):
         outputs, calls, _, summary = self.run_select(previous_attempt("runner-restarted"), attempt=2)
         self.assertEqual(outputs["hosted"], "true")
+        self.assertIn("so this rerun switches to GitHub-hosted", outputs["route_reason"])
         self.assertIn("Execute Transitive Affected Tests", outputs["route_reason"])
         self.assertIn("Runner route (attempt 2)", summary)
         self.assertTrue(calls)
         self.assertTrue(all(call.endswith(f"Bearer {RUN_TOKEN}") for call in calls), calls)
 
-    def test_a_test_failure_in_attempt_one_goes_back_to_the_health_check(self):
+    def test_a_test_failure_on_proxmox_also_switches_the_rerun_to_hosted(self):
         routes = previous_attempt("test-failure")
         routes["/actions/runners?per_page=100"] = [200, runners()]
         outputs, calls, _, _ = self.run_select(routes, attempt=2)
+        self.assertEqual(outputs["hosted"], "true")
+        self.assertIn('job "CI / Test (Angular)" failed in step "Execute Angular Jest Suite"', outputs["route_reason"])
+        self.assertFalse(any("/actions/runners" in call for call in calls))
+
+    def test_a_failure_on_hosted_sends_the_rerun_to_proxmox_when_a_runner_is_online(self):
+        routes = on_hosted("test-failure", 1, False)
+        routes["/actions/runners?per_page=100"] = [200, runners()]
+        outputs, calls, _, _ = self.run_select(routes, attempt=2)
         self.assertEqual(outputs["hosted"], "false")
+        self.assertIn("the previous attempt ran on GitHub-hosted", outputs["route_reason"])
         self.assertTrue(calls[-1].endswith(f"Bearer {RUNNER_TOKEN}"))
+
+    def test_a_forced_run_stays_hosted_on_every_attempt_and_reads_nothing(self):
+        outputs, calls, _, _ = self.run_select(on_hosted("test-failure", 1, False), attempt=2, forced="true")
+        self.assertEqual((outputs["hosted"], calls), ("true", []))
 
     def test_an_unreadable_previous_attempt_is_noted_and_not_treated_as_infra(self):
         routes = {"/runs/9/attempts/1/jobs?per_page=100": [404, '{"message": "Not Found"}'], "/actions/runners?per_page=100": [200, runners()]}
         outputs, _, _, _ = self.run_select(routes, attempt=2)
         self.assertEqual(outputs["hosted"], "false")
         self.assertIn("jobs of attempt 1 returned HTTP 404", outputs["route_reason"])
+        self.assertNotIn("ran on GitHub-hosted", outputs["route_reason"])
 
     def test_a_missing_annotation_keeps_the_previous_attempt_unclassified(self):
         routes = previous_attempt("runner-restarted")
@@ -177,28 +209,55 @@ class SdetClassifyTests(ScriptCase):
         self.assertIn(outputs["note"], summary)
         self.assertTrue(all(call.endswith(f"Bearer {RUN_TOKEN}") for call in calls), calls)
 
-    def test_a_test_failure_is_not_retried_and_says_why(self):
+    def test_a_test_failure_is_retried_too(self):
         outputs, _, _, _ = self.classify({**run_doc(1, "failure"), **attempt_routes("test-failure")})
-        self.assertEqual(outputs["retry"], "false")
-        self.assertIn("Not retried", outputs["note"])
+        self.assertEqual(outputs["retry"], "true")
+        self.assertIn('failed on the Proxmox runner (job "CI / Test (Angular)" failed in step "Execute Angular Jest Suite")', outputs["note"])
 
-    def test_the_retried_attempt_names_the_first_failure(self):
+    def test_a_pass_on_retry_names_the_first_failure(self):
         routes = {**run_doc(2, "success"), **hosted_success(2), **attempt_routes("runner-restarted")}
         outputs, _, _, _ = self.classify(routes)
         self.assertEqual(outputs["retry"], "false")
-        self.assertTrue(outputs["note"].startswith("Attempt 1 failed on the Proxmox runner (job "), outputs["note"])
-        self.assertTrue(outputs["note"].endswith("this attempt ran on GitHub-hosted."))
+        self.assertTrue(outputs["note"].startswith("Passed on retry: attempt 1 failed on the Proxmox runner (job "), outputs["note"])
+        self.assertTrue(outputs["note"].endswith("attempt 2 passed on GitHub-hosted."))
+
+    def test_a_second_failure_is_red_with_no_further_retry(self):
+        routes = {**run_doc(2, "failure"), **on_hosted("test-failure", 2, False), **attempt_routes("test-failure")}
+        outputs, _, _, _ = self.classify(routes)
+        self.assertEqual(outputs["retry"], "false")
+        self.assertTrue(outputs["note"].startswith("Failed again: attempt 1 failed on the Proxmox runner"), outputs["note"])
+        self.assertTrue(outputs["note"].endswith("No further retry, so the run is red."))
+
+    def test_a_timed_out_run_is_retried(self):
+        outputs, _, _, _ = self.classify({**run_doc(1, "timed_out"), **attempt_routes("test-failure")})
+        self.assertEqual(outputs["retry"], "true")
+        self.assertIn("Execute Angular Jest Suite", outputs["note"])
+
+    def test_a_pass_on_proxmox_after_a_failure_on_hosted(self):
+        routes = {**run_doc(2, "success"), **proxmox_success(2), **on_hosted("test-failure", 1, False)}
+        outputs, _, _, _ = self.classify(routes)
+        self.assertEqual(outputs["note"], 'Passed on retry: attempt 1 failed on GitHub-hosted (job "CI / Test (Angular)" failed in step "Execute Angular Jest Suite"); attempt 2 passed on the Proxmox runner.')
+
+    def test_an_unreadable_previous_attempt_is_said_so(self):
+        routes = {**run_doc(2, "success"), **hosted_success(2), "/runs/9/attempts/1/jobs?per_page=100": [502, '{"message": "Server Error"}']}
+        outputs, _, _, _ = self.classify(routes)
+        self.assertEqual(outputs["note"], "Rerun passed: attempt 1 could not be read; attempt 2 passed on GitHub-hosted.")
+
+    def test_a_run_that_could_not_start_is_not_retried_or_read(self):
+        outputs, calls, _, _ = self.classify(run_doc(1, "startup_failure"))
+        self.assertEqual((outputs["retry"], outputs["note"]), ("false", ""))
+        self.assertEqual(len(calls), 1)
 
     def test_a_passing_run_gets_no_retry_and_no_note(self):
         outputs, calls, _, _ = self.classify({**run_doc(1, "success"), **hosted_success(1)})
         self.assertEqual((outputs["retry"], outputs["note"]), ("false", ""))
         self.assertFalse(any("check-runs" in call for call in calls))
 
-    def test_an_unreadable_attempt_is_not_retried(self):
+    def test_an_unreadable_attempt_is_still_retried(self):
         routes = {**run_doc(1, "failure"), "/runs/9/attempts/1/jobs?per_page=100": [502, '{"message": "Server Error"}']}
         outputs, _, _, _ = self.classify(routes)
-        self.assertEqual(outputs["retry"], "false")
-        self.assertIn("returned HTTP 502", outputs["note"])
+        self.assertEqual(outputs["retry"], "true")
+        self.assertIn("Attempt 1 failed (not classified: jobs of attempt 1 returned HTTP 502", outputs["note"])
 
     def test_an_unreadable_run_fails_the_step(self):
         _, _, printed, _ = self.classify({"/actions/runs/9": [404, '{"message": "Not Found"}']}, expect_rc=1)

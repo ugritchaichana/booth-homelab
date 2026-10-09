@@ -187,8 +187,10 @@ def runner_class(jobs):
 def render(run, jobs, suites, hits, failures_jobs, note=""):
     failed_tests = [f for s in suites for f in s.failures]
     ok = run.get("conclusion") == "success"
-    head = [MARKER, f"## {'✅ SDET CI passed' if ok else '❌ SDET CI failed'}", ""]
-    head.append(f"Run [{run.get('id')}]({run.get('html_url')}) attempt {run.get('run_attempt', 1)} on `{str(run.get('head_sha', ''))[:7]}` · "
+    attempt = run.get("run_attempt", 1)
+    passed = "✅ SDET CI passed" + (f" on attempt {attempt}" if attempt != 1 else "")
+    head = [MARKER, f"## {passed if ok else '❌ SDET CI failed'}", ""]
+    head.append(f"Run [{run.get('id')}]({run.get('html_url')}) attempt {attempt} on `{str(run.get('head_sha', ''))[:7]}` · "
                 f"{runner_class(jobs)} · conclusion `{run.get('conclusion')}`")
     if note:
         head += ["", f"**Runner:** {plain(note)}"]
