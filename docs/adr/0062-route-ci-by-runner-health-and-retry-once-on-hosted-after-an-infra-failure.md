@@ -73,6 +73,11 @@ It retries only attempt 1 of a failed run that ran on Proxmox with an infra fing
 
 ## Consequences
 
+- **Phase 5 is not done by this.** Its DONE WHEN (requirements section 5) needs JIT ephemeral runners, the pool load-test targets and a mutation test of the queue logic. This decision covers one part of R8, overflow when the runner is unavailable, for the persistent container only. Two R8 lines differ by the owner's choice, for this container:
+  - a busy runner keeps the run on Proxmox, where R8 overflows a saturated pool;
+  - there is no deadline overflow, where R8 says "a job waiting past a deadline overflows to hosted".
+
+  The Phase 5 controller revisits both.
 - **Cost.** GitHub-hosted minutes are spent only when no Proxmox runner is online or after an infra failure.
 - **No watchdog, by decision.** A job that `Select Runner` already sent to Proxmox waits for up to 24 hours if the container dies before picking it up. Cancel and rerun it: the rerun health-checks again.
 - **Token expiry.** When the token expires the check returns 401 and routing falls back to `CI_RUNNER`, with the status in the summary. Rotation is in runbook 3.7.
