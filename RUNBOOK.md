@@ -548,7 +548,8 @@ A run with no open pull request at its head writes the same report to the callba
 
 Before the report, the job `Classify the finished attempt` reads the attempt and the one before it (ADR 0062). After the report, `Retry once on GitHub-hosted` reruns the whole run once:
 - it acts when attempt 1 ended `failure` or `timed_out`, whatever the cause;
-- it never acts on attempt 2, or on `cancelled` or `startup_failure`.
+- it also acts when attempt 1 ended `cancelled` because a Proxmox runner was lost (the annotation "The operation was canceled." on a job with a cancelled step);
+- it never acts on attempt 2, on `startup_failure`, or on a deliberate cancel ("The run was canceled by @user.").
 
 Attempt 2 runs on the other environment: hosted after Proxmox, and Proxmox after hosted when a runner is online and the run is not forced to hosted. If attempt 2 fails too, the run is red.
 
