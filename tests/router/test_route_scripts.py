@@ -248,6 +248,26 @@ class SdetClassifyTests(ScriptCase):
         self.assertEqual((outputs["retry"], outputs["note"]), ("false", ""))
         self.assertEqual(len(calls), 1)
 
+    def cancelled(self, message):
+        doc = json.loads(text(FIXTURES / "runner-restarted.json"))
+        for job in doc["jobs"]["jobs"]:
+            if job["name"] in ("CI / Build and Test (.NET)", "CI / Report"):
+                job["conclusion"] = "cancelled"
+        doc["annotations"]["113276599473"] = [{"annotation_level": "failure", "title": "", "message": message}]
+        routes = {**run_doc(1, "cancelled"), "/runs/9/attempts/1/jobs?per_page=100": [200, json.dumps(doc["jobs"])]}
+        for job_id, annotations in doc["annotations"].items():
+            routes[f"/check-runs/{job_id}/annotations"] = [200, json.dumps(annotations)]
+        return self.classify(routes)
+
+    def test_a_run_cancelled_by_a_lost_runner_is_retried(self):
+        outputs, _, _, _ = self.cancelled("The operation was canceled.")
+        self.assertEqual(outputs["retry"], "true")
+        self.assertIn("lost its runner", outputs["note"])
+
+    def test_a_run_cancelled_by_a_person_is_not_retried(self):
+        outputs, _, _, _ = self.cancelled("The run was canceled by @owner.")
+        self.assertEqual((outputs["retry"], outputs["note"]), ("false", ""))
+
     def test_a_passing_run_gets_no_retry_and_no_note(self):
         outputs, calls, _, _ = self.classify({**run_doc(1, "success"), **hosted_success(1)})
         self.assertEqual((outputs["retry"], outputs["note"]), ("false", ""))

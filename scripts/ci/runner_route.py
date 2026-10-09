@@ -13,6 +13,8 @@ SETUP_STEP = "Set up job"
 CHECKOUT_PREFIX = "Checkout"
 DERIVED_JOBS = ("Report",)
 RETRYABLE = ("failure", "timed_out")
+OPERATION_CANCELED = "The operation was canceled."
+DELIBERATE_CANCEL = ("was canceled by", "Canceling since a higher priority")
 
 
 def one_line(text):
@@ -46,11 +48,17 @@ def job_fingerprint(job, annotations):
 
 
 def infra_fingerprint(jobs, annotations_by_job):
+    messages = [a.get("message", "") for annotations in annotations_by_job.values() for a in annotations]
+    if any(mark in m for m in messages for mark in DELIBERATE_CANCEL):
+        return None
     found = []
     for job in jobs:
-        if job.get("conclusion") != "failure" or not is_proxmox(job):
+        annotations = annotations_by_job.get(job.get("id"), [])
+        if job.get("conclusion") not in ("failure", "cancelled") or not is_proxmox(job):
             continue
-        infra, text = job_fingerprint(job, annotations_by_job.get(job.get("id"), []))
+        if job.get("conclusion") == "cancelled" and not any(a.get("message") == OPERATION_CANCELED for a in annotations):
+            continue
+        infra, text = job_fingerprint(job, annotations)
         if not infra:
             return None
         found.append(text)
@@ -73,12 +81,13 @@ def failure_cause(jobs, annotations_by_job):
     fingerprint = infra_fingerprint(jobs, annotations_by_job)
     if fingerprint:
         return fingerprint
-    for job in jobs:
-        if job.get("conclusion") != "failure" or str(job.get("name", "")).split(" / ")[-1] in DERIVED_JOBS:
-            continue
-        failed = [s.get("name", "?") for s in job.get("steps") or [] if s.get("conclusion") == "failure"]
-        name = job.get("name", "?")
-        return one_line(f'job "{name}" failed in step "{failed[0]}"' if failed else f'job "{name}" failed')
+    for conclusion, verb in (("failure", "failed"), ("cancelled", "was cancelled")):
+        for job in jobs:
+            if job.get("conclusion") != conclusion or str(job.get("name", "")).split(" / ")[-1] in DERIVED_JOBS:
+                continue
+            steps = [s.get("name", "?") for s in job.get("steps") or [] if s.get("conclusion") == conclusion]
+            name = job.get("name", "?")
+            return one_line(f'job "{name}" {verb} in step "{steps[0]}"' if steps else f'job "{name}" {verb}')
     return ""
 
 
@@ -105,14 +114,15 @@ def decide(forced_hosted, token_present, http_status, runners, previous_env="", 
     return False, f"{online} of {total} Proxmox runners online (HTTP 200){note}"
 
 
-def verdict(attempt, conclusion, proxmox, cause, error, previous_env, previous_cause):
+def verdict(attempt, conclusion, proxmox, cause, error, previous_env, previous_cause, infra=False):
     where = "" if error else f" on {env_name(proxmox)}"
     why = cause or (f"not classified: {error}" if error else "no failed job found")
+    failed = conclusion in RETRYABLE or (conclusion == "cancelled" and infra)
     if attempt == 1:
-        if conclusion not in RETRYABLE:
+        if not failed:
             return False, ""
         return True, one_line(f"Attempt 1 failed{where} ({why}); the whole run is rerun once, on the other environment unless it must stay on GitHub-hosted.")
-    if attempt < 1 or conclusion not in RETRYABLE + ("success",):
+    if attempt < 1 or not (failed or conclusion == "success"):
         return False, ""
     if not previous_env:
         prior = f"attempt {attempt - 1} could not be read"
@@ -157,6 +167,7 @@ def main(argv=None):
     v.add_argument("--error", default="")
     v.add_argument("--previous-env", default="")
     v.add_argument("--previous-cause", default="")
+    v.add_argument("--infra", default="false")
     c = sub.add_parser("classify")
     c.add_argument("--jobs", required=True)
     c.add_argument("--annotations-dir", required=True)
@@ -168,7 +179,7 @@ def main(argv=None):
         print(f"reason={reason}")
     elif args.command == "verdict":
         retry, note = verdict(status_code(args.attempt), args.conclusion, args.proxmox == "true", args.cause, args.error,
-                              args.previous_env, args.previous_cause)
+                              args.previous_env, args.previous_cause, args.infra == "true")
         print(f"retry={str(retry).lower()}")
         print(f"note={note}")
     else:
