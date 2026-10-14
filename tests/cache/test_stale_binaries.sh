@@ -22,7 +22,8 @@ GIT_ID=(-c user.name=probe -c user.email=probe@example.invalid)
 echo "dotnet $(dotnet --version)"
 
 build() { (cd "$WS" && dotnet build "$SOLUTION" --configuration Release /p:Deterministic=true -nodeReuse:false "$@"); }
-checkout() { rm -rf "$WS"; git clone -q "$WORK/origin" "$WS" && git -C "$WS" checkout -q "$1"; }
+# GitHub-shaped origin, as in CI, so Source Link runs.
+checkout() { rm -rf "$WS"; git clone -q "$WORK/origin" "$WS" && git -C "$WS" remote set-url origin https://github.com/example/sdet-testing-rig.git && git -C "$WS" checkout -q "$1"; }
 has_probe() { grep -qa "$PROBE" "$WS/$DOMAIN_DLL"; }
 client() { python3 -m build_cache "$1" "${CACHE_ARGS[@]}" --root "$WS" "${@:2}" 2>/dev/null; }
 statuses() { grep -c "\"status\": \"$1\"" <<< "$2"; }
