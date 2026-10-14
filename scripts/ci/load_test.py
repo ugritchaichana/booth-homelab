@@ -111,7 +111,7 @@ def job_record(job, logs):
 
 def concurrency(by_ref):
     spans = [(j["started"], j["completed"], j["name"].split(" / ")[-1]) for runs in by_ref.values() for run in runs for attempt in run["runs"]
-             for j in attempt["jobs"] if j["proxmox"] and j.get("started") and j.get("completed") and j["name"].split(" / ")[-1] in SUITES]
+             for j in attempt["jobs"] if j["proxmox"] and j["conclusion"] != "skipped" and j.get("started") and j.get("completed") and j["name"].split(" / ")[-1] in SUITES]
     most, kinds, mixed, moments = 0, 0, 0, 0
     for start, _, _ in spans:
         running = [name for begin, end, name in spans if begin <= start < end]
@@ -154,7 +154,7 @@ def attempt_line(attempt):
 
 def render(report):
     top, spread = report["peak"], report["concurrency"]
-    plan = ", ".join("{} x `{}` ({})".format(p["count"], p["ref"], p["suites"]) for p in report["plan"])
+    plan = ", ".join("{} x `{}` ({}{})".format(p["count"], p["ref"], p["suites"], f", from {p['offset']} s" if p.get("offset") else "") for p in report["plan"])
     lines = ["# Load test", "", f"Plan: {plan}.",
              f"Peak queue: {top['queued_proxmox']} Proxmox jobs queued with {top['online']} runner instances online "
              f"({fmt(top['per_instance'])} per instance), from {report['samples']} samples.",
@@ -207,19 +207,28 @@ def parse_plan(values):
     plan = []
     for value in values:
         ref, _, rest = value.rpartition("=")
+        rest, _, offset = rest.partition("@")
         count, _, suites = rest.partition(":")
-        suites = suites or "all"
-        if not ref or not count.isdigit() or int(count) < 1 or suites not in REPOSITORIES:
-            raise ValueError(f"expected REF=COUNT or REF=COUNT:{'|'.join(REPOSITORIES)}, got {value!r}")
-        plan.append({"ref": ref, "count": int(count), "suites": suites})
+        suites, offset = suites or "all", offset or "0"
+        if not ref or not count.isdigit() or int(count) < 1 or suites not in REPOSITORIES or not offset.isdigit():
+            raise ValueError(f"expected REF=COUNT[:{'|'.join(REPOSITORIES)}][@SECONDS], got {value!r}")
+        plan.append({"ref": ref, "count": int(count), "suites": suites, "offset": int(offset)})
     return plan
 
 
-def run(api, plan, clock=time.time, pause=time.sleep, **watch_options):
+def schedule(plan, spacing=0):
+    timed = [(entry.get("offset", 0) + i * spacing, n, entry) for n, entry in enumerate(plan) for i in range(entry["count"])]
+    return [(at, entry) for at, _, entry in sorted(timed, key=lambda item: item[:2])]
+
+
+def run(api, plan, clock=time.time, pause=time.sleep, spacing=0, **watch_options):
     since = datetime.fromtimestamp(clock() - 5, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    for entry in plan:
-        for _ in range(entry["count"]):
-            api.post(f"/actions/workflows/{WORKFLOW}/dispatches", {"ref": entry["ref"], "inputs": {"force_ubuntu_runner": "false", "suites": entry["suites"]}})
+    elapsed = 0
+    for at, entry in schedule(plan, spacing):
+        if at > elapsed:
+            pause(at - elapsed)
+            elapsed = at
+        api.post(f"/actions/workflows/{WORKFLOW}/dispatches", {"ref": entry["ref"], "inputs": {"force_ubuntu_runner": "false", "suites": entry["suites"]}})
     runs, samples = watch(api, plan, since, clock, pause, **watch_options)
     attempts, logs = collect(api, runs)
     return summarise(plan, runs, attempts, logs, samples)
@@ -230,10 +239,11 @@ def main(argv=None, api_factory=Api):
     commands = parser.add_subparsers(dest="command", required=True)
     go = commands.add_parser("run")
     go.add_argument("--repository", required=True)
-    go.add_argument("--plan", action="append", required=True, help="REF=COUNT or REF=COUNT:SUITES (all, dotnet, angular), repeatable")
+    go.add_argument("--plan", action="append", required=True, help="REF=COUNT[:SUITES][@SECONDS]; SUITES is all, dotnet or angular, SECONDS delays that entry's first dispatch; repeatable")
     go.add_argument("--out", required=True)
     go.add_argument("--interval", type=int, default=10)
     go.add_argument("--quiet", type=int, default=180)
+    go.add_argument("--spacing", type=int, default=0, help="seconds between one entry's dispatches; entries due at the same time go in plan order")
     commands.add_parser("render").add_argument("--data", required=True)
     args = parser.parse_args(argv)
     if args.command == "render":
@@ -243,7 +253,7 @@ def main(argv=None, api_factory=Api):
     token = os.environ.get("GH_TOKEN", "")
     if not token:
         parser.error("GH_TOKEN is not set")
-    report = run(api_factory(args.repository, token), parse_plan(args.plan), interval=args.interval, quiet=args.quiet)
+    report = run(api_factory(args.repository, token), parse_plan(args.plan), spacing=args.spacing, interval=args.interval, quiet=args.quiet)
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=1, sort_keys=True)
     sys.stdout.write(render(report) + "\n")

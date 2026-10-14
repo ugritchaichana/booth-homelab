@@ -76,11 +76,11 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(load_test.build_numbers(BUILD_LOG), {"compiled": 1, "reused": 6, "build_ms": 4321})
         self.assertEqual(load_test.build_numbers("no numbers"), {"compiled": None, "reused": None, "build_ms": None})
 
-    def test_plan_entries_are_ref_equals_count_with_an_optional_repository(self):
-        self.assertEqual(load_test.parse_plan(["load/a=6", "x=y=1", "load/a=5:angular", "load/a=5:dotnet"]),
-                         [{"ref": "load/a", "count": 6, "suites": "all"}, {"ref": "x=y", "count": 1, "suites": "all"},
-                          {"ref": "load/a", "count": 5, "suites": "angular"}, {"ref": "load/a", "count": 5, "suites": "dotnet"}])
-        for bad in ("=3", "load/a=x", "load/a=0", "load/a", "load/a=2:frontend"):
+    def test_plan_entries_are_ref_equals_count_with_an_optional_repository_and_start(self):
+        self.assertEqual(load_test.parse_plan(["load/a=6", "x=y=1", "load/a=5:angular@75", "load/a=5:dotnet"]),
+                         [{"ref": "load/a", "count": 6, "suites": "all", "offset": 0}, {"ref": "x=y", "count": 1, "suites": "all", "offset": 0},
+                          {"ref": "load/a", "count": 5, "suites": "angular", "offset": 75}, {"ref": "load/a", "count": 5, "suites": "dotnet", "offset": 0}])
+        for bad in ("=3", "load/a=x", "load/a=0", "load/a", "load/a=2:frontend", "load/a=2:angular@soon"):
             with self.subTest(bad), self.assertRaisesRegex(ValueError, "REF=COUNT"):
                 load_test.parse_plan([bad])
 
@@ -131,11 +131,13 @@ class SummaryTests(unittest.TestCase):
     def test_render_names_the_route_reuse_and_failed_jobs_of_every_attempt(self):
         text = load_test.render(self.report())
         self.assertIn("Plan: 1 x `load/flaky` (all).", text)
+        late = dict(self.report(), plan=[{"ref": "load/a", "count": 2, "suites": "angular", "offset": 75}])
+        self.assertIn("Plan: 2 x `load/a` (angular, from 75 s).", load_test.render(late))
         self.assertIn("## load/flaky (dotnet)", text)
         self.assertIn("9 Proxmox jobs queued with 3 runner instances online (3 per instance)", text)
         self.assertIn("attempt 1 on Proxmox VE Self-Hosted (LXC): outputs 1/2, CoreCompile 1 compiled / 6 reused, build 4321 ms; failed: Test (.NET unit)", text)
         self.assertIn("attempt 2 on GitHub-hosted: outputs n/a, CoreCompile n/a compiled / n/a reused, build n/a; failed: none", text)
-        self.assertIn("up to 3 of 3 suite jobs and 3 kinds ran at once; two or more kinds overlapped at 3 job starts, all three (.NET unit, .NET integration, Angular) at 3.", text)
+        self.assertIn("up to 1 of 1 suite jobs and 1 kinds ran at once; two or more kinds overlapped at 0 job starts, all three (.NET unit, .NET integration, Angular) at 0.", text)
 
 
 def span(name, start, end, labels=("self-hosted", "proxmox")):
@@ -224,6 +226,40 @@ class RunTests(unittest.TestCase):
         self.assertEqual(report["refs"]["load/flaky (dotnet)"][0]["runs"][0]["jobs"][1]["build_ms"], 4321)
 
 
+class DispatchOrderTests(unittest.TestCase):
+    def test_dispatches_follow_each_entrys_start_and_spacing_and_ties_keep_plan_order(self):
+        plan = [{"ref": "a", "count": 3, "suites": "angular", "offset": 20}, {"ref": "b", "count": 1, "suites": "dotnet"}, {"ref": "c", "count": 2, "suites": "dotnet", "offset": 0}]
+        self.assertEqual([(at, e["ref"]) for at, e in load_test.schedule(plan, 10)], [(0, "b"), (0, "c"), (10, "c"), (20, "a"), (30, "a"), (40, "a")])
+
+    def test_spacing_pauses_between_dispatches_but_not_before_the_first(self):
+        api = FakeApi({"/actions/workflows/sdet-ci.yml/runs": {"workflow_runs": []}, "/actions/runners": {"runners": []}})
+        clock, pauses = Clock(), []
+
+        def pause(seconds):
+            pauses.append(seconds)
+            clock.sleep(seconds)
+            if len(api.posts) == 3:
+                raise StopIteration
+
+        plan = [{"ref": "a", "count": 2, "suites": "angular"}, {"ref": "b", "count": 1, "suites": "dotnet"}]
+        with self.assertRaises(StopIteration):
+            load_test.run(api, plan, clock, pause, spacing=7, interval=10, quiet=10)
+        self.assertEqual([body["inputs"]["suites"] for _, body in api.posts], ["angular", "dotnet", "angular"])
+        self.assertEqual(pauses, [7, 10])
+
+    def test_without_spacing_every_dispatch_goes_out_before_the_first_pause(self):
+        api = FakeApi({"/actions/workflows/sdet-ci.yml/runs": {"workflow_runs": []}, "/actions/runners": {"runners": []}})
+        seen = []
+
+        def pause(seconds):
+            seen.append((seconds, len(api.posts)))
+            raise StopIteration
+
+        with self.assertRaises(StopIteration):
+            load_test.run(api, [{"ref": "a", "count": 2, "suites": "all"}], Clock(), pause, interval=10, quiet=10)
+        self.assertEqual(seen, [(10, 2)])
+
+
 class Response(io.BytesIO):
     def __enter__(self):
         return self
@@ -278,7 +314,7 @@ class MainTests(unittest.TestCase):
                 self.assertEqual(load_test.main(args + ["--out", str(out_file)], api_factory=lambda repo, token: (repo, token)), 0)
             self.assertEqual(json.loads(out_file.read_text(encoding="utf-8"))["plan"], report["plan"])
         self.assertEqual(run.call_args.args[0], ("owner/repo", "t"))
-        self.assertEqual(run.call_args.kwargs, {"interval": 1, "quiet": 0})
+        self.assertEqual(run.call_args.kwargs, {"spacing": 0, "interval": 1, "quiet": 0})
         self.assertIn("Plan: 1 x `load/a` (all).", out.getvalue())
 
 
