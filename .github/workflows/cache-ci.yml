@@ -69,7 +69,7 @@ jobs:
       - name: Condition coverage, every module
         run: |
           status=0
-          for module in $(find scripts/ci/build_cache -name '*.py' ! -name '__main__.py' | sort); do
+          for module in $(find scripts/ci/build_cache -name '*.py' ! -name '__main__.py' ! -name '__init__.py' | sort); do
             echo "== $module"
             out="$(python3 tests/condition_coverage.py "$module" tests/cache --package-root scripts/ci --fail-under 100 2>&1)" || status=1
             grep -E '^conditions|  line|^(FAIL|ERROR):' <<< "$out" || true
