@@ -1,0 +1,10 @@
+# Sandbox wall time on an idle host, one .NET run at a time, refs test/load8-* on master 5caae65 (2026-10-14T13:41:05Z)
+round 1 full-suite run 38573864864 on pve01-dotnet-unit-auto: outputs hits 7/7; [BENCHMARK] Build Time: 2135 ms  [BENCHMARK] CoreCompile ran in 0 projects and was skipped in 7 
+round 1 one-project run 38574110515 on pve01-dotnet-unit-auto: outputs hits 4/7; [BENCHMARK] Build Time: 3716 ms  [BENCHMARK] CoreCompile ran in 3 projects and was skipped in 4 
+round 1 full-rebuild run 38574359924 on pve01-dotnet-unit-auto: outputs hits 0/7; [BENCHMARK] Build Time: 5847 ms  [BENCHMARK] CoreCompile ran in 7 projects and was skipped in 0 
+round 2 full-suite run 38574641422 on pve01-dotnet-unit-auto: outputs hits 7/7; [BENCHMARK] Build Time: 2709 ms  [BENCHMARK] CoreCompile ran in 0 projects and was skipped in 7 
+round 2 one-project run 38574891160 on pve01-dotnet-unit-auto: outputs hits 4/7; [BENCHMARK] Build Time: 5271 ms  [BENCHMARK] CoreCompile ran in 3 projects and was skipped in 4 
+round 2 full-rebuild run 38575141149 on pve01-dotnet-unit-auto: outputs hits 0/7; [BENCHMARK] Build Time: 4493 ms  [BENCHMARK] CoreCompile ran in 7 projects and was skipped in 0 
+round 3 full-suite run 38575639687 on pve01-dotnet-unit-auto: outputs hits 7/7; [BENCHMARK] Build Time: 1875 ms  [BENCHMARK] CoreCompile ran in 0 projects and was skipped in 7 
+round 3 one-project run 38575997673 on pve01-dotnet-unit-auto: outputs hits 4/7; [BENCHMARK] Build Time: 3396 ms  [BENCHMARK] CoreCompile ran in 3 projects and was skipped in 4 
+round 3 full-rebuild run 38576266828 on pve01-dotnet-unit-auto: outputs hits 0/7; [BENCHMARK] Build Time: 4018 ms  [BENCHMARK] CoreCompile ran in 7 projects and was skipped in 0 

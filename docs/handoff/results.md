@@ -39,6 +39,20 @@ Measured on a runner-template clone with an unchanged lockfile: run 1 is cold (i
 
 Only one cold run exists, so read the percentages as indicative. The dependency part does not improve because restoring about 100 MB costs about as much as a network install for this small app. CI on GitHub-hosted runners does not use the cache yet ([ADR 0054](../adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)).
 
+## Load test and cache reuse (Phase 5)
+
+Measured on the three role runners (D100), one runner each for .NET unit, .NET integration and Angular Jest, after the Source Link fix (ADR 0068).
+
+| Result | Value | Source |
+|---|---|---|
+| Queue at peak, all three kinds at once | 19 queued Proxmox jobs on 3 runner instances (6.33 each); all three kinds ran at the same time at 6 job starts; exact peaks 6 (.NET unit), 1 (.NET integration), 14 (Angular, ceiling 15); 3 attempts went to GitHub-hosted at a full queue, 0 jobs cancelled | [load-round-11.md](../evidence/phase5/load-round-11.md) |
+| Compile reuse in the 7-project sample, idle host, 3 runs each | every project reused: 2135 ms median, 0 of 7 compiled; one project changed: 3716 ms, 3 compiled; full rebuild: 4493 ms, 7 compiled | [sandbox-idle-wall-time.txt](../evidence/phase5/sandbox-idle-wall-time.txt) |
+| Compile reuse on a generated 24-project solution, median of 3 | cold 90.3 s (24 compiled); new commit, same tree 7.5 s (0 compiled); one leaf changed 13.4 s (1); a middle project changed 52.8 s (12); commit id in the version 89.8 s (24) | [cache-benchmark-proxmox.txt](../evidence/phase5/cache-benchmark-proxmox.txt) |
+| Retry under load (D95) | a failure only on the self-hosted runner switched from Proxmox to GitHub-hosted and passed; a test that always fails was red after both attempts | [load-round-10.md](../evidence/phase5/load-round-10.md) |
+| Before the Source Link fix | outputs restored 7 of 7 and still 7 of 7 compiled on every hit, because `obj/<project>.sourcelink.json` carries the commit id | [load-round-09.md](../evidence/phase5/load-round-09.md), [corecompile-reason-sourcelink.txt](../evidence/phase5/corecompile-reason-sourcelink.txt) |
+
+In the 7-project sample compiling is cheap, so a one-project change saves little and its range (3.4 to 5.3 s) overlaps the full rebuild (4.0 to 5.8 s). The 24-project solution shows the effect at scale.
+
 ## Templates (Phase 3)
 
 | Result | Value | Source |
@@ -79,6 +93,6 @@ All starts below are of the PVE VM or its guests, not of a runner; scale-from-ze
 
 ## Reading these results honestly
 
-- Row 63 (hit ratio over 20 runs) measures a clone driven from pve01 with an unchanged lockfile and a fresh workspace per run, the same template, firewall and route as a runner (ADR 0053). It is not a real runner and not a real workflow run; Phase 5's load test owes a real hit-ratio run.
+- Row 63 (hit ratio over 20 runs) measures a clone driven from pve01 with an unchanged lockfile and a fresh workspace per run, the same template, firewall and route as a runner (ADR 0053). It is not a real runner and not a real workflow run. Phase 5 measured hits in real workflow runs on the role runners (load rounds 10 and 11).
 - The reference VM was sized for a laptop (12 vCPU, 20 GiB); absolute build and restore times do not transfer to other hardware, only the method does.
 - Where a number has no raw file, it is not cited here.

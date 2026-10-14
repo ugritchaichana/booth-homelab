@@ -1,0 +1,31 @@
+# History-window probe, 2026-10-14. Runs 1 and 2 were dispatched 2 s apart on the same history (3-run code d3a4375, 8-run code fd49d6c); run 3 came after both finished.
+run 38551639601 test/probe-window3 d3a4375 completed/success created 2026-10-14T10:44:11Z updated 2026-10-14T10:45:01Z
+  job CI / Select Runner | success | 2026-10-14T10:44:15Z -> 2026-10-14T10:44:25Z | ubuntu-latest
+  job CI / Test (Angular) | success | 2026-10-14T10:44:28Z -> 2026-10-14T10:44:56Z | self-hosted,linux,proxmox,workspace-unit-auto
+  job CI / Build (.NET) | skipped | 2026-10-14T10:44:25Z -> 2026-10-14T10:44:25Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Test (.NET integration) | skipped | 2026-10-14T10:44:25Z -> 2026-10-14T10:44:25Z | self-hosted,linux,proxmox,dotnet-integration-auto
+  job CI / Cache (.NET) | skipped | 2026-10-14T10:44:25Z -> 2026-10-14T10:44:25Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Test (.NET unit) | skipped | 2026-10-14T10:44:25Z -> 2026-10-14T10:44:25Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Report | success | 2026-10-14T10:44:58Z -> 2026-10-14T10:45:01Z | ubuntu-latest
+  job CI / Cache (Angular) | skipped | 2026-10-14T10:44:56Z -> 2026-10-14T10:44:56Z | self-hosted,linux,proxmox,workspace-unit-auto
+Runner route (attempt 1): Proxmox VE Self-Hosted (LXC) because a Proxmox runner online for every role (HTTP 200: workspace-unit-auto 1 of 1); queue workspace-unit-auto 1/15 @50s
+run 38551643839 test/probe-window8 fd49d6c completed/success created 2026-10-14T10:44:13Z updated 2026-10-14T10:45:36Z
+  job CI / Select Runner | success | 2026-10-14T10:44:17Z -> 2026-10-14T10:44:29Z | ubuntu-latest
+  job CI / Test (Angular) | success | 2026-10-14T10:44:59Z -> 2026-10-14T10:45:27Z | self-hosted,linux,proxmox,workspace-unit-auto
+  job CI / Build (.NET) | skipped | 2026-10-14T10:44:29Z -> 2026-10-14T10:44:29Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Test (.NET integration) | skipped | 2026-10-14T10:44:30Z -> 2026-10-14T10:44:29Z | self-hosted,linux,proxmox,dotnet-integration-auto
+  job CI / Cache (.NET) | skipped | 2026-10-14T10:44:30Z -> 2026-10-14T10:44:29Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Test (.NET unit) | skipped | 2026-10-14T10:44:30Z -> 2026-10-14T10:44:29Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Report | success | 2026-10-14T10:45:31Z -> 2026-10-14T10:45:36Z | ubuntu-latest
+  job CI / Cache (Angular) | skipped | 2026-10-14T10:45:28Z -> 2026-10-14T10:45:27Z | self-hosted,linux,proxmox,workspace-unit-auto
+Runner route (attempt 1): Proxmox VE Self-Hosted (LXC) because a Proxmox runner online for every role (HTTP 200: workspace-unit-auto 1 of 1); queue workspace-unit-auto 1/9 @78s
+run 38552104080 test/probe-window8 fd49d6c completed/success created 2026-10-14T10:48:10Z updated 2026-10-14T10:49:02Z
+  job CI / Select Runner | success | 2026-10-14T10:48:14Z -> 2026-10-14T10:48:24Z | ubuntu-latest
+  job CI / Test (Angular) | success | 2026-10-14T10:48:28Z -> 2026-10-14T10:48:54Z | self-hosted,linux,proxmox,workspace-unit-auto
+  job CI / Build (.NET) | skipped | 2026-10-14T10:48:25Z -> 2026-10-14T10:48:24Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Cache (.NET) | skipped | 2026-10-14T10:48:25Z -> 2026-10-14T10:48:24Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Test (.NET unit) | skipped | 2026-10-14T10:48:25Z -> 2026-10-14T10:48:24Z | self-hosted,linux,proxmox,dotnet-unit-auto
+  job CI / Test (.NET integration) | skipped | 2026-10-14T10:48:25Z -> 2026-10-14T10:48:24Z | self-hosted,linux,proxmox,dotnet-integration-auto
+  job CI / Report | success | 2026-10-14T10:48:57Z -> 2026-10-14T10:49:01Z | ubuntu-latest
+  job CI / Cache (Angular) | skipped | 2026-10-14T10:48:55Z -> 2026-10-14T10:48:54Z | self-hosted,linux,proxmox,workspace-unit-auto
+Runner route (attempt 1): Proxmox VE Self-Hosted (LXC) because a Proxmox runner online for every role (HTTP 200: workspace-unit-auto 1 of 1); queue workspace-unit-auto 0/15 @38s

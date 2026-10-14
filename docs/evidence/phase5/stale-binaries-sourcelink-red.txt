@@ -1,0 +1,32 @@
+# tests/cache/test_stale_binaries.sh in WSL, real .NET SDK, test change only (8ac4312): red
+dotnet 10.0.401
+A=49aab0569f B=c65f66f2d1 C=c8810c776d
+OLD-as-shipped: not stale (pdb mtime forces CoreCompile)
+OLD+pdb: not stale (a regenerated AssemblyInfo.cs forces CoreCompile)
+OLD+all-outputs-touched+no-revision-in-version: not stale
+       Building target "CoreCompile" completely.
+       Input file "InvoiceGenerator.cs" is newer than output file "obj/Release/net8.0/Billing.Api.dll".
+       Input file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Billing.Api/obj/Release/net8.0/Billing.Api.assets.cache" is newer than output file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Billing.Api/bin/Release/net8.0/Billing.Api.deps.json".
+   2:7>Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Core.Domain.sourcelink.json" is newer than output file "obj/Release/net8.0/Core.Domain.dll".
+       Input file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Core.Domain/obj/Release/net8.0/Core.Domain.assets.cache" is newer than output file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Core.Domain/bin/Release/net8.0/Core.Domain.deps.json".
+   8:6>Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Billing.Api.UnitTests.sourcelink.json" is newer than output file "obj/Release/net8.0/Billing.Api.UnitTests.dll".
+       Building target "CoreCompile" completely.
+       Input file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Core.Domain/obj/Release/net8.0/ref/Core.Domain.dll" is newer than output file "obj/Release/net8.0/Core.Application.dll".
+NEW restore on the changed tree: 0 hits
+NEW: FRESH
+NEW save: 7 saved
+NEW restore on the saved tree: 7 hits
+NEW: HIT up-to-date (CoreCompile skipped 7/7)
+NEW: a new commit with the same tree rebuilt 7 of 7 projects (7 hits)
+       Input file "obj/Release/net8.0/Billing.Api.sourcelink.json" is newer than output file "obj/Release/net8.0/Billing.Api.dll".
+       Input file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Billing.Api/obj/Release/net8.0/Billing.Api.assets.cache" is newer than output file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Billing.Api/bin/Release/net8.0/Billing.Api.deps.json".
+       Input file "obj/Release/net8.0/Core.Domain.sourcelink.json" is newer than output file "obj/Release/net8.0/Core.Domain.dll".
+       Input file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Core.Domain/obj/Release/net8.0/Core.Domain.assets.cache" is newer than output file "/tmp/stale-binaries.hJT8II/ws/apps/backend/src/Core.Domain/bin/Release/net8.0/Core.Domain.deps.json".
+       Input file "obj/Release/net8.0/Billing.Api.UnitTests.sourcelink.json" is newer than output file "obj/Release/net8.0/Billing.Api.UnitTests.dll".
+NEW: a one-project change compiled 7 and skipped 0 of 7 (expected 3 and 4, 4 hits)
+FAIL: the detector cannot fail: the old algorithm with every output touched shipped a fresh binary
+FAIL: a new commit with an unchanged tree recompiled
+FAIL: a one-project change did not reuse the other projects, or shipped a stale binary
+rc=1

@@ -1,6 +1,6 @@
 # Next phases (5-8)
 
-Phase 5 started on 2026-10-14 under the owner's redefinition (D96); Phases 6 to 8 are planned, not started (requirements.md section 5). Each work package gives the goal, the DONE WHEN clause as written in the requirements, the entry gates and the owner steps. Before starting a phase, write its blast-radius estimate in four counted dimensions (what breaks and how many, furthest environment reached, time to detect, time to roll back and who) and answer the security pre-flight (requirements.md sections 7.1 and 7.2 are the model). If time to detect exceeds time to roll back, add signal before starting.
+Phase 5 met its DONE WHEN on 2026-10-14 under the owner's redefinition (D96); Phases 6 to 8 are planned, not started (requirements.md section 5). Each work package gives the goal, the DONE WHEN clause as written in the requirements, the entry gates and the owner steps. Before starting a phase, write its blast-radius estimate in four counted dimensions (what breaks and how many, furthest environment reached, time to detect, time to roll back and who) and answer the security pre-flight (requirements.md sections 7.1 and 7.2 are the model). If time to detect exceeds time to roll back, add signal before starting.
 
 Working rules that carry over: write tests red first and mutation-test queue, scale and key logic; layer the controller as domain, application, infrastructure with a test that fails when the domain imports infrastructure; record every finalized decision as an ADR in the pull request that makes it; keep pull requests at 30 files or fewer; never narrow a check to go faster.
 
@@ -18,6 +18,8 @@ Effort for the receiving team is unknown: measure the first work package of Phas
 - During the load test a failed run switches environment and re-queues once, and a second failure is red.
 
 **Proof.** Load-test run URLs, queue-depth samples from the runners and jobs APIs, cache hit records, compile counts.
+
+**Status.** Met on 2026-10-14 ([results.md](results.md), section Load test and cache reuse; evidence in [docs/evidence/phase5](../evidence/phase5/INDEX.md)). Load round 11 queued 6.33 jobs per runner instance at peak with all three kinds at once; a new commit reuses every project's compiled output (7.5 s against 90.3 s cold on a 24-project solution); a failed run switches environment once and a second failure is red.
 
 **Deferred by D96, not met.** The JIT ephemeral pool per job, queue-driven scaling with a warm pool and scale-to-zero, priority classes, the queue-logic mutation test and the Q7 targets of the earlier DONE WHEN (every runner `ephemeral: true`; full suite 60 s or less with warm caches, queue-to-start p95 10 s or less, scale-from-zero 30 s or less, cache hit 95% or more, each for 5 consecutive runs). The rest of this section is the plan for that pool, kept for whoever takes it up.
 
