@@ -28,6 +28,7 @@ Option 3.
 - **`Test (Angular)`.** No change. It already ran beside the .NET job.
 - **The `Report` job** fails when the build or Angular job did not succeed, or when a test job ended in anything other than success or skipped.
 - **One runner path.** The unit `actions-runner@.service` binds the instance directory onto the shared path (`BindPaths=/opt/actions-runner-%i:/opt/actions-runner`) and starts the runner from there. Every instance then works in `/opt/actions-runner/_work/...`, so an outputs entry saved from any instance matches every other. systemd binds the path in a private mount namespace per service, which works in the unprivileged container without nesting (probed on the runner template's demo clone). `runner-restart.sh` used to find a busy worker by its command line, which every instance now shares. It now finds the worker by the unit's cgroup.
+  - Each unit also gets a private `/tmp` (`PrivateTmp=yes`). MSBuild nodes and the compiler server are found through sockets in `/tmp`. With one shared path and a shared `/tmp`, a build on one instance could run in a process of another instance, which sees a different directory at the same path. The preliminary load test showed this: one build skipped CoreCompile in 2 projects although every outputs entry missed, then failed with MSB3030 (run 38516088499).
 
 ## Consequences
 

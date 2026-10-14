@@ -8,8 +8,10 @@ RUNNER_DIR = "{{ ci_runner_dir }}"
 
 
 def path_problems(unit):
-    service = dict(re.findall(r"^(BindPaths|WorkingDirectory|ExecStart)=(.*)$", unit, re.M))
+    service = dict(re.findall(r"^(BindPaths|WorkingDirectory|ExecStart|PrivateTmp)=(.*)$", unit, re.M))
     found = []
+    if service.get("PrivateTmp") != "yes":
+        found.append("the instances share /tmp, so a build can reach another instance's MSBuild node or compiler server")
     if service.get("BindPaths") != f"{RUNNER_DIR}-%i:{RUNNER_DIR}":
         found.append("the instance directory is not bound to the shared runner path")
     if service.get("WorkingDirectory") != RUNNER_DIR:
@@ -32,6 +34,7 @@ class RunnerUnitTests(unittest.TestCase):
             "instance start path": text.replace(f"ExecStart={RUNNER_DIR}/run.sh", f"ExecStart={RUNNER_DIR}-%i/run.sh"),
             "instance working directory": text.replace(f"WorkingDirectory={RUNNER_DIR}\n", f"WorkingDirectory={RUNNER_DIR}-%i\n"),
             "no bind": text.replace(f"BindPaths={RUNNER_DIR}-%i:{RUNNER_DIR}\n", ""),
+            "shared /tmp": text.replace("PrivateTmp=yes\n", ""),
         }
         for name, mutated in mutants.items():
             with self.subTest(name):

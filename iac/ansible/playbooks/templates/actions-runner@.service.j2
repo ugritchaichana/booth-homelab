@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 User=runner
 BindPaths={{ ci_runner_dir }}-%i:{{ ci_runner_dir }}
+PrivateTmp=yes
 WorkingDirectory={{ ci_runner_dir }}
 RuntimeDirectory=actions-runner-%i
 RuntimeDirectoryMode=0750
