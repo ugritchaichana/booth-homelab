@@ -45,6 +45,7 @@ def runners(status="online"):
 RUNS = "/actions/runs?per_page=100"
 SDET = ".github/workflows/sdet-ci.yml"
 DRILL = ".github/workflows/sdet-fallback-drill.yml"
+CALLBACK = ".github/workflows/sdet-callback.yml"
 
 
 def runs_list(*runs):
@@ -140,7 +141,8 @@ class SelectRunnerTests(ScriptCase):
     def test_a_full_queue_sends_the_new_run_to_hosted_and_reads_only_other_open_sdet_runs(self):
         routes = {"/actions/runners?per_page=100": [200, runners()],
                   RUNS: [200, runs_list((9, "in_progress", SDET), (101, "in_progress", SDET), (102, "queued", DRILL), (103, "in_progress", ".github/workflows/iac-ci.yml"),
-                                        (90, "completed", SDET), (91, "completed", ".github/workflows/report-ci.yml"))],
+                                        (104, "in_progress", CALLBACK), (92, "completed", CALLBACK), (90, "completed", SDET),
+                                        (91, "completed", ".github/workflows/report-ci.yml"))],
                   "/actions/runs/101/jobs?per_page=100": [200, jobs_doc(8)], "/actions/runs/102/jobs?per_page=100": [200, jobs_doc(7)],
                   "/actions/runs/90/jobs?per_page=100": [200, jobs_doc(1, status="completed")]}
         outputs, calls, _, _ = self.run_select(routes, SUITES="angular")

@@ -47,8 +47,8 @@ Option 5.
   - `RUNNER_QUEUE_CEILING` is the cap, 15 by default.
 - **Data.** `Select Runner` uses the workflow token, which can read actions.
   1. One list of the 100 most recent runs.
-  2. The jobs of each open run of an `sdet-*` workflow, except the run itself.
-  3. The jobs of the 3 most recent completed `sdet-*` runs.
+  2. The jobs of each open run of a workflow that calls the pipeline (`sdet-ci.yml`, `sdet-fallback-drill.yml`), except the run itself. The callback workflow is left out: its jobs never run on Proxmox, and its runs, being the latest to finish, would hide the history.
+  3. The jobs of the 3 most recent completed runs of those workflows.
 
   That is 4 calls plus one per open run. The workflow token allows 1,000 requests per hour per repository. If any call fails, the ceiling is skipped, the run is routed by health alone, and the reason says why.
 

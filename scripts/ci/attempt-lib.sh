@@ -3,6 +3,7 @@
 
 api="${GITHUB_API_URL:-https://api.github.com}"
 lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pipeline_callers='[".github/workflows/sdet-ci.yml", ".github/workflows/sdet-fallback-drill.yml"]'
 
 fetch() {
   printf 'Authorization: Bearer %s\n' "$2" | curl -sS -o "$3" -w '%{http_code}' --max-time 15 -H @- \
@@ -38,9 +39,9 @@ read_queue() {
     echo "runs list returned HTTP $code: $(why "$dir/runs.json")"
     return 0
   fi
-  open_ids="$(jq -r --argjson self "$RUN_ID" '.workflow_runs[] | select((.path // "") | startswith(".github/workflows/sdet-"))
+  open_ids="$(jq -r --argjson self "$RUN_ID" --argjson callers "$pipeline_callers" '.workflow_runs[] | select(.path as $p | $callers | index($p))
     | select(.status != "completed" and .id != $self) | .id' "$dir/runs.json" 2> "$dir/jq.err")" || { echo "runs list is not readable: $(head -c 200 "$dir/jq.err")"; return 0; }
-  done_ids="$(jq -r '[.workflow_runs[] | select((.path // "") | startswith(".github/workflows/sdet-")) | select(.status == "completed")][:3][] | .id' "$dir/runs.json")"
+  done_ids="$(jq -r --argjson callers "$pipeline_callers" '[.workflow_runs[] | select(.path as $p | $callers | index($p)) | select(.status == "completed")][:3][] | .id' "$dir/runs.json")"
   for id in $open_ids; do
     code="$(fetch "$api/repos/$REPOSITORY/actions/runs/$id/jobs?per_page=100" "$GH_TOKEN" "$dir/open/$id.json")"
     [ "$code" = 200 ] || { echo "jobs of run $id returned HTTP $code: $(why "$dir/open/$id.json")"; return 0; }
