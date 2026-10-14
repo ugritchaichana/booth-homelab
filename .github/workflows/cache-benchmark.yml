@@ -23,7 +23,7 @@ permissions:
 jobs:
   bench:
     name: Large-solution benchmark
-    runs-on: ${{ inputs.runner == 'proxmox' && fromJSON('["self-hosted", "proxmox", "dotnet"]') || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner == 'proxmox' && fromJSON('["self-hosted", "linux", "proxmox", "dotnet-unit-auto"]') || 'ubuntu-latest' }}
     timeout-minutes: 90
     steps:
       - name: Checkout Repository
