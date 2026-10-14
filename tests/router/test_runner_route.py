@@ -224,8 +224,40 @@ class DecideTests(unittest.TestCase):
     def test_online_runners_route_to_proxmox_with_the_count(self):
         hosted, reason = self.decide()
         self.assertFalse(hosted)
-        self.assertIn("3 of 3", reason)
-        self.assertIn("HTTP 200", reason)
+        self.assertEqual(reason, "a Proxmox runner online for every role (HTTP 200: dotnet-unit-auto 1 of 1, "
+                                 "dotnet-integration-auto 1 of 1, workspace-unit-auto 1 of 1)")
+
+    def test_each_suite_needs_only_its_own_roles(self):
+        expected = {"all": ["dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto"],
+                    "dotnet": ["dotnet-unit-auto", "dotnet-integration-auto"], "angular": ["workspace-unit-auto"],
+                    "": ["dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto"]}
+        for suites, roles in expected.items():
+            with self.subTest(suites=suites):
+                self.assertEqual(list(runner_route.needed_roles(suites)), roles)
+
+    def test_one_needed_role_offline_routes_the_whole_run_hosted_and_names_it(self):
+        doc = runners()
+        doc["runners"][2]["status"] = "offline"
+        hosted, reason = self.decide(runners=doc)
+        self.assertTrue(hosted)
+        self.assertIn("no Proxmox runner online for dotnet-integration-auto (HTTP 200:", reason)
+        self.assertIn("dotnet-integration-auto 0 of 1", reason)
+
+    def test_a_role_the_run_does_not_need_may_be_offline(self):
+        doc = runners()
+        doc["runners"][2]["status"] = "offline"
+        hosted, reason = self.decide(runners=doc, suites="angular")
+        self.assertFalse(hosted)
+        self.assertNotIn("dotnet", reason)
+
+    def test_a_shared_runner_without_a_role_label_counts_for_no_role(self):
+        doc = runners()
+        for runner in doc["runners"]:
+            runner["labels"] = [label for label in runner["labels"] if not label["name"].endswith("-auto")]
+            runner["labels"] += [{"name": "dotnet"}, {"name": "angular"}]
+        hosted, reason = self.decide(runners=doc)
+        self.assertTrue(hosted)
+        self.assertIn("dotnet-unit-auto 0 of 0", reason)
 
     def test_busy_runners_still_route_to_proxmox(self):
         doc = runners()
@@ -250,9 +282,9 @@ class DecideTests(unittest.TestCase):
     def test_malformed_runner_entries_are_skipped(self):
         doc = runners()
         doc["runners"] = ["not a runner", {"status": "online", "labels": None}, doc["runners"][0]]
-        hosted, reason = self.decide(runners=doc)
+        hosted, reason = self.decide(runners=doc, suites="angular")
         self.assertFalse(hosted)
-        self.assertIn("1 of 1", reason)
+        self.assertIn("workspace-unit-auto 1 of 1", reason)
 
     def test_forced_hosted_wins_on_every_attempt(self):
         for previous_env in ("", "hosted", "proxmox"):
@@ -273,7 +305,7 @@ class DecideTests(unittest.TestCase):
         hosted, reason = self.decide(previous_env="hosted")
         self.assertFalse(hosted)
         self.assertIn("the previous attempt ran on GitHub-hosted", reason)
-        self.assertIn("3 of 3", reason)
+        self.assertIn("a Proxmox runner online for every role", reason)
 
     def test_a_rerun_after_hosted_stays_hosted_when_no_runner_is_online(self):
         doc = runners()
@@ -431,7 +463,17 @@ class CliTests(unittest.TestCase):
         out = self.run_cli(["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "200",
                             "--runners", str(FIXTURES / "runners-online.json")])
         self.assertEqual(out["hosted"], "false")
-        self.assertIn("3 of 3", out["reason"])
+        self.assertIn("workspace-unit-auto 1 of 1", out["reason"])
+
+    def test_decide_passes_the_suites_on(self):
+        doc = runners()
+        doc["runners"][0]["status"] = "offline"
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "runners.json"
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            base = ["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "200", "--runners", str(path)]
+            self.assertEqual(self.run_cli(base + ["--suites", "dotnet"])["hosted"], "false")
+            self.assertEqual(self.run_cli(base)["hosted"], "true")
 
     def test_decide_switches_after_an_attempt_on_proxmox(self):
         with tempfile.TemporaryDirectory() as d:

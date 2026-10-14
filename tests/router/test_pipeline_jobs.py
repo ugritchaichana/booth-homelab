@@ -69,6 +69,60 @@ class PipelineSplitTests(unittest.TestCase):
                 self.assertTrue(split_problems(mutated_pipeline, mutated_report))
 
 
+PLACEMENT = {"dotnet": "unit_labels", "dotnet-unit": "unit_labels", "dotnet-cache-save": "unit_labels",
+             "dotnet-integration": "integration_labels", "angular-jest": "angular_labels", "angular-cache-save": "angular_labels"}
+
+
+def placement_problems(pipeline_text):
+    jobs = yaml.safe_load(pipeline_text)["jobs"]
+    found = []
+    exposed = jobs["select-runner"].get("outputs", {})
+    for output in sorted(set(PLACEMENT.values())):
+        if exposed.get(output) != f"${{{{ steps.decide.outputs.{output} }}}}":
+            found.append(f"select-runner does not expose {output}")
+    for name, job in jobs.items():
+        runs_on = str(job.get("runs-on"))
+        expected = PLACEMENT.get(name)
+        if expected and runs_on != f"${{{{ fromJSON(needs.select-runner.outputs.{expected}) }}}}":
+            found.append(f"{name} runs on {runs_on}, not its own runner")
+        if not expected and "needs.select-runner" in runs_on:
+            found.append(f"{name} takes a routed runner without a role")
+    return found
+
+
+class PlacementTests(unittest.TestCase):
+    def text(self):
+        return PIPELINE.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    def test_each_job_runs_on_the_runner_of_its_test_kind(self):
+        self.assertEqual(placement_problems(self.text()), [])
+
+    def test_mutants_of_the_placement_are_caught(self):
+        pipeline = self.text()
+        integration = "    runs-on: ${{ fromJSON(needs.select-runner.outputs.integration_labels) }}\n"
+        hosted = "    runs-on: ubuntu-latest\n"
+        last = pipeline.rindex(hosted)
+        mutants = {
+            "integration on the unit runner": pipeline.replace(integration, integration.replace("integration_labels", "unit_labels")),
+            "integration labels not exposed": pipeline.replace("      integration_labels: ${{ steps.decide.outputs.integration_labels }}\n", ""),
+            "the report on a routed runner": pipeline[:last] + integration + pipeline[last + len(hosted):],
+        }
+        for name, mutated in mutants.items():
+            with self.subTest(name):
+                self.assertNotEqual(mutated, pipeline)
+                self.assertTrue(placement_problems(mutated))
+
+    def test_every_job_that_asks_for_proxmox_names_a_role(self):
+        roles = ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")
+        found = []
+        for path in sorted(PIPELINE.parent.glob("*.yml")):
+            for name, job in (yaml.safe_load(path.read_text(encoding="utf-8")).get("jobs") or {}).items():
+                runs_on = str(job.get("runs-on"))
+                if "proxmox" in runs_on and not any(role in runs_on for role in roles):
+                    found.append(f"{path.name} job {name}")
+        self.assertEqual(found, [])
+
+
 CALLER = REPO / ".github" / "workflows" / "sdet-ci.yml"
 
 

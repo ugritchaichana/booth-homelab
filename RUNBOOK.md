@@ -489,9 +489,22 @@ $pve sudo ls /var/lib/homelab/guest-firewall-guard/violations
 
 A container created before its firewall exists is flagged at once; create guests stopped and start them only after a firewall read-back (the cache container does, ADR 0047, row 62, cache API).
 
-### 3.7 The CI runner (`ci-lxc-runner-v6`, VMID 9503)
+### 3.7 The CI runners (one per test kind, VMIDs 9504-9506)
 
-One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 16 GiB), entry `ci-lxc-runner` in `iac/tofu/stacks/guest/guests.yml` (slot 3; create it as in 2.10). It runs three runner instances, `pve01-ci-lxc-runner-1` to `-3`, as the user `runner`, which has no sudo. Each instance lives in `/opt/actions-runner-N`, and its unit binds that directory onto `/opt/actions-runner` in the unit's own mount namespace. Every instance therefore works in `/opt/actions-runner/_work/...`, and a build-outputs entry saved from one instance serves the others (ADR 0064). The telemetry job prints `Runner:` and `Workspace:`; the workspace line must read the same path on every instance. Labels: `self-hosted`, `linux`, `proxmox`, `dotnet`, `angular` (ADR 0060).
+There is one unprivileged container from `lxc-runner` per test kind (ADR 0066). Each has one entry in `iac/tofu/stacks/guest/guests.yml`; create it as in 2.10.
+
+| Runner | Container | Flavor | Jobs |
+|---|---|---|---|
+| `pve01-dotnet-unit-auto` | `dotnet-unit-auto-lxc-runner-v7`, VMID 9504, slot 4 | `aws/c5.xlarge` | Build (.NET), Test (.NET unit), the .NET cache save |
+| `pve01-dotnet-integration-auto` | `dotnet-integration-auto-lxc-runner-v7`, VMID 9505, slot 5 | `aws/c5.large` | Test (.NET integration) |
+| `pve01-workspace-unit-auto` | `workspace-unit-auto-lxc-runner-v7`, VMID 9506, slot 6 | `aws/c5.large` | Test (Angular), the Angular cache save |
+
+- Each runner is one instance, `actions-runner@1`, run as the user `runner`, which has no sudo.
+- Its labels are `self-hosted`, `linux`, `proxmox` and its role.
+- The unit binds `/opt/actions-runner-1` onto `/opt/actions-runner` and gives the job a private `/tmp`, so every runner works in `/opt/actions-runner/_work/...` (ADR 0064).
+- The build, integration and Angular jobs print `Show Runner` with the runner, host, cores and workspace.
+
+The shared container `ci-lxc-runner-v6` (VMID 9503, three instances labelled `dotnet` and `angular`, ADR 0060) serves `master` until the role pipeline is merged. Then deregister its instances, stop the container and keep it (D86).
 
 1. Register and converge. Role: operator (WSL), with a token of an account that administers the repository.
 
@@ -499,12 +512,19 @@ One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 
    GH_TOKEN="$(gh auth token)" bash scripts/iac/ansible.sh iac/ansible/playbooks/ci-runner.yml -i iac/inventory/hosts.yml
    ```
 
-   Expected: the last task lists three runners `online`; a second run reports `changed=0`. The registration token goes to `config.sh` on stdin and never appears in a log.
+   Expected:
+   - The last task lists the three role runners `online`.
+   - A second run reports `changed=0`.
+   - The registration token goes to `config.sh` on stdin and never appears in a log.
+   - A changed script or unit restarts a running instance with `systemctl try-restart`.
 
 2. Route CI. `Select Runner` decides each run and prints why, as `Runner route (attempt N): <runner> because <reason>`, in its log, the run summary and the pull-request comment (ADR 0062):
    - **Forced hosted.** `CI_RUNNER` other than `proxmox`, a fork pull request, or a dispatch with `force_ubuntu_runner=true`.
    - **Rerun of an attempt on Proxmox.** A rerun of an attempt that ran on Proxmox runs hosted, whatever the cause. A rerun of an attempt on hosted goes back to the health check.
-   - **Health check.** Otherwise it lists the runners with the secret `RUNNER_STATUS_TOKEN`. One online `proxmox` runner keeps the run on Proxmox, busy or not. None online sends it to hosted. Without the token, or on an API error, `CI_RUNNER` decides.
+   - **Health check.** Otherwise it lists the runners with the secret `RUNNER_STATUS_TOKEN`.
+     - A run stays on Proxmox when every role its suites need has an online runner, busy or not. `all` needs all three roles, `dotnet` the two .NET roles, and `angular` needs `workspace-unit-auto`.
+     - If any needed role has no runner online, the whole run goes to hosted.
+     - Without the token, or on an API error, `CI_RUNNER` decides.
 
    ```sh
    gh variable set CI_RUNNER --body proxmox --repo <owner>/<repository>
@@ -517,7 +537,12 @@ One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 
 
    Rotate it before it expires by repeating both steps. An expired token shows `runner health check failed (HTTP 401)` in the route reason, and routing falls back to `CI_RUNNER`.
 
-   Prove the hosted route. Stop the instances with `$pve sudo pct exec 9503 -- systemctl stop actions-runner@1 actions-runner@2 actions-runner@3`. Wait until the runners API lists all three `offline`, then dispatch `gh workflow run sdet-ci.yml --ref <branch>`. Expected: `no Proxmox runner online (HTTP 200, 0 of 3)` and every job on `GitHub Actions` runners. Start the instances again with `systemctl start` and the same unit names.
+   Prove the hosted route.
+   1. Stop one role, for example `$pve sudo pct exec 9505 -- systemctl stop actions-runner@1`.
+   2. Wait until the runners API lists `pve01-dotnet-integration-auto` as `offline`.
+   3. Dispatch `gh workflow run sdet-ci.yml --ref <branch>`.
+
+   Expected: `no Proxmox runner online for dotnet-integration-auto (HTTP 200: ... dotnet-integration-auto 0 of 1 ...)`, and every job runs on `GitHub Actions` runners. A dispatch with `-f suites=angular` still stays on Proxmox. Start the unit again with `systemctl start`.
 
 3. Read a job. Every job on the runner starts with the job-start hook:
 
