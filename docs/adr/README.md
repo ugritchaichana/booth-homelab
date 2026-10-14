@@ -89,7 +89,7 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0046 | [Open one group-level path from runners to the cache](0046-open-one-group-level-path-from-runners-to-the-cache.md) | Accepted |
 | 0047 | [Give the guest firewall guard a per-vnet policy](0047-give-the-guest-firewall-guard-a-per-vnet-policy.md) | Accepted |
 | 0048 | [Serve the build cache with bazel-remote](0048-serve-the-build-cache-with-bazel-remote.md) | Accepted |
-| 0049 | [Key caches by content and restore outputs only on an exact match](0049-key-caches-by-content-and-restore-outputs-only-on-an-exact-match.md) | Accepted |
+| 0049 | [Key caches by content and restore outputs only on an exact match](0049-key-caches-by-content-and-restore-outputs-only-on-an-exact-match.md) | Accepted; output key amended by 0063 |
 | 0050 | [Allow anonymous cache reads and gate writes with one writer credential](0050-allow-anonymous-cache-reads-and-gate-writes-with-one-writer-credential.md) | Accepted |
 | 0051 | [Keep OpenTofu state local instead of moving it to the cache](0051-keep-opentofu-state-local-instead-of-moving-it-to-the-cache.md) | Accepted |
 | 0052 | [Publish sanitized evidence and knowledge in the repository](0052-publish-sanitized-evidence-and-knowledge-in-the-repository.md) | Accepted |
@@ -103,3 +103,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0060 | [Run own CI on one persistent runner container behind a job-start guard](0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md) | Accepted |
 | 0061 | [Report each SDET run on its pull request from a workflow_run callback](0061-report-each-sdet-run-on-its-pull-request-from-a-workflow-run-callback.md) | Accepted |
 | 0062 | [Route CI by runner health and retry a failed run once on the other environment](0062-route-ci-by-runner-health-and-retry-a-failed-run-once-on-the-other-environment.md) | Accepted |
+| 0063 | [Cache build outputs per project and keep the commit id out of the version](0063-cache-build-outputs-per-project-and-keep-the-commit-id-out-of-the-version.md) | Accepted |

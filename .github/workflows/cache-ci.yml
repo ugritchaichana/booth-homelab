@@ -6,6 +6,7 @@ on:
       - 'scripts/ci/build_cache/**'
       - 'tests/cache/**'
       - 'tests/requirements-coverage-ci.txt'
+      - 'tests/condition_coverage.py'
       - '.github/workflows/reusable-sdet-pipeline.yml'
       - 'apps/**'
       - '.github/workflows/cache-ci.yml'
@@ -14,6 +15,7 @@ on:
       - 'scripts/ci/build_cache/**'
       - 'tests/cache/**'
       - 'tests/requirements-coverage-ci.txt'
+      - 'tests/condition_coverage.py'
       - '.github/workflows/reusable-sdet-pipeline.yml'
       - 'apps/**'
       - '.github/workflows/cache-ci.yml'
@@ -58,11 +60,21 @@ jobs:
       - name: Unit tests and dependency rule, measured
         run: |
           coverage run --branch --source=scripts/ci/build_cache -m unittest discover -s tests/cache -p 'test_*.py' -v
-          coverage report -m --precision=2 --fail-under=86
+          coverage report -m --precision=2 --fail-under=100
 
       - name: Print the Line and Branch Split
         run: |
           coverage json -o - | python3 -c 'import json,sys; t=json.load(sys.stdin)["totals"]; print("lines %.2f%% (%d of %d), branches %.2f%% (%d of %d)" % (100*t["covered_lines"]/t["num_statements"], t["covered_lines"], t["num_statements"], 100*t["covered_branches"]/t["num_branches"], t["covered_branches"], t["num_branches"]))'
+
+      - name: Condition coverage, every module
+        run: |
+          status=0
+          for module in $(find scripts/ci/build_cache -name '*.py' ! -name '__main__.py' | sort); do
+            echo "== $module"
+            out="$(python3 tests/condition_coverage.py "$module" tests/cache --package-root scripts/ci --fail-under 100 2>&1)" || status=1
+            grep -E '^conditions|  line|^(FAIL|ERROR):' <<< "$out" || true
+          done
+          exit $status
 
       - name: NuGet restore in locked mode
         run: dotnet restore apps/backend/SdetTestingRig.sln --locked-mode

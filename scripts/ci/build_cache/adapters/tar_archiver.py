@@ -110,7 +110,7 @@ class TarArchiver:
                 out = inflater.decompress(data, limit + 1)
             except zlib.error as exc:
                 raise ArchiveRejected(f"gzip stream unreadable: {exc}") from exc
-            if len(out) > limit or inflater.unconsumed_tail:
+            if len(out) > limit:
                 raise ArchiveRejected("decompressed size exceeds the limit")
             if not inflater.eof:
                 raise ArchiveRejected("gzip stream truncated")

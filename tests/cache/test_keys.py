@@ -6,15 +6,16 @@ from build_cache.domain.models import Platform
 
 PLATFORM = Platform("lxc-runner", "debian", "13", "x86_64")
 LOCKS = {"apps/backend/a/packages.lock.json": "a" * 64, "apps/backend/b/packages.lock.json": "b" * 64}
-TREES = {"apps/backend": "1" * 40, "apps/fixtures": "2" * 40}
+INPUTS = {"apps/backend/src/Api": "1" * 40, "apps/fixtures/cases.json": "2" * 40}
+PROJECT = "apps/backend/src/Api/Api.csproj"
 
 
 def dep(platform=PLATFORM, toolchain="8.0.425", locks=LOCKS, namespace="nuget"):
     return keys.dependency_key(namespace, platform, toolchain, locks)
 
 
-def out(platform=PLATFORM, sdk="8.0.425", configuration="Release", trees=TREES, root="/home/runner/work/repo"):
-    return keys.outputs_key(platform, sdk, configuration, trees, root)
+def out(platform=PLATFORM, sdk="8.0.425", configuration="Release", project=PROJECT, inputs=INPUTS, root="/home/runner/work/repo"):
+    return keys.outputs_key(platform, sdk, configuration, project, inputs, root)
 
 
 class DependencyKeyTests(unittest.TestCase):
@@ -54,11 +55,18 @@ class DependencyKeyTests(unittest.TestCase):
 class OutputsKeyTests(unittest.TestCase):
     def test_stable(self):
         self.assertEqual(out(), out())
-        self.assertEqual(out(trees=dict(reversed(list(TREES.items())))), out())
+        self.assertEqual(out(inputs=dict(reversed(list(INPUTS.items())))), out())
 
-    def test_changes_when_any_tree_id_changes(self):
-        for path in TREES:
-            self.assertNotEqual(out(trees=dict(TREES, **{path: "3" * 40})), out(), path)
+    def test_changes_when_any_input_object_id_changes(self):
+        for path in INPUTS:
+            self.assertNotEqual(out(inputs=dict(INPUTS, **{path: "3" * 40})), out(), path)
+
+    def test_changes_when_an_input_is_added_or_removed(self):
+        self.assertNotEqual(out(inputs=dict(INPUTS, **{"Directory.Build.props": "4" * 40})), out())
+        self.assertNotEqual(out(inputs={"apps/backend/src/Api": "1" * 40}), out())
+
+    def test_two_projects_with_the_same_inputs_never_share_a_key(self):
+        self.assertNotEqual(out(project="apps/backend/tests/Api.Tests/Api.Tests.csproj"), out())
 
     def test_changes_with_sdk_configuration_and_platform(self):
         self.assertNotEqual(out(sdk="8.0.426"), out())
@@ -68,14 +76,18 @@ class OutputsKeyTests(unittest.TestCase):
     def test_changes_when_the_workspace_root_changes(self):
         self.assertNotEqual(out(root="/home/runner/work/other"), out())
 
-    def test_entries_saved_under_the_first_outputs_schema_are_unreachable(self):
-        first = {"schema": 1, "namespace": keys.OUTPUT_KIND, "platform": keys._platform_record(PLATFORM), "toolchain": "8.0.425",
-                 "configuration": "Release", "workspace_root": "/home/runner/work/repo", "trees": keys._sorted_pairs(TREES)}
-        self.assertNotEqual(out(), f"{keys.OUTPUT_KIND}-{keys.digest(first)}")
+    def test_entries_saved_under_an_earlier_outputs_schema_are_unreachable(self):
+        for schema in (1, 2):
+            earlier = {"schema": schema, "namespace": keys.OUTPUT_KIND, "platform": keys._platform_record(PLATFORM), "toolchain": "8.0.425",
+                       "configuration": "Release", "workspace_root": "/home/runner/work/repo", "trees": keys._sorted_pairs(INPUTS)}
+            self.assertNotEqual(out(), f"{keys.OUTPUT_KIND}-{keys.digest(earlier)}", schema)
+        self.assertEqual(keys.OUTPUTS_SCHEMA, 3)
 
-    def test_rejects_empty_trees(self):
-        with self.assertRaises(ValueError):
-            out(trees={})
+    def test_rejects_empty_inputs_and_an_empty_project(self):
+        with self.assertRaisesRegex(ValueError, "object id"):
+            out(inputs={})
+        with self.assertRaisesRegex(ValueError, "project"):
+            out(project="")
 
 
 class ShortKeyTests(unittest.TestCase):
