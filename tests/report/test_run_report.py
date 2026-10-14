@@ -103,6 +103,11 @@ class ParseTests(unittest.TestCase):
                '2026-10-08T07:57:13.0000000Z {"op": "save", "kind": "nuget", "status": "saved"}\n')
         self.assertEqual(run_report.restore_hits(log), {"nuget": "hit", "dotnet-outputs": "miss"})
 
+    def test_per_project_output_records_are_counted_together(self):
+        record = '2026-10-14T05:00:00.0000000Z {{"kind": "dotnet-outputs", "op": "restore", "project": "{0}", "status": "{1}"}}\n'
+        log = "".join(record.format(project, status) for project, status in (("a.csproj", "hit"), ("b.csproj", "miss"), ("c.csproj", "hit")))
+        self.assertEqual(run_report.restore_hits(log), {"dotnet-outputs": "2/3 hit"})
+
 
 class RenderTests(unittest.TestCase):
     def suites(self):

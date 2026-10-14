@@ -51,12 +51,13 @@ The `select-runner` job picks the runner labels once; every other job needs it. 
 
 | Job | Restores | Saves |
 |---|---|---|
-| Build and Test (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` | none; on a self-hosted default-branch push it packs the payloads as an artifact after the compile and before the tests |
+| Build (.NET) | `nuget`, then `dotnet restore --locked-mode`, then `dotnet-outputs` (one entry per project) | none; on a self-hosted default-branch push it packs the payloads as an artifact after the compile. It lists the affected test projects and uploads their built assemblies as `dotnet-test-bin` |
+| Test (.NET unit), Test (.NET integration) | none; they download `dotnet-test-bin` and run `dotnet test <assembly>` without building, side by side with Angular | none; each uploads its TRX files (`sdet-dotnet-unit-results`, `sdet-dotnet-integration-results`) and is skipped when no suite of its kind is affected |
 | Cache save (.NET) | none | `nuget`, `dotnet-outputs`; default-branch push on self-hosted runners only, when the compile succeeded (job output `compiled`, even if a test failed), environment `cache-writer` |
 | Test (Angular) | `node_modules`, `npm ci` on a miss | none; on a self-hosted default-branch push it packs `node_modules` as an artifact |
 | Cache save (Angular) | none | `node_modules`; same conditions as the .NET save |
 
-Composite actions: `.github/actions/build-cache` (restore and save), `run-affected-tests` (the selector), `run-angular-jest`.
+Composite actions: `.github/actions/build-cache` (restore and save), `run-affected-tests` (the selector in list mode, which names the affected unit and integration projects without running them), `run-angular-jest`. The job split and the shared runner path are [ADR 0064](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0064-build-dotnet-once-test-unit-and-integration-as-parallel-jobs-and-give-every-runner-instance-one-path.md).
 
 ## Runner selection
 

@@ -12,7 +12,9 @@ attempt="$(jq -r '.run_attempt' "$work/run.json")"
 gh api --paginate "repos/$REPOSITORY/actions/runs/$RUN_ID/attempts/$attempt/jobs?per_page=100" | jq -s '{jobs: (map(.jobs) | add)}' > "$work/jobs.json"
 
 mkdir -p "$work/dotnet" "$work/angular" "$work/logs"
-gh run download "$RUN_ID" -R "$REPOSITORY" -n sdet-dotnet-test-results -D "$work/dotnet" 2> /dev/null || echo "sdet-report: no .NET test results in run $RUN_ID"
+for name in sdet-dotnet-unit-results sdet-dotnet-integration-results sdet-dotnet-test-results; do
+  gh run download "$RUN_ID" -R "$REPOSITORY" -n "$name" -D "$work/dotnet" 2> /dev/null || echo "sdet-report: no $name in run $RUN_ID"
+done
 gh run download "$RUN_ID" -R "$REPOSITORY" -n sdet-angular-results -D "$work/angular" 2> /dev/null || echo "sdet-report: no Angular test results in run $RUN_ID"
 jq -r '.jobs[] | select(.conclusion != "skipped") | select(.conclusion == "failure" or .conclusion == "timed_out" or (.name | test("NET|Angular"))) | .id' "$work/jobs.json" | tr -d '\r' | while read -r id; do
   url="${GITHUB_API_URL:-https://api.github.com}/repos/$REPOSITORY/actions/jobs/$id/logs"

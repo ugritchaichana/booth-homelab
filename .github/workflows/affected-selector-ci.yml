@@ -5,12 +5,14 @@ on:
     branches: [ master, main ]
     paths:
       - 'scripts/apps/dotnet-affected-test.*'
+      - 'scripts/apps/dotnet-run-tests.sh'
       - 'tests/**'
       - '.github/workflows/affected-selector-ci.yml'
   pull_request:
     branches: [ master, main ]
     paths:
       - 'scripts/apps/dotnet-affected-test.*'
+      - 'scripts/apps/dotnet-run-tests.sh'
       - 'tests/**'
       - '.github/workflows/affected-selector-ci.yml'
   workflow_dispatch:
@@ -38,6 +40,11 @@ jobs:
 
       - name: Run Selector Test Harness
         run: ./tests/verify-affected-graph.sh
+
+      - name: Run the Test Runner Checks
+        run: |
+          shellcheck scripts/apps/dotnet-run-tests.sh tests/verify-run-tests.sh
+          bash tests/verify-run-tests.sh
 
       - name: Mutation Check (Each Fail-Closed Mutant Must Fail Its Scenario)
         run: |

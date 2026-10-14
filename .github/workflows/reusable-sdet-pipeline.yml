@@ -20,14 +20,17 @@ on:
         default: false
     outputs:
       cache_hit:
-        description: 'Cache hit status'
+        description: 'true when every project restored its build outputs from the cache'
         value: ${{ jobs.dotnet.outputs.cache_hit_dotnet_outputs }}
       build_duration_ms:
         description: 'Build duration in ms'
         value: ${{ jobs.dotnet.outputs.build_duration_ms }}
-      test_duration_ms:
-        description: 'Test duration in ms'
-        value: ${{ jobs.dotnet.outputs.test_duration_ms }}
+      unit_duration_ms:
+        description: '.NET unit test duration in ms'
+        value: ${{ jobs.dotnet-unit.outputs.test_duration_ms }}
+      integration_duration_ms:
+        description: '.NET integration test duration in ms'
+        value: ${{ jobs.dotnet-integration.outputs.test_duration_ms }}
       angular_duration_ms:
         description: 'Angular Jest duration in ms'
         value: ${{ jobs.angular-jest.outputs.angular_duration_ms }}
@@ -106,6 +109,8 @@ jobs:
           echo "=========================================================="
           echo "Runner Mode: ${{ needs.select-runner.outputs.runner_label }}"
           echo "Hostname:    $(hostname)"
+          echo "Runner:      $RUNNER_NAME"
+          echo "Workspace:   $GITHUB_WORKSPACE"
           echo "Kernel:      $(uname -r)"
           echo "CPU Cores:   $(nproc)"
           echo "Memory:"
@@ -122,7 +127,7 @@ jobs:
           echo "=========================================================="
 
   dotnet:
-    name: Build and Test (.NET)
+    name: Build (.NET)
     needs: [select-runner]
     timeout-minutes: 30
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
@@ -131,11 +136,14 @@ jobs:
       BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
     outputs:
       compiled: ${{ steps.compile.outcome == 'success' }}
-      tested: ${{ steps.run-tests.outcome == 'success' }}
       cache_hit_nuget: ${{ steps.restore-nuget.outputs.hit }}
       cache_hit_dotnet_outputs: ${{ steps.restore-outputs.outputs.hit }}
+      restored_dotnet_outputs: ${{ steps.restore-outputs.outputs.restored }}
+      compiled_projects: ${{ steps.compile.outputs.compiled_projects }}
+      reused_projects: ${{ steps.compile.outputs.reused_projects }}
       build_duration_ms: ${{ steps.compile.outputs.build_duration_ms }}
-      test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
+      unit_count: ${{ steps.select.outputs.unit_count }}
+      integration_count: ${{ steps.select.outputs.integration_count }}
       workspace: ${{ github.workspace }}
     steps:
       - name: Checkout Repository
@@ -176,13 +184,20 @@ jobs:
           echo "==> Building .NET 8 Backend Solution..."
           BUILD_START=$(date +%s%N)
           set +e
-          dotnet build apps/backend/SdetTestingRig.sln --configuration Release --no-restore /p:Deterministic=true
+          dotnet build apps/backend/SdetTestingRig.sln --configuration Release --no-restore /p:Deterministic=true "-flp:verbosity=detailed;logfile=$RUNNER_TEMP/build.log"
           rc=$?
           set -e
           BUILD_MS=$(( ($(date +%s%N) - BUILD_START) / 1000000 ))
-          echo "build_duration_ms=${BUILD_MS}" >> "$GITHUB_OUTPUT"
+          COMPILED=$(grep -cE 'Building target "CoreCompile" (completely|partially)' "$RUNNER_TEMP/build.log" || true)
+          REUSED=$(grep -c 'Skipping target "CoreCompile"' "$RUNNER_TEMP/build.log" || true)
+          {
+            echo "build_duration_ms=${BUILD_MS}"
+            echo "compiled_projects=${COMPILED}"
+            echo "reused_projects=${REUSED}"
+          } >> "$GITHUB_OUTPUT"
           echo "=========================================================="
           echo " [BENCHMARK] Build Time: ${BUILD_MS} ms"
+          echo " [BENCHMARK] CoreCompile ran in ${COMPILED} projects and was skipped in ${REUSED}"
           echo "=========================================================="
           exit $rc
 
@@ -203,21 +218,34 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-      - name: Execute Transitive Affected Tests (Unit & Integration)
-        id: run-tests
+      - name: Select Affected Test Projects
+        id: select
         uses: ./.github/actions/run-affected-tests
         with:
           base_ref: ${{ inputs.base_ref }}
           head_ref: HEAD
+          list-dir: ${{ runner.temp }}/test-bin
 
-      - name: Archive .NET Test Results
-        if: always()
+      - name: Stage Test Binaries
+        if: steps.select.outputs.unit_count != '0' || steps.select.outputs.integration_count != '0'
+        shell: bash
+        run: |
+          stage="$RUNNER_TEMP/test-bin"
+          while IFS= read -r project; do
+            [ -n "$project" ] || continue
+            mkdir -p "$stage/$(dirname "$project")"
+            cp -a "$(dirname "$project")/bin" "$stage/$(dirname "$project")/"
+          done < "$stage/affected.txt"
+          du -sh "$stage"
+
+      - name: Upload Test Binaries
+        if: steps.select.outputs.unit_count != '0' || steps.select.outputs.integration_count != '0'
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          name: sdet-dotnet-test-results
-          path: apps/backend/TestResults/
-          retention-days: 7
-          if-no-files-found: ignore
+          name: dotnet-test-bin
+          path: ${{ runner.temp }}/test-bin/
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Cache Hit Report
         if: always()
@@ -226,6 +254,106 @@ jobs:
           if [ -f "$RUNNER_TEMP/build-cache-stats.jsonl" ]; then
             PYTHONPATH=scripts/ci python3 -m build_cache report --stats-file "$RUNNER_TEMP/build-cache-stats.jsonl"
           fi
+
+  dotnet-unit:
+    name: Test (.NET unit)
+    needs: [select-runner, dotnet]
+    if: needs.dotnet.outputs.unit_count != '0'
+    timeout-minutes: 20
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+    outputs:
+      test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
+    steps:
+      - name: Checkout Test Runner
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/apps
+
+      - name: Setup .NET 8 SDK (Fallback Runner)
+        if: needs.select-runner.outputs.hosted == 'true'
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download Test Binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dotnet-test-bin
+          path: ${{ github.workspace }}
+
+      - name: Run .NET Unit Tests
+        id: run-tests
+        shell: bash
+        run: |
+          START=$(date +%s%N)
+          set +e
+          bash scripts/apps/dotnet-run-tests.sh affected-unit.txt apps/backend/TestResults
+          rc=$?
+          set -e
+          echo "test_duration_ms=$(( ($(date +%s%N) - START) / 1000000 ))" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Archive .NET Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: sdet-dotnet-unit-results
+          path: apps/backend/TestResults/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  dotnet-integration:
+    name: Test (.NET integration)
+    needs: [select-runner, dotnet]
+    if: needs.dotnet.outputs.integration_count != '0'
+    timeout-minutes: 20
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    env:
+      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
+    outputs:
+      test_duration_ms: ${{ steps.run-tests.outputs.test_duration_ms }}
+    steps:
+      - name: Checkout Test Runner
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/apps
+
+      - name: Setup .NET 8 SDK (Fallback Runner)
+        if: needs.select-runner.outputs.hosted == 'true'
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download Test Binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dotnet-test-bin
+          path: ${{ github.workspace }}
+
+      - name: Run .NET Integration Tests
+        id: run-tests
+        shell: bash
+        run: |
+          START=$(date +%s%N)
+          set +e
+          bash scripts/apps/dotnet-run-tests.sh affected-integration.txt apps/backend/TestResults
+          rc=$?
+          set -e
+          echo "test_duration_ms=$(( ($(date +%s%N) - START) / 1000000 ))" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Archive .NET Integration Test Results
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: sdet-dotnet-integration-results
+          path: apps/backend/TestResults/
+          retention-days: 7
+          if-no-files-found: ignore
 
   dotnet-cache-save:
     name: Cache (.NET)
@@ -390,58 +518,79 @@ jobs:
 
   summary:
     name: Report
-    needs: [select-runner, telemetry, dotnet, dotnet-cache-save, angular-cache-save, angular-jest]
+    needs: [select-runner, telemetry, dotnet, dotnet-unit, dotnet-integration, dotnet-cache-save, angular-cache-save, angular-jest]
     timeout-minutes: 5
     if: ${{ !cancelled() && needs.select-runner.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
       ROUTE_REASON: ${{ needs.select-runner.outputs.route_reason }}
+      RUNNER_LABEL: ${{ needs.select-runner.outputs.runner_label }}
+      BUILD_RESULT: ${{ needs.dotnet.result }}
+      UNIT_RESULT: ${{ needs.dotnet-unit.result }}
+      INTEGRATION_RESULT: ${{ needs.dotnet-integration.result }}
+      ANGULAR_RESULT: ${{ needs.angular-jest.result }}
+      HIT_NUGET: ${{ needs.dotnet.outputs.cache_hit_nuget }}
+      HIT_OUTPUTS: ${{ needs.dotnet.outputs.cache_hit_dotnet_outputs }}
+      RESTORED_OUTPUTS: ${{ needs.dotnet.outputs.restored_dotnet_outputs }}
+      HIT_NODE: ${{ needs.angular-jest.outputs.cache_hit_node_modules }}
+      COMPILED_PROJECTS: ${{ needs.dotnet.outputs.compiled_projects }}
+      REUSED_PROJECTS: ${{ needs.dotnet.outputs.reused_projects }}
+      BUILD_MS: ${{ needs.dotnet.outputs.build_duration_ms }}
+      UNIT_MS: ${{ needs.dotnet-unit.outputs.test_duration_ms }}
+      INTEGRATION_MS: ${{ needs.dotnet-integration.outputs.test_duration_ms }}
+      ANGULAR_MS: ${{ needs.angular-jest.outputs.angular_duration_ms }}
+      TARGET_BRANCH: ${{ inputs.target_branch }}
+      BASE_REF: ${{ inputs.base_ref }}
     steps:
       - name: Generate Pipeline Summary Report
         shell: bash
         run: |
-          HIT_NUGET="${{ needs.dotnet.outputs.cache_hit_nuget }}"
-          HIT_OUTPUTS="${{ needs.dotnet.outputs.cache_hit_dotnet_outputs }}"
-          HIT_NODE="${{ needs.angular-jest.outputs.cache_hit_node_modules }}"
-          BUILD_MS="${{ needs.dotnet.outputs.build_duration_ms }}"
-          DOTNET_TEST_MS="${{ needs.dotnet.outputs.test_duration_ms }}"
-          ANGULAR_MS="${{ needs.angular-jest.outputs.angular_duration_ms }}"
-          RUNNER_LABEL="${{ needs.select-runner.outputs.runner_label }}"
-
+          status() {
+            case "$1" in
+              success) echo "✅ Success" ;;
+              skipped) echo "⏭️ Skipped (no affected suite)" ;;
+              *) echo "❌ ${1:-not run}" ;;
+            esac
+          }
           if [ -n "$CACHE_URL" ]; then CACHE_ENDPOINT="Build cache service"; CACHE_STATE="Enabled"; else CACHE_ENDPOINT="Disabled (no CACHE_URL)"; CACHE_STATE="Off"; echo "Build Cache: disabled (no CACHE_URL)"; fi
 
           echo "=========================================================="
           echo "       HOMELAB CI/CD TUNING PERFORMANCE REPORT           "
           echo "=========================================================="
-          echo "Runner Mode:          ${RUNNER_LABEL}"
-          echo "Branch / Ref:         ${{ inputs.target_branch }}"
-          echo "Base Ref:             ${{ inputs.base_ref }}"
-          echo "Cache nuget:          ${HIT_NUGET:-false}"
-          echo "Cache dotnet-outputs: ${HIT_OUTPUTS:-false}"
-          echo "Cache node_modules:   ${HIT_NODE:-false}"
-          echo "Build Duration:       ${BUILD_MS:-N/A} ms"
-          echo ".NET Test Duration:   ${DOTNET_TEST_MS:-N/A} ms"
-          echo "Angular Test Duration:${ANGULAR_MS:-N/A} ms"
+          echo "Runner Mode:              ${RUNNER_LABEL}"
+          echo "Branch / Ref:             ${TARGET_BRANCH}"
+          echo "Base Ref:                 ${BASE_REF}"
+          echo "Cache nuget:              ${HIT_NUGET:-false}"
+          echo "Cache dotnet-outputs:     ${RESTORED_OUTPUTS:-0/0} projects restored"
+          echo "Cache node_modules:       ${HIT_NODE:-false}"
+          echo "CoreCompile:              ${COMPILED_PROJECTS:-N/A} compiled, ${REUSED_PROJECTS:-N/A} reused"
+          echo "Build Duration:           ${BUILD_MS:-N/A} ms"
+          echo ".NET Unit Duration:       ${UNIT_MS:-N/A} ms"
+          echo ".NET Integration Duration:${INTEGRATION_MS:-N/A} ms"
+          echo "Angular Test Duration:    ${ANGULAR_MS:-N/A} ms"
           echo "=========================================================="
 
-          # Write GitHub Step Summary
           {
             echo "## 🚀 Homelab SDET Performance & Optimization Report"
             echo ""
             echo "| Technology Stack | Target Runner | Duration | Status |"
             echo "| :--- | :--- | :--- | :--- |"
-            echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms** | ${{ needs.dotnet.outputs.compiled == 'true' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **.NET Unit & Integration Tests** | ${RUNNER_LABEL} | **${DOTNET_TEST_MS:-0} ms** | ${{ needs.dotnet.outputs.tested == 'true' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **Angular Jest Unit Tests** | ${RUNNER_LABEL} | **${ANGULAR_MS:-0} ms** | ${{ needs.angular-jest.result == 'success' && '✅ Success' || '❌ Failed' }} |"
-            echo "| **Build Cache** | ${CACHE_ENDPOINT} | nuget: \`${HIT_NUGET:-false}\`, dotnet-outputs: \`${HIT_OUTPUTS:-false}\`, node_modules: \`${HIT_NODE:-false}\` | ${CACHE_STATE} |"
+            echo "| **.NET 8 Solution Build** | ${RUNNER_LABEL} | **${BUILD_MS:-0} ms**, CoreCompile ${COMPILED_PROJECTS:-0} compiled / ${REUSED_PROJECTS:-0} reused | $(status "$BUILD_RESULT") |"
+            echo "| **.NET Unit Tests** | ${RUNNER_LABEL} | **${UNIT_MS:-0} ms** | $(status "$UNIT_RESULT") |"
+            echo "| **.NET Integration Tests** | ${RUNNER_LABEL} | **${INTEGRATION_MS:-0} ms** | $(status "$INTEGRATION_RESULT") |"
+            echo "| **Angular Jest Unit Tests** | ${RUNNER_LABEL} | **${ANGULAR_MS:-0} ms** | $(status "$ANGULAR_RESULT") |"
+            echo "| **Build Cache** | ${CACHE_ENDPOINT} | nuget: \`${HIT_NUGET:-false}\`, dotnet-outputs: \`${RESTORED_OUTPUTS:-0/0}\` projects, node_modules: \`${HIT_NODE:-false}\` | ${CACHE_STATE} |"
             echo ""
             echo "### Infrastructure Execution Model"
             echo "- 🏗️ **Runner Infrastructure:** ${RUNNER_LABEL}"
             echo "- 🔄 **Routing:** ${ROUTE_REASON}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ needs.dotnet.result }}" != "success" ] || [ "${{ needs.angular-jest.result }}" != "success" ]; then
+          failed=0
+          for result in "$BUILD_RESULT" "$ANGULAR_RESULT"; do [ "$result" = success ] || failed=1; done
+          for result in "$UNIT_RESULT" "$INTEGRATION_RESULT"; do case "$result" in success|skipped) ;; *) failed=1 ;; esac; done
+          if [ "$failed" -ne 0 ]; then
             echo "::error::One or more pipeline stages failed!"
             exit 1
           fi

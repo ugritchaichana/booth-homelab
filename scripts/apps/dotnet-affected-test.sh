@@ -6,6 +6,8 @@ HEAD_REF="${2:-HEAD}"
 ROOT_DIR="${3:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../apps/backend" && pwd)}"
 RESULTS_DIR="${ROOT_DIR}/TestResults"
 DRY_RUN="${4:-false}"
+LIST_FILE="${AFFECTED_LIST_FILE:-}"
+[ -z "$LIST_FILE" ] || : > "$LIST_FILE"
 
 # Match the file name only; a checkout path containing "test" must not widen the selection.
 find_test_projects() { find "$ROOT_DIR" -iname '*test*.csproj'; }
@@ -116,6 +118,12 @@ fi
 for t in "${AFFECTED_TESTS[@]}"; do
     echo "    ==> [RUN] $(basename "$t")"
 done
+
+if [ -n "$LIST_FILE" ]; then
+    for t in "${AFFECTED_TESTS[@]}"; do printf '%s\n' "${t#"$(pwd)/"}"; done > "$LIST_FILE"
+    echo "[List] Wrote ${#AFFECTED_TESTS[@]} affected test projects to $LIST_FILE without executing them."
+    exit 0
+fi
 
 if [ "$DRY_RUN" = "true" ] || [ "$DRY_RUN" = "--dry-run" ]; then
     echo "[DryRun] Returning affected suites without executing tests."
