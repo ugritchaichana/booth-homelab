@@ -1,6 +1,6 @@
 # 0063. Cache build outputs per project and keep the commit id out of the version
 
-- Status: Accepted; amends the output key of [0049](0049-key-caches-by-content-and-restore-outputs-only-on-an-exact-match.md)
+- Status: Accepted; amends the output key of [0049](0049-key-caches-by-content-and-restore-outputs-only-on-an-exact-match.md); build flags amended by [0068](0068-turn-off-source-link-so-cached-outputs-survive-a-new-commit.md)
 - Date: 2026-10-14
 - Deciders: operator, for the owner's Phase 5 definition (D96)
 - Decision log: D97 in docs/platform/requirements.md
