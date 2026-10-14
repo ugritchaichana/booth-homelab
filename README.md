@@ -2,7 +2,7 @@
 
 A homelab built for learning: Proxmox VE 9 runs as a Hyper-V VM on a Windows workstation, is rebuilt entirely from code, and is meant to host single-use CI runners. The repository holds the code, the measured evidence and what was learned, so it can be read, forked and developed further.
 
-State: the host, isolation, golden templates, build cache and flavor-sized guests are built and measured; the runner pool controller and the steps after it are handed off. The phase table is in [`docs/handoff/README.md`](docs/handoff/README.md). CI runs on GitHub-hosted runners until the pool exists ([ADR 0054](docs/adr/0054-run-ci-on-hosted-runners-until-the-runner-pool-exists.md)).
+State: the host, isolation, golden templates, build cache and flavor-sized guests are built and measured; CI runs on one persistent Proxmox runner container ([ADR 0060](docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md)), routed by runner health with one retry on the other environment ([ADR 0062](docs/adr/0062-route-ci-by-runner-health-and-retry-a-failed-run-once-on-the-other-environment.md)). Phase 5 is in progress as redefined by the owner (load test, cache reuse, retry under load); the steps after it are handed off. The phase table is in [`docs/handoff/README.md`](docs/handoff/README.md).
 
 [![sdet-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/sdet-ci.yml)
 [![iac-ci](https://github.com/ugritchaichana/booth-homelab/actions/workflows/iac-ci.yml/badge.svg?branch=master)](https://github.com/ugritchaichana/booth-homelab/actions/workflows/iac-ci.yml)

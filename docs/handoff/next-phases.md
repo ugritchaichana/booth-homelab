@@ -1,22 +1,25 @@
 # Next phases (5-8)
 
-Phases 5 to 8 are planned, not started (requirements.md section 5). Each work package gives the goal, the DONE WHEN clause as written in the requirements, the entry gates and the owner steps. Before starting a phase, write its blast-radius estimate in four counted dimensions (what breaks and how many, furthest environment reached, time to detect, time to roll back and who) and answer the security pre-flight (requirements.md sections 7.1 and 7.2 are the model). If time to detect exceeds time to roll back, add signal before starting.
+Phase 5 started on 2026-10-14 under the owner's redefinition (D96); Phases 6 to 8 are planned, not started (requirements.md section 5). Each work package gives the goal, the DONE WHEN clause as written in the requirements, the entry gates and the owner steps. Before starting a phase, write its blast-radius estimate in four counted dimensions (what breaks and how many, furthest environment reached, time to detect, time to roll back and who) and answer the security pre-flight (requirements.md sections 7.1 and 7.2 are the model). If time to detect exceeds time to roll back, add signal before starting.
 
 Working rules that carry over: write tests red first and mutation-test queue, scale and key logic; layer the controller as domain, application, infrastructure with a test that fails when the domain imports infrastructure; record every finalized decision as an ADR in the pull request that makes it; keep pull requests at 30 files or fewer; never narrow a check to go faster.
 
 Effort for the receiving team is unknown: measure the first work package of Phase 5 and re-plan from it.
 
-## Phase 5: Runner pool controller
+## Phase 5: Load test, cache reuse and retry under load (D96)
 
-**Goal.** A JIT ephemeral runner per job, scaling with queue depth inside host CPU, RAM and disk ceilings, with a warm pool and scale-to-zero, priority ordering, cancellation of superseded runs, overflow to hosted runners when the pool is saturated, and role-separated tokens (R5.3, separate identities; R8, scaling and queueing).
+**Goal.** Prove the persistent runner container (D93) under load: the .NET unit, .NET integration and Angular Jest suites run concurrently, the build cache is really used and lets a build reuse earlier outputs, and a failed run switches environment and re-queues once (D95).
 
-**DONE WHEN** (requirements.md section 5):
+**DONE WHEN** (D96, owner, 2026-10-09; requirements.md section 5):
 
-- Every runner shows `ephemeral: true`.
-- The load test meets the targets: full suite 60 s or less with warm caches, queue-to-start p95 10 s or less, scale-from-zero to job start 30 s or less, cache hit 95% or more on an unchanged lockfile, each for 5 consecutive runs.
-- The mutation test of the queue logic fails when the logic is broken.
+- No `ephemeral: true` is required; the runner, test and cache machines may stay on.
+- A load test runs .NET unit, .NET integration and Angular TS Jest concurrently, with 5 to 10 queued jobs per runner instance at peak (queued Proxmox jobs divided by online Proxmox runner instances).
+- It measures that the cache is really used, and that split builds reuse earlier cached outputs to beat a full build: per-project compile counts and wall time, in the sandbox and on a larger generated solution.
+- During the load test a failed run switches environment and re-queues once, and a second failure is red.
 
-**Proof.** Controller logs showing the priority order, `gh api .../actions/runners`, run URLs, a pool load test that reaches its ceiling and returns to zero.
+**Proof.** Load-test run URLs, queue-depth samples from the runners and jobs APIs, cache hit records, compile counts.
+
+**Deferred by D96, not met.** The JIT ephemeral pool per job, queue-driven scaling with a warm pool and scale-to-zero, priority classes, the queue-logic mutation test and the Q7 targets of the earlier DONE WHEN (every runner `ephemeral: true`; full suite 60 s or less with warm caches, queue-to-start p95 10 s or less, scale-from-zero 30 s or less, cache hit 95% or more, each for 5 consecutive runs). The rest of this section is the plan for that pool, kept for whoever takes it up.
 
 ### Starting points
 
@@ -31,9 +34,11 @@ gh api repos/<owner>/<repository>/actions/runners --jq '.runners[] | {name, ephe
 
 Expected: the first prints a long encoded string (the script above treats HTTP 201 and that field as success); the second lists `spike` with `"ephemeral": true` after a runner has registered with it (HYPOTHESIS: the field is taken from the research notes, not yet observed here).
 
-### Entry gates (before the first runner registers)
+### Entry gates (before the first JIT runner registers)
 
-1. Fork pull requests are routed to hosted runners in the workflows (the routing expression still selects self-hosted for forks), or fork approval is restored to all external contributors; it is at the loosest value while the lab is open to visitors ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)).
+Under D96 these gate the deferred JIT pool, not the load test on the persistent runner.
+
+1. Fork pull requests are routed to hosted runners in the workflows, or fork approval is restored to all external contributors; it is at the loosest value while the lab is open to visitors ([ADR 0059](../adr/0059-open-the-reference-lab-to-visitors.md)). The routing part is in place: a fork pull request is forced to GitHub-hosted on every attempt ([ADR 0062](../adr/0062-route-ci-by-runner-health-and-retry-a-failed-run-once-on-the-other-environment.md)); no fork run has been observed yet.
 2. Runner clones do not keep the default user's passwordless sudo that cloud-init restores at first boot, checked by an R15 row.
 3. Root touches probe guests only after checking tag and pool, and runner VMIDs stay outside the template blocks.
 4. A per-runner firewall read-back (clones inherit the template firewall).

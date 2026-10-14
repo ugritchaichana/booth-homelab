@@ -37,7 +37,7 @@ Covered (Phases 1 to 4 of `docs/platform/requirements.md`, all with their DONE W
 - the build cache service `build-cache-debian-13` (SSH alias `build-cache`) and its client wiring (ADR 0045 to 0051);
 - guests sized by a cloud flavor, created by one command (ADR 0055).
 
-Not covered: Phases 5 to 8 are not built (runner pool controller, reusable workflows and cutover, observability and resilience, runbook timed rebuild and portability). The self-hosted CI path cannot run until the Phase 5 runners exist; hosted runners carry CI today (row 68, hosted run with the cache disabled). What is open, what the next phase needs first and the entry gates are in `docs/handoff/README.md`.
+Not covered: Phase 5 is in progress under D96 (load test, cache reuse, retry under load) and Phases 6 to 8 are not built (reusable workflows and cutover, observability and resilience, runbook timed rebuild and portability). CI runs on one persistent runner container, routed by runner health with GitHub-hosted runners as the fallback (section 3.7). What is open, what the next phase needs first and the entry gates are in `docs/handoff/README.md`.
 
 Where to look first:
 
