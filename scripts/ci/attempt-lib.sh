@@ -32,14 +32,14 @@ attempt_env() {
 }
 
 read_queue() {
-  local dir="$1" code id open_ids done_ids
+  local dir="$1" self="$2" code id open_ids done_ids
   mkdir -p "$dir/open" "$dir/done"
   code="$(fetch "$api/repos/$REPOSITORY/actions/runs?per_page=100" "$GH_TOKEN" "$dir/runs.json")"
   if [ "$code" != 200 ]; then
     echo "runs list returned HTTP $code: $(why "$dir/runs.json")"
     return 0
   fi
-  open_ids="$(jq -r --argjson self "$RUN_ID" --argjson callers "$pipeline_callers" '.workflow_runs[] | select(.path as $p | $callers | index($p))
+  open_ids="$(jq -r --argjson self "$self" --argjson callers "$pipeline_callers" '.workflow_runs[] | select(.path as $p | $callers | index($p))
     | select(.status != "completed" and .id != $self) | .id' "$dir/runs.json" 2> "$dir/jq.err")" || { echo "runs list is not readable: $(head -c 200 "$dir/jq.err")"; return 0; }
   done_ids="$(jq -r --argjson callers "$pipeline_callers" '[.workflow_runs[] | select(.path as $p | $callers | index($p)) | select(.status == "completed")][:8][] | .id' "$dir/runs.json")"
   for id in $open_ids; do

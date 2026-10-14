@@ -24,7 +24,7 @@ fi
 
 queue=()
 if [ "$http_status" = 200 ]; then
-  queue_error="$(read_queue "$work/queue")"
+  queue_error="$(read_queue "$work/queue" "$RUN_ID")"
   [ -z "$queue_error" ] || echo "select-runner: queue not read: $queue_error"
   queue=(--queue-dir "$work/queue" --queue-error "$queue_error")
 fi
