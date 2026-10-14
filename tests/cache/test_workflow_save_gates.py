@@ -40,7 +40,10 @@ class SaveGateTests(unittest.TestCase):
         self.assertEqual(ungated_saves(self.reusable()), [])
 
     def test_both_payload_downloads_are_seen_so_the_check_is_not_vacuous(self):
-        self.assertEqual(self.reusable().count(DOWNLOAD), 2)
+        jobs = yaml.safe_load(self.reusable())["jobs"]
+        payloads = [s["with"]["name"] for job in jobs.values() for s in job.get("steps", [])
+                    if str(s.get("uses", "")).startswith(DOWNLOAD) and s["with"]["name"].startswith("cache-payload")]
+        self.assertEqual(sorted(payloads), ["cache-payload-dotnet", "cache-payload-node-modules"])
 
     def test_mutation_dropped_hit_gate_is_caught(self):
         text = self.reusable()

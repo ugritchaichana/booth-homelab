@@ -13,7 +13,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 WORK=""
 cleanup() {
     case "$WORK" in
-        */selector-harness.*) [ -d "$WORK" ] && rm -rf -- "$WORK" ;;
+        */selector-harness.*) [ -d "$WORK" ] && rm -rf -- "$WORK" "$WORK.list" ;;
     esac
     return 0
 }
@@ -50,7 +50,7 @@ fmt_set() {
 OUT=""
 run_selector() {
     local rc=0
-    OUT="$(cd "$CHECKOUT" && bash "$SELECTOR_SH" "$1" "$2" "$CHECKOUT/apps/backend" "--dry-run" 2>&1)" || rc=$?
+    OUT="$(cd "$CHECKOUT" && AFFECTED_LIST_FILE="$WORK.list" bash "$SELECTOR_SH" "$1" "$2" "$CHECKOUT/apps/backend" "--dry-run" 2>&1)" || rc=$?
     if [ "$rc" -ne 0 ]; then
         echo "$OUT" >&2
         fail "$LABEL: selector exited with code $rc"
@@ -68,6 +68,14 @@ assert_exact_set() {
         echo "    expected: {$(fmt_set "$expected")}" >&2
         echo "    actual:   {$(fmt_set "$actual")}" >&2
         fail "$LABEL: selected set differs from the ProjectReference-graph oracle"
+    fi
+    listed="$(tr -d '\r' < "$WORK.list" | LC_ALL=C sort)"
+    if [ "$(printf '%s\n' "$listed" | sed '/^$/d' | xargs -r -n1 basename | LC_ALL=C sort)" = "$expected" ] \
+        && ! printf '%s\n' "$listed" | sed '/^$/d' | grep -qv '^apps/backend/tests/'; then
+        echo "    [PASS] $LABEL: the list file names the same projects by repository path"
+    else
+        echo "    list file: {$(fmt_set "$listed")}" >&2
+        fail "$LABEL: the list file differs from the selected set"
     fi
 }
 

@@ -1,5 +1,5 @@
-name: 'Transitive Affected Test Graph Runner'
-description: 'Computes changed files and executes only affected test suites'
+name: 'Transitive Affected Test Selection'
+description: 'Computes changed files and lists the affected unit and integration test projects, without running them'
 inputs:
   base_ref:
     description: 'Base git reference to diff against'
@@ -8,28 +8,32 @@ inputs:
     description: 'Head git reference'
     required: false
     default: 'HEAD'
+  list-dir:
+    description: 'Directory that receives affected-unit.txt and affected-integration.txt, one project path per line'
+    required: true
 
 outputs:
-  test_duration_ms:
-    description: 'Execution duration in milliseconds'
-    value: ${{ steps.exec-tests.outputs.test_duration_ms }}
+  unit_count:
+    description: 'Number of affected unit test projects'
+    value: ${{ steps.select.outputs.unit_count }}
+  integration_count:
+    description: 'Number of affected integration test projects'
+    value: ${{ steps.select.outputs.integration_count }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Run Affected Tests
-      id: exec-tests
+    - name: Select Affected Tests
+      id: select
       shell: bash
+      env:
+        BASE_REF: ${{ inputs.base_ref }}
+        HEAD_REF: ${{ inputs.head_ref }}
+        LIST_DIR: ${{ inputs.list-dir }}
       run: |
-        TEST_START=$(date +%s%N)
-        echo "==> Executing affected test graph against ${{ inputs.base_ref }} -> ${{ inputs.head_ref }}"
-        set +e
-        ./scripts/apps/dotnet-affected-test.sh "${{ inputs.base_ref }}" "${{ inputs.head_ref }}"
-        rc=$?
-        set -e
-        TEST_MS=$(( ($(date +%s%N) - TEST_START) / 1000000 ))
-        echo "test_duration_ms=${TEST_MS}" >> "$GITHUB_OUTPUT"
-        echo "=========================================================="
-        echo " [BENCHMARK] Affected Test Runner Time: ${TEST_MS} ms"
-        echo "=========================================================="
-        exit $rc
+        mkdir -p "$LIST_DIR"
+        AFFECTED_LIST_FILE="$LIST_DIR/affected.txt" ./scripts/apps/dotnet-affected-test.sh "$BASE_REF" "$HEAD_REF"
+        grep -E 'IntegrationTests\.csproj$' "$LIST_DIR/affected.txt" > "$LIST_DIR/affected-integration.txt" || true
+        grep -vE 'IntegrationTests\.csproj$' "$LIST_DIR/affected.txt" > "$LIST_DIR/affected-unit.txt" || true
+        echo "unit_count=$(grep -c . "$LIST_DIR/affected-unit.txt" || true)" >> "$GITHUB_OUTPUT"
+        echo "integration_count=$(grep -c . "$LIST_DIR/affected-integration.txt" || true)" >> "$GITHUB_OUTPUT"

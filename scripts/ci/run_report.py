@@ -131,7 +131,7 @@ def parse_jest(path):
 
 
 def restore_hits(log_text):
-    hits = {}
+    statuses = {}
     for line in TIMESTAMP.sub("", log_text).split("\n"):
         line = line.strip()
         if line.startswith("{") and '"op": "restore"' in line:
@@ -139,8 +139,8 @@ def restore_hits(log_text):
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            hits[str(record.get("kind"))] = str(record.get("status"))
-    return hits
+            statuses.setdefault(str(record.get("kind")), []).append(str(record.get("status")))
+    return {kind: found[0] if len(found) == 1 else f"{found.count('hit')}/{len(found)} hit" for kind, found in statuses.items()}
 
 
 def failed_jobs(jobs, logs_dir, suites):

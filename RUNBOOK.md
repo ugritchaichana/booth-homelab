@@ -491,7 +491,7 @@ A container created before its firewall exists is flagged at once; create guests
 
 ### 3.7 The CI runner (`ci-lxc-runner-v6`, VMID 9503)
 
-One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 16 GiB), entry `ci-lxc-runner` in `iac/tofu/stacks/guest/guests.yml` (slot 3; create it as in 2.10). It runs three runner instances, `pve01-ci-lxc-runner-1` to `-3`, from `/opt/actions-runner-N` as the user `runner`, which has no sudo. Labels: `self-hosted`, `linux`, `proxmox`, `dotnet`, `angular` (ADR 0060).
+One unprivileged container from `lxc-runner`, flavor `aws/c5.2xlarge` (8 cores, 16 GiB), entry `ci-lxc-runner` in `iac/tofu/stacks/guest/guests.yml` (slot 3; create it as in 2.10). It runs three runner instances, `pve01-ci-lxc-runner-1` to `-3`, as the user `runner`, which has no sudo. Each instance lives in `/opt/actions-runner-N`, and its unit binds that directory onto `/opt/actions-runner` in the unit's own mount namespace. Every instance therefore works in `/opt/actions-runner/_work/...`, and a build-outputs entry saved from one instance serves the others (ADR 0064). The telemetry job prints `Runner:` and `Workspace:`; the workspace line must read the same path on every instance. Labels: `self-hosted`, `linux`, `proxmox`, `dotnet`, `angular` (ADR 0060).
 
 1. Register and converge. Role: operator (WSL), with a token of an account that administers the repository.
 
@@ -533,7 +533,7 @@ $pve sudo pct exec 9503 -- systemctl status 'actions-runner@*' 'actions-runner-r
 gh api repos/<owner>/<repository>/actions/runners -q '.runners[]|"\(.name) \(.status) busy=\(.busy)"'
 ```
 
-After each job the job-completed hook writes `/run/actions-runner-N/restart`, and `actions-runner-restart@N.path` restarts that instance once its worker has exited. Without it the listener waits about 60 s before it takes the next job (actions/runner#4444).
+After each job the job-completed hook writes `/run/actions-runner-N/restart`, and `actions-runner-restart@N.path` restarts that instance once its worker has exited. `runner-restart.sh` finds that worker in the unit's cgroup, because every instance shares one command-line path. Without it the listener waits about 60 s before it takes the next job (actions/runner#4444).
 
 When the container is down, new runs go to hosted by themselves. Jobs already queued on Proxmox wait for up to 24 hours, because there is no watchdog (ADR 0062): cancel and re-run them, and the re-run checks again. A run whose runner died mid-job is rerun once on hosted by the callback (3.8). To retire the runner, set the variable to `hosted`, deregister the three runners (Settings, Actions, Runners), and stop the container; the lab does not destroy guests (D86).
 

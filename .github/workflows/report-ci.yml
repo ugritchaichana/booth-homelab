@@ -20,6 +20,7 @@ on:
       - 'tests/cache/requirements-ci.txt'
       - '.github/workflows/reusable-sdet-pipeline.yml'
       - '.github/workflows/sdet-fallback-drill.yml'
+      - 'iac/ansible/playbooks/templates/actions-runner*.j2'
   pull_request:
     paths:
       - 'scripts/ci/run_report.py'
@@ -38,6 +39,7 @@ on:
       - 'tests/cache/requirements-ci.txt'
       - '.github/workflows/reusable-sdet-pipeline.yml'
       - '.github/workflows/sdet-fallback-drill.yml'
+      - 'iac/ansible/playbooks/templates/actions-runner*.j2'
   workflow_dispatch:
 
 permissions:
