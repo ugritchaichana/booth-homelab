@@ -1,0 +1,106 @@
+---
+- name: Find the running container of {{ ci_runner_role }}
+  ansible.builtin.shell:
+    cmd: set -o pipefail && pct list | awk -v p='{{ ci_runner_role }}-lxc-runner-v' 'NR > 1 && $2 == "running" && index($3, p) == 1 {print $1}'
+    executable: /bin/bash
+  register: ci_runner_ids
+  changed_when: false
+
+- name: Require exactly one container for {{ ci_runner_role }}
+  ansible.builtin.assert:
+    that: ci_runner_ids.stdout_lines | length == 1
+    fail_msg: "expected one running container named {{ ci_runner_role }}-lxc-runner-vN, found {{ ci_runner_ids.stdout_lines }}"
+    quiet: true
+
+- name: Read what the container holds now for {{ ci_runner_role }}
+  ansible.builtin.command:
+    argv: "{{ ['pct', 'exec', ci_runner_ids.stdout, '--', 'sha256sum'] + (ci_runner_files | map(attribute='dest') | list) }}"
+  register: ci_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install the runner scripts and units, owned by root, and restart a running instance for {{ ci_runner_role }}
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      pct exec {{ ci_runner_ids.stdout }} -- install -d -m 0755 -o root -g root {{ ci_runner_guard | dirname }}
+      {% for f in ci_runner_files %}
+      pct push {{ ci_runner_ids.stdout }} {{ ci_runner_stage }}/{{ f.src }} {{ f.dest }} --perms {{ f.mode }} --user 0 --group 0
+      {% endfor %}
+      pct exec {{ ci_runner_ids.stdout }} -- systemctl daemon-reload
+      pct exec {{ ci_runner_ids.stdout }} -- systemctl try-restart actions-runner@{{ ci_runner_instance }}.service
+    executable: /bin/bash
+  when: (ci_installed.stdout_lines | map('split') | map('first') | list) != (ci_staged.stdout_lines | map('split') | map('first') | list)
+  changed_when: true
+
+- name: Create the instance directory from the unconfigured runner for {{ ci_runner_role }}
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      id={{ ci_runner_ids.stdout }}
+      dir={{ ci_runner_dir }}-{{ ci_runner_instance }}
+      if ! pct exec "$id" -- test -d "$dir"; then
+        pct exec "$id" -- cp -a {{ ci_runner_dir }} "$dir"
+        pct exec "$id" -- rm -rf "$dir/_work" "$dir/_diag" "$dir/.runner" "$dir/.credentials" "$dir/.credentials_rsaparams"
+        pct exec "$id" -- chown -R runner:runner "$dir"
+        echo created
+      fi
+    executable: /bin/bash
+  register: ci_dir
+  changed_when: "'created' in ci_dir.stdout"
+
+- name: Read whether the instance is configured for {{ ci_runner_role }}
+  ansible.builtin.command:
+    argv: [pct, exec, "{{ ci_runner_ids.stdout }}", --, test, -f, "{{ ci_runner_dir }}-{{ ci_runner_instance }}/.runner"]
+  register: ci_configured
+  changed_when: false
+  failed_when: ci_configured.rc not in [0, 1]
+
+- name: Ask GitHub for a registration token for {{ ci_runner_role }}
+  ansible.builtin.uri:
+    url: "{{ ci_runner_api }}/registration-token"
+    method: POST
+    headers: "{{ ci_github_headers }}"
+    status_code: 201
+  register: ci_registration
+  delegate_to: localhost
+  become: false
+  when: ci_configured.rc != 0
+  no_log: true
+
+- name: Configure the runner as the runner user, the token on stdin, for {{ ci_runner_role }}
+  ansible.builtin.command:
+    argv:
+      - pct
+      - exec
+      - "{{ ci_runner_ids.stdout }}"
+      - --
+      - runuser
+      - -u
+      - runner
+      - --
+      - bash
+      - -c
+      - >-
+        IFS= read -r ACTIONS_RUNNER_INPUT_TOKEN && export ACTIONS_RUNNER_INPUT_TOKEN &&
+        cd {{ ci_runner_dir }}-{{ ci_runner_instance }} && ./config.sh --unattended --url https://github.com/{{ ci_runner_repository }}
+        --name {{ inventory_hostname }}-{{ ci_runner_role }} --labels proxmox,{{ ci_runner_role }} --work _work --replace
+    stdin: "{{ ci_registration.json.token }}"
+  when: ci_configured.rc != 0
+  changed_when: true
+  no_log: true
+
+- name: Enable and start the runner and its restart-after-job watcher for {{ ci_runner_role }}
+  ansible.builtin.command:
+    argv:
+      - pct
+      - exec
+      - "{{ ci_runner_ids.stdout }}"
+      - --
+      - systemctl
+      - enable
+      - --now
+      - actions-runner@{{ ci_runner_instance }}.service
+      - actions-runner-restart@{{ ci_runner_instance }}.path
+  register: ci_enabled
+  changed_when: "'Created symlink' in ci_enabled.stderr"

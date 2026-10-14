@@ -108,22 +108,34 @@ class ScriptCase(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt" or not shutil.which("jq"), "needs a POSIX shell and jq")
 class SelectRunnerTests(ScriptCase):
-    def run_select(self, routes, attempt=1, forced="false", token=RUNNER_TOKEN):
-        return self.run_script(SELECT, routes, RUN_ATTEMPT=str(attempt), FORCED_HOSTED=forced, RUNNER_STATUS_TOKEN=token)
+    def run_select(self, routes, attempt=1, forced="false", token=RUNNER_TOKEN, **env):
+        return self.run_script(SELECT, routes, RUN_ATTEMPT=str(attempt), FORCED_HOSTED=forced, RUNNER_STATUS_TOKEN=token, **env)
 
-    def test_online_runners_route_to_proxmox_and_the_summary_says_why(self):
+    def test_online_runners_route_each_kind_to_its_own_runner_and_the_summary_says_why(self):
         outputs, calls, _, summary = self.run_select({"/actions/runners?per_page=100": [200, runners()]})
         self.assertEqual(outputs["hosted"], "false")
-        self.assertEqual(outputs["dotnet_labels"], '["self-hosted", "linux", "proxmox", "dotnet"]')
-        self.assertEqual(outputs["route_reason"], "3 of 3 Proxmox runners online (HTTP 200)")
+        self.assertEqual(outputs["unit_labels"], '["self-hosted", "linux", "proxmox", "dotnet-unit-auto"]')
+        self.assertEqual(outputs["integration_labels"], '["self-hosted", "linux", "proxmox", "dotnet-integration-auto"]')
+        self.assertEqual(outputs["angular_labels"], '["self-hosted", "linux", "proxmox", "workspace-unit-auto"]')
+        self.assertEqual(outputs["route_reason"], "a Proxmox runner online for every role (HTTP 200: dotnet-unit-auto 1 of 1, "
+                                                  "dotnet-integration-auto 1 of 1, workspace-unit-auto 1 of 1)")
         self.assertIn("Runner route (attempt 1)", summary)
         self.assertEqual(calls, [f"https://api.example.invalid/repos/owner/repo/actions/runners?per_page=100 Authorization: Bearer {RUNNER_TOKEN}"])
 
     def test_no_online_runner_routes_hosted(self):
         outputs, _, _, _ = self.run_select({"/actions/runners?per_page=100": [200, runners("offline")]})
         self.assertEqual(outputs["hosted"], "true")
-        self.assertEqual(outputs["dotnet_labels"], '["ubuntu-latest"]')
+        for name in ("unit_labels", "integration_labels", "angular_labels"):
+            self.assertEqual(outputs[name], '["ubuntu-latest"]')
         self.assertIn("no Proxmox runner online", outputs["route_reason"])
+
+    def test_the_suites_decide_which_roles_must_be_online(self):
+        doc = json.loads(runners())
+        doc["runners"][0]["status"] = "offline"
+        routes = {"/actions/runners?per_page=100": [200, json.dumps(doc)]}
+        self.assertEqual(self.run_select(routes, SUITES="dotnet")[0]["hosted"], "false")
+        self.assertEqual(self.run_select(routes, SUITES="angular")[0]["hosted"], "true")
+        self.assertEqual(self.run_select(routes)[0]["hosted"], "true")
 
     def test_a_rejected_token_falls_back_and_prints_the_api_message(self):
         outputs, _, stdout, _ = self.run_select({"/actions/runners?per_page=100": [401, '{"message": "Bad credentials"}']})

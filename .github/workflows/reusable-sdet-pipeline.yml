@@ -80,7 +80,8 @@ jobs:
       contents: read
     outputs:
       hosted: ${{ steps.decide.outputs.hosted }}
-      dotnet_labels: ${{ steps.decide.outputs.dotnet_labels }}
+      unit_labels: ${{ steps.decide.outputs.unit_labels }}
+      integration_labels: ${{ steps.decide.outputs.integration_labels }}
       angular_labels: ${{ steps.decide.outputs.angular_labels }}
       runner_label: ${{ steps.decide.outputs.runner_label }}
       route_reason: ${{ steps.decide.outputs.route_reason }}
@@ -101,47 +102,15 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
+          SUITES: ${{ inputs.suites }}
         run: bash scripts/ci/select-runner.sh
-
-  telemetry:
-    name: Telemetry
-    needs: [select-runner]
-    timeout-minutes: 5
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
-    env:
-      CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
-    steps:
-      - name: Inspect Runner Telemetry
-        shell: bash
-        run: |
-          echo "=========================================================="
-          echo "           RUNNER SYSTEM TELEMETRY                       "
-          echo "=========================================================="
-          echo "Runner Mode: ${{ needs.select-runner.outputs.runner_label }}"
-          echo "Hostname:    $(hostname)"
-          echo "Runner:      $RUNNER_NAME"
-          echo "Workspace:   $GITHUB_WORKSPACE"
-          echo "Kernel:      $(uname -r)"
-          echo "CPU Cores:   $(nproc)"
-          echo "Memory:"
-          free -h
-          echo "Docker Info:"
-          docker --version 2>/dev/null || true
-          echo ".NET SDK Version:"
-          dotnet --version 2>/dev/null || true
-          if [ -n "$CACHE_URL" ]; then
-            echo "Build Cache Status:"
-            curl -s -m 2 "$CACHE_URL/status" || echo "Build cache unreachable (cold build fallback active)"
-            echo ""
-          fi
-          echo "=========================================================="
 
   dotnet:
     name: Build (.NET)
     needs: [select-runner]
     if: inputs.suites != 'angular'
     timeout-minutes: 30
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.unit_labels) }}
     env:
       CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
       BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
@@ -161,6 +130,11 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+
+      - name: Show Runner
+        shell: bash
+        run: |
+          echo "Runner: $RUNNER_NAME | Host: $(hostname) | Cores: $(nproc) | Workspace: $GITHUB_WORKSPACE"
 
       - name: Setup .NET 8 SDK (Fallback Runner)
         if: needs.select-runner.outputs.hosted == 'true'
@@ -271,7 +245,7 @@ jobs:
     needs: [select-runner, dotnet]
     if: needs.dotnet.outputs.unit_count != '0'
     timeout-minutes: 20
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.unit_labels) }}
     env:
       CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
     outputs:
@@ -321,7 +295,7 @@ jobs:
     needs: [select-runner, dotnet]
     if: needs.dotnet.outputs.integration_count != '0'
     timeout-minutes: 20
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.integration_labels) }}
     env:
       CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
     outputs:
@@ -332,6 +306,11 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: scripts/apps
+
+      - name: Show Runner
+        shell: bash
+        run: |
+          echo "Runner: $RUNNER_NAME | Host: $(hostname) | Cores: $(nproc) | Workspace: $GITHUB_WORKSPACE"
 
       - name: Setup .NET 8 SDK (Fallback Runner)
         if: needs.select-runner.outputs.hosted == 'true'
@@ -372,7 +351,7 @@ jobs:
     timeout-minutes: 10
     environment: cache-writer
     if: always() && needs.dotnet.outputs.compiled == 'true' && needs.select-runner.outputs.hosted != 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
+    runs-on: ${{ fromJSON(needs.select-runner.outputs.unit_labels) }}
     env:
       CACHE_URL: ${{ needs.select-runner.outputs.hosted != 'true' && 'http://10.99.17.10:8080' || '' }}
       BUILD_CACHE_RUNNER_CLASS: ${{ needs.select-runner.outputs.hosted != 'true' && 'lxc-runner' || '' }}
@@ -491,6 +470,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Show Runner
+        shell: bash
+        run: |
+          echo "Runner: $RUNNER_NAME | Host: $(hostname) | Cores: $(nproc) | Workspace: $GITHUB_WORKSPACE"
+
       - name: Setup Node.js 22 (Fallback Runner)
         if: needs.select-runner.outputs.hosted == 'true'
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
@@ -530,7 +514,7 @@ jobs:
 
   summary:
     name: Report
-    needs: [select-runner, telemetry, dotnet, dotnet-unit, dotnet-integration, dotnet-cache-save, angular-cache-save, angular-jest]
+    needs: [select-runner, dotnet, dotnet-unit, dotnet-integration, dotnet-cache-save, angular-cache-save, angular-jest]
     timeout-minutes: 5
     if: ${{ !cancelled() && needs.select-runner.result == 'success' }}
     runs-on: ubuntu-latest

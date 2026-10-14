@@ -17,6 +17,7 @@ DERIVED_JOBS = ("Report",)
 RETRYABLE = ("failure", "timed_out")
 OPERATION_CANCELED = "The operation was canceled."
 DELIBERATE_CANCEL = ("was canceled by", "Canceling since a higher priority")
+SUITE_ROLES = {"dotnet": ("dotnet-unit-auto", "dotnet-integration-auto"), "angular": ("workspace-unit-auto",)}
 
 
 def one_line(text, limit=MAX_TEXT):
@@ -67,12 +68,20 @@ def infra_fingerprint(jobs, annotations_by_job):
     return one_line(found[0]) if found else None
 
 
-def online_proxmox(runners):
+def needed_roles(suites):
+    return SUITE_ROLES.get(suites) or SUITE_ROLES["dotnet"] + SUITE_ROLES["angular"]
+
+
+def online_by_role(runners, roles):
     listed = runners.get("runners") if isinstance(runners, dict) else None
     if not isinstance(listed, list):
         return None
-    proxmox = [r for r in listed if isinstance(r, dict) and PROXMOX_LABEL in {str(label.get("name", "")).lower() for label in r.get("labels") or []}]
-    return sum(1 for r in proxmox if r.get("status") == "online"), len(proxmox)
+    labelled = [(r, {str(label.get("name", "")).lower() for label in r.get("labels") or []}) for r in listed if isinstance(r, dict)]
+    counts = {}
+    for role in roles:
+        holders = [r for r, labels in labelled if {PROXMOX_LABEL, role} <= labels]
+        counts[role] = (sum(1 for r in holders if r.get("status") == "online"), len(holders))
+    return counts
 
 
 def env_name(proxmox):
@@ -93,7 +102,7 @@ def failure_cause(jobs, annotations_by_job):
     return ""
 
 
-def decide(forced_hosted, token_present, http_status, runners, previous_env="", previous_cause="", previous_error=""):
+def decide(forced_hosted, token_present, http_status, runners, previous_env="", previous_cause="", previous_error="", suites="all"):
     if forced_hosted:
         return True, "forced to GitHub-hosted by the caller (CI_RUNNER, a fork, or the dispatch input)"
     if previous_env == "proxmox":
@@ -107,13 +116,14 @@ def decide(forced_hosted, token_present, http_status, runners, previous_env="", 
     note = "".join(f"; {n}" for n in notes)
     if not token_present:
         return False, f"no RUNNER_STATUS_TOKEN, so CI_RUNNER decides{note}"
-    counts = online_proxmox(runners) if http_status == 200 else None
+    counts = online_by_role(runners, needed_roles(suites)) if http_status == 200 else None
     if counts is None:
         return False, f"runner health check failed (HTTP {http_status}), so CI_RUNNER decides{note}"
-    online, total = counts
-    if online == 0:
-        return True, f"no Proxmox runner online (HTTP 200, 0 of {total}){note}"
-    return False, f"{online} of {total} Proxmox runners online (HTTP 200){note}"
+    tally = ", ".join(f"{role} {online} of {total}" for role, (online, total) in counts.items())
+    missing = [role for role, (online, _) in counts.items() if online == 0]
+    if missing:
+        return True, f"no Proxmox runner online for {', '.join(missing)} (HTTP 200: {tally}){note}"
+    return False, f"a Proxmox runner online for every role (HTTP 200: {tally}){note}"
 
 
 def verdict(attempt, conclusion, proxmox, cause, error, previous_env, previous_cause, infra=False):
@@ -161,6 +171,7 @@ def main(argv=None):
     d.add_argument("--previous-env", default="")
     d.add_argument("--previous-cause", default="")
     d.add_argument("--previous-error", default="")
+    d.add_argument("--suites", default="all")
     v = sub.add_parser("verdict")
     v.add_argument("--attempt", required=True)
     v.add_argument("--conclusion", default="")
@@ -176,7 +187,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.command == "decide":
         hosted, reason = decide(args.forced_hosted == "true", args.token_present == "true", status_code(args.http_status),
-                                load(args.runners, None) if args.runners else None, args.previous_env, args.previous_cause, args.previous_error)
+                                load(args.runners, None) if args.runners else None, args.previous_env, args.previous_cause, args.previous_error,
+                                args.suites)
         print(f"hosted={str(hosted).lower()}")
         print(f"reason={reason}")
     elif args.command == "verdict":

@@ -3,7 +3,7 @@
   "runners": [
     {
       "id": 24,
-      "name": "pve01-ci-lxc-runner-1",
+      "name": "pve01-workspace-unit-auto",
       "os": "Linux",
       "status": "online",
       "busy": false,
@@ -31,19 +31,14 @@
         },
         {
           "id": 0,
-          "name": "dotnet",
-          "type": "custom"
-        },
-        {
-          "id": 0,
-          "name": "angular",
+          "name": "workspace-unit-auto",
           "type": "custom"
         }
       ]
     },
     {
       "id": 25,
-      "name": "pve01-ci-lxc-runner-2",
+      "name": "pve01-dotnet-unit-auto",
       "os": "Linux",
       "status": "online",
       "busy": false,
@@ -71,19 +66,14 @@
         },
         {
           "id": 0,
-          "name": "dotnet",
-          "type": "custom"
-        },
-        {
-          "id": 0,
-          "name": "angular",
+          "name": "dotnet-unit-auto",
           "type": "custom"
         }
       ]
     },
     {
       "id": 26,
-      "name": "pve01-ci-lxc-runner-3",
+      "name": "pve01-dotnet-integration-auto",
       "os": "Linux",
       "status": "online",
       "busy": false,
@@ -111,12 +101,7 @@
         },
         {
           "id": 0,
-          "name": "dotnet",
-          "type": "custom"
-        },
-        {
-          "id": 0,
-          "name": "angular",
+          "name": "dotnet-integration-auto",
           "type": "custom"
         }
       ]

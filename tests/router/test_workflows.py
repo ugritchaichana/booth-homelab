@@ -110,7 +110,7 @@ class RouterWorkflowTests(unittest.TestCase):
 
     def test_mutation_routed_job_without_the_cache_env_is_caught(self):
         text = read(PIPELINE)
-        mutated = re.sub(r"(  telemetry:\n(?:.*\n)*?)    env:\n      CACHE_URL: .*\n", r"\1", text, count=1)
+        mutated = re.sub(r"(  dotnet-integration:\n(?:.*\n)*?)    env:\n      CACHE_URL: .*\n", r"\1", text, count=1)
         self.assertNotEqual(mutated, text)
         self.assertTrue(routed_env_violations(mutated))
 
