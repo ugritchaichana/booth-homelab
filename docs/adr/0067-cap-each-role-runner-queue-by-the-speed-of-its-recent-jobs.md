@@ -37,7 +37,7 @@ Option 5.
   - **Ceiling:** the accepted wait divided by the job time, rounded down, at most the cap, at least 1.
   - **Queue:**
     - the role's jobs that are `queued`, `waiting` or `pending` in other open SDET runs;
-    - plus the jobs an unfinished `Build (.NET)` on `dotnet-unit-auto` will create, which is one unit job and one integration job;
+    - plus the jobs an unfinished `Build (.NET)` on `dotnet-unit-auto` will create, which is one unit job and one integration job. This counts one integration job too many when the change affects no integration suite;
     - plus one for every other run whose `Select Runner` has not finished. Such a run has no queued job yet, and it may take one. Load round 7 showed why this matters: three runs dispatched 4 s apart each read `12/13` and all three joined, so the real queue reached 15 under a ceiling of 13.
 - **Routing.**
   - When the health check would choose Proxmox and any needed role has a queue at or above its ceiling, the whole new run goes to GitHub-hosted. The reason names that role, as in `queue full for workspace-unit-auto (... workspace-unit-auto 15/15 @50s ...)`.
@@ -49,18 +49,18 @@ Option 5.
 - **Data.** `Select Runner` uses the workflow token, which can read actions.
   1. One list of the 100 most recent runs.
   2. The jobs of each open run of a workflow that calls the pipeline (`sdet-ci.yml`, `sdet-fallback-drill.yml`), except the run itself. The callback workflow is left out: its jobs never run on Proxmox, and its runs, being the latest to finish, would hide the history.
-  3. The jobs of the 3 most recent completed runs of those workflows.
+  3. The jobs of the 8 most recent completed runs of those workflows.
 
-  That is 4 calls plus one per open run. The workflow token allows 1,000 requests per hour per repository. If any call fails, the ceiling is skipped, the run is routed by health alone, and the reason says why.
+  That is 9 calls plus one per open run. The workflow token allows 1,000 requests per hour per repository. If any call fails, the ceiling is skipped, the run is routed by health alone, and the reason says why.
 
 ## Consequences
 
-- The ceiling reacts after the fact: jobs must first run slower before it drops. Its history is the 3 most recent completed pipeline runs. In a burst that spills, those are often runs that went to GitHub-hosted, so the history stays older than the host's state.
+- The ceiling reacts after the fact: jobs must first run slower before it drops. Its history is the 8 most recent completed pipeline runs. In a burst that spills, those are often runs that went to GitHub-hosted. If none of them ran a job of the role, the job time falls back to 50 s and the ceiling rises to the cap, just when the host is busy. Rounds 7 and 8 below were measured with a window of 3 runs; it was widened to 8 afterwards to make that fallback rarer.
 - Measured on the host.
   - Load round 7, idle host: 4 of 25 attempts went to GitHub-hosted at a full Angular queue, and no job was cancelled. The ceiling read 12 to 13 from older history while that round's Angular jobs ran in 28 s.
   - Load round 8, CPU load in two other containers (PSI cpu some 21%): Angular jobs ran in 43 s, 54% slower. The router's job time went from 37 s to 52 s and the ceiling from 15 to 14. 5 of 26 attempts went to GitHub-hosted, no job was cancelled, and the real queue peaked at 13 under a ceiling of 14.
   - With an accepted wait of 750 s, the ceiling drops sharply only when jobs take far longer, for example 7 at 100 s. A lower `RUNNER_QUEUE_WAIT_S` makes it react sooner.
 - Counting runs that are still choosing a runner errs on the safe side. A run that is still choosing counts for every role, even one it does not need, so a new run can be sent to GitHub-hosted slightly early. Two runs that read the queue within the same second can still both join.
 - Jobs that do not belong to an SDET run (a benchmark dispatched on Proxmox) are not counted.
-- A run of 25 dispatches costs about 400 API calls in its hour. A failed call costs only the ceiling, never the run.
+- A burst of 25 dispatches costs roughly 25 times (9 plus the open runs) calls, about 500, within the hour, and the workflow token allows 1,000 per hour per repository. Two such bursts in one hour can exhaust it. Then the ceiling is skipped, never the run.
 - Rollback: set `RUNNER_QUEUE_CEILING` to a large value, or revert the pull request.
