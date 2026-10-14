@@ -1,0 +1,24 @@
+# Why CoreCompile ran on a cache hit: diagnostic run 38563298991 (branch test/diag-corecompile prints MSBuild's reason), Build (.NET) job log excerpt
+build_cache: restore dotnet-outputs 8279c62ec270: hit 
+build_cache: restore dotnet-outputs 69f5f52afc20: hit 
+build_cache: restore dotnet-outputs f0eba91fb131: hit 
+build_cache: restore dotnet-outputs cd24bbdecae5: hit 
+build_cache: restore dotnet-outputs 3cc688cbca5d: hit 
+build_cache: restore dotnet-outputs 28e4bad0c8d4: hit 
+build_cache: restore dotnet-outputs 42ba7fec0dc3: hit 
+     2>Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Billing.Api.sourcelink.json" is newer than output file "obj/Release/net8.0/Billing.Api.dll".
+     5>Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Core.Domain.sourcelink.json" is newer than output file "obj/Release/net8.0/Core.Domain.dll".
+       Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Core.Application.sourcelink.json" is newer than output file "obj/Release/net8.0/Core.Application.dll".
+       Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Billing.Api.UnitTests.sourcelink.json" is newer than output file "obj/Release/net8.0/Billing.Api.UnitTests.dll".
+       Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Order.Api.sourcelink.json" is newer than output file "obj/Release/net8.0/Order.Api.dll".
+       Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Order.Api.UnitTests.sourcelink.json" is newer than output file "obj/Release/net8.0/Order.Api.UnitTests.dll".
+       Building target "CoreCompile" completely.
+       Input file "obj/Release/net8.0/Order.Api.IntegrationTests.sourcelink.json" is newer than output file "obj/Release/net8.0/Order.Api.IntegrationTests.dll".
+ [BENCHMARK] Build Time: 10118 ms
+ [BENCHMARK] CoreCompile ran in 7 projects and was skipped in 0

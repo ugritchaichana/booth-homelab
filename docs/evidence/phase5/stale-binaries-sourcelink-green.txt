@@ -1,0 +1,15 @@
+# tests/cache/test_stale_binaries.sh in WSL, real .NET SDK, with EnableSourceLink=false (de46959): green
+dotnet 10.0.401
+A=e0930d8175 B=52b6824ba2 C=6feeeb70d4
+OLD-as-shipped: not stale (pdb mtime forces CoreCompile)
+OLD+pdb: not stale (a regenerated AssemblyInfo.cs forces CoreCompile)
+OLD+all-outputs-touched+no-revision-in-version: STALE detected
+NEW restore on the changed tree: 0 hits
+NEW: FRESH
+NEW save: 7 saved
+NEW restore on the saved tree: 7 hits
+NEW: HIT up-to-date (CoreCompile skipped 7/7)
+NEW: a new commit with the same tree reuses every project (CoreCompile skipped 7/7)
+NEW: a one-project change compiled 3 affected projects and reused 4 of 7
+PASS
+rc=0

@@ -1,0 +1,8 @@
+# cache-benchmark.yml on the Proxmox runner, run 38570753153 (master 5caae65), job log excerpt
+solution: 24 projects in a reference chain, 36024 lines; 3 rounds; dotnet 10.0.401
+| Scenario | Median wall time | CoreCompile ran | CoreCompile skipped | Runs (ms) |
+| cold full build | 90287 ms | 24 | 0 | 115606,90287,65265 |
+| new commit, same tree | 7462 ms | 0 | 24 | 9232,7462,5000 |
+| one leaf project changed | 13428 ms | 1 | 23 | 14714,13428,7920 |
+| middle project changed | 52780 ms | 12 | 12 | 57720,52780,33025 |
+| new commit, commit id in the version | 89770 ms | 24 | 0 | 89770,92448,57362 |

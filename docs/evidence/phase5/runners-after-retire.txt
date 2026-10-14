@@ -1,0 +1,42 @@
+# Runner registrations after retiring container 9503 (three role runners remain)
+pve01-dotnet-integration-auto online self-hosted,Linux,X64,proxmox,dotnet-integration-auto
+pve01-dotnet-unit-auto online self-hosted,Linux,X64,proxmox,dotnet-unit-auto
+pve01-workspace-unit-auto online self-hosted,Linux,X64,proxmox,workspace-unit-auto
+# Guests, the role guests' disk sizes in bytes, every volume in the thin pool and their virtual total, 9503 (read on pve01)
+VMID       Status     Lock         Name                
+9050       running                 cache-auto          
+9101       running                 r15-probe-lxc-runner-v6
+9202       stopped                 tmpl-lxc-runner-v6  
+9203       stopped                 tmpl-lxc-runner-v7  
+9501       running                 demo-lxc-runner-v6  
+9503       stopped                 ci-lxc-runner-v6    
+9504       running                 dotnet-unit-auto-lxc-runner-v7
+9505       running                 dotnet-integration-auto-lxc-runner-v7
+9506       running                 workspace-unit-auto-lxc-runner-v7
+9504 size=53687091200
+9505 size=32212254720
+9506 size=32212254720
+  LV                LSize  Data%  Pool
+  base-9202-disk-0   8.00g        data
+  base-9203-disk-0   8.00g        data
+  base-9302-disk-0  20.00g        data
+  base-9303-disk-0  20.00g        data
+  data              62.50g 48.78      
+  root              42.75g            
+  swap               4.00g            
+  vm-9050-disk-0     4.00g 23.92  data
+  vm-9050-disk-1    10.00g 16.24  data
+  vm-9101-disk-0     8.00g 47.21  data
+  vm-9102-cloudinit  0.00g 9.38   data
+  vm-9102-disk-0    20.00g 11.97  data
+  vm-9302-cloudinit  0.00g        data
+  vm-9303-cloudinit  0.00g        data
+  vm-9501-disk-0    30.00g 13.73  data
+  vm-9502-cloudinit  0.00g 9.38   data
+  vm-9502-disk-0    30.00g 8.48   data
+  vm-9503-disk-0    50.00g 19.55  data
+  vm-9504-disk-0    50.00g 13.55  data
+  vm-9505-disk-0    30.00g 15.50  data
+  vm-9506-disk-0    30.00g 16.68  data
+virtual total in pool data: 318 g
+9503 status: stopped

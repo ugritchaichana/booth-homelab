@@ -1,0 +1,24 @@
+# Load round 7: exact queue peak per runner, counted from each job's created and started times in load-run7.json, beside the sampled peak
+pve01-dotnet-integration-auto: exact peak 1 waiting at 09:27:00Z, jobs 3
+pve01-dotnet-unit-auto: exact peak 3 waiting at 09:26:01Z, jobs 6
+pve01-workspace-unit-auto: exact peak 15 waiting at 09:27:00Z, jobs 18
+sampled dotnet-integration-auto: 1 at 09:27:02Z
+sampled dotnet-unit-auto: 3 at 09:27:02Z
+sampled workspace-unit-auto: 14 at 09:27:27Z
+# The ceiling each run read for workspace-unit-auto (count, reading)
+      1 workspace-unit-auto 0/13 @54s
+      2 workspace-unit-auto 1/13 @56s
+      2 workspace-unit-auto 10/12 @58s
+      1 workspace-unit-auto 12/12 @58s
+      1 workspace-unit-auto 12/13 @54s
+      2 workspace-unit-auto 12/13 @56s
+      1 workspace-unit-auto 13/13 @54s
+      1 workspace-unit-auto 13/13 @56s
+      1 workspace-unit-auto 14/13 @54s
+      2 workspace-unit-auto 2/13 @56s
+      1 workspace-unit-auto 3/13 @56s
+      2 workspace-unit-auto 5/13 @56s
+      2 workspace-unit-auto 7/13 @56s
+      1 workspace-unit-auto 8/12 @58s
+      1 workspace-unit-auto 8/13 @56s
+      1 workspace-unit-auto 9/12 @58s

@@ -1,0 +1,11 @@
+# Load round 1, run 38516088499 attempt 1, Build (.NET) job 115695130425 on the three shared instances: every outputs entry missed, CoreCompile was skipped in 2 projects, and the copy failed
+build_cache: restore dotnet-outputs 8279c62ec270: miss no pointer for this exact key
+build_cache: restore dotnet-outputs 69f5f52afc20: miss no pointer for this exact key
+build_cache: restore dotnet-outputs f0eba91fb131: miss no pointer for this exact key
+build_cache: restore dotnet-outputs cd24bbdecae5: miss no pointer for this exact key
+build_cache: restore dotnet-outputs 3cc688cbca5d: miss no pointer for this exact key
+build_cache: restore dotnet-outputs 28e4bad0c8d4: miss no pointer for this exact key
+build_cache: restore dotnet-outputs 0c5d769e8d9c: miss no pointer for this exact key
+/usr/local/lib/dotnet/sdk/10.0.401/Microsoft.Common.CurrentVersion.targets(4919,5): error MSB3030: Could not copy the file "obj/Release/net8.0/Core.Domain.dll" because it was not found. [/opt/actions-runner/_work/booth-homelab/booth-homelab/apps/backend/src/Core.Domain/Core.Domain.csproj]
+/usr/local/lib/dotnet/sdk/10.0.401/Microsoft.Common.CurrentVersion.targets(4919,5): error MSB3030: Could not copy the file "obj/Release/net8.0/Core.Domain.dll" because it was not found. [/opt/actions-runner/_work/booth-homelab/booth-homelab/apps/backend/src/Core.Domain/Core.Domain.csproj]
+ [BENCHMARK] CoreCompile ran in 1 projects and was skipped in 2

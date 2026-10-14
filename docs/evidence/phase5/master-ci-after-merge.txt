@@ -1,0 +1,33 @@
+# master CI after the Phase 5 merges (1850245, #129) and after the Source Link fix (5caae65, #130): every push run and where the SDET jobs ran
+== master 1850245 (Merge pull request #129 from ugritchaichana/feat/phase5-queue-ceiling)
+Workflow Lint completed/success 38559611981
+Affected Test Selector CI completed/success 38559612043
+Evidence Publisher Gate completed/success 38559612052
+Run Report CI completed/success 38559612060
+Secret Scan completed/success 38559611978
+Standard Scorecard completed/success 38559611971
+Cache client CI completed/success 38559612035
+SDET Homelab CI Pipeline completed/success 38559612097
+  job CI / Select Runner | success | GitHub Actions 1000003502
+  job CI / Build (.NET) | success | pve01-dotnet-unit-auto
+  job CI / Test (Angular) | success | pve01-workspace-unit-auto
+  job CI / Cache (Angular) | skipped | null
+  job CI / Test (.NET integration) | success | pve01-dotnet-integration-auto
+  job CI / Test (.NET unit) | success | pve01-dotnet-unit-auto
+  job CI / Cache (.NET) | success | pve01-dotnet-unit-auto
+  job CI / Report | success | GitHub Actions 1000003518
+== master 5caae65 (Merge pull request #130 from ugritchaichana/fix/sourcelink-cache-reuse)
+SDET Homelab CI Pipeline completed/success 38566157986
+Cache client CI completed/success 38566157733
+Affected Test Selector CI completed/success 38566157560
+Secret Scan completed/success 38566157499
+Evidence Publisher Gate completed/success 38566157871
+Standard Scorecard completed/success 38566157883
+  job CI / Select Runner | success | GitHub Actions 1000003616
+  job CI / Build (.NET) | success | pve01-dotnet-unit-auto
+  job CI / Test (Angular) | success | pve01-workspace-unit-auto
+  job CI / Cache (Angular) | skipped | null
+  job CI / Cache (.NET) | success | pve01-dotnet-unit-auto
+  job CI / Test (.NET unit) | success | pve01-dotnet-unit-auto
+  job CI / Test (.NET integration) | success | pve01-dotnet-integration-auto
+  job CI / Report | success | GitHub Actions 1000003618

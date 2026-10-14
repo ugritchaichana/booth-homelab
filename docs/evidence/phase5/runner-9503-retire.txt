@@ -1,0 +1,25 @@
+# Retiring the shared runner container 9503 after #127 reached master (2026-10-14, about 19:05 ICT), output of the retire script on pve01
+Removed '/etc/systemd/system/multi-user.target.wants/actions-runner-restart@1.path'.
+Removed '/etc/systemd/system/multi-user.target.wants/actions-runner@3.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/actions-runner-restart@3.path'.
+Removed '/etc/systemd/system/multi-user.target.wants/actions-runner@1.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/actions-runner-restart@2.path'.
+Removed '/etc/systemd/system/multi-user.target.wants/actions-runner@2.service'.
+actions-runner-restart@1.path disabled inactive
+actions-runner-restart@2.path disabled inactive
+actions-runner-restart@3.path disabled inactive
+actions-runner@1.service disabled inactive
+actions-runner@2.service disabled inactive
+actions-runner@3.service disabled inactive
+status: stopped
+9503       stopped                 ci-lxc-runner-v6
+# Deregistration through the runners API
+24 pve01-ci-lxc-runner-1 online
+25 pve01-ci-lxc-runner-2 online
+26 pve01-ci-lxc-runner-3 online
+deregistered 24
+deregistered 25
+deregistered 26
+pve01-dotnet-integration-auto online self-hosted,Linux,X64,proxmox,dotnet-integration-auto
+pve01-dotnet-unit-auto online self-hosted,Linux,X64,proxmox,dotnet-unit-auto
+pve01-workspace-unit-auto online self-hosted,Linux,X64,proxmox,workspace-unit-auto
