@@ -31,6 +31,7 @@ Option 3: `scripts/ci/load_test.py`.
   - It then reads every attempt's jobs and the logs of `Select Runner`, `Build (.NET)` and `Test (Angular)`.
 - **The report.**
   - The peak of queued Proxmox jobs divided by online instances.
+  - For each role label (`dotnet-unit-auto`, `dotnet-integration-auto`, `workspace-unit-auto`, ADR 0066), the deepest queue and its share per online runner of that role.
   - Per run and attempt: the route, the build-output entries restored, the projects where CoreCompile ran and where it was skipped, the build time, and the jobs that failed.
 - **The token.** It comes from `GH_TOKEN` and is sent only to the API host. The log download is redirected to storage, and the Authorization header is not carried along.
 - **The load mix.** Refs carry one commit each on top of the branch under test:
