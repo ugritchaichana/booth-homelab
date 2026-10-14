@@ -69,5 +69,46 @@ class PipelineSplitTests(unittest.TestCase):
                 self.assertTrue(split_problems(mutated_pipeline, mutated_report))
 
 
+CALLER = REPO / ".github" / "workflows" / "sdet-ci.yml"
+
+
+def suite_problems(pipeline_text, caller_text):
+    jobs = yaml.safe_load(pipeline_text)["jobs"]
+    caller = yaml.safe_load(caller_text)
+    found = []
+    if "inputs.suites != 'angular'" not in str(jobs["dotnet"].get("if")):
+        found.append("the .NET build runs in an Angular-only run")
+    if "inputs.suites != 'dotnet'" not in str(jobs["angular-jest"].get("if")):
+        found.append("Angular runs in a .NET-only run")
+    run = jobs["summary"]["steps"][0]["run"]
+    if '[ "$SUITES" = angular ] || [ "$BUILD_RESULT" = success ]' not in run or '[ "$SUITES" = dotnet ] || [ "$ANGULAR_RESULT" = success ]' not in run:
+        found.append("the report does not require the selected suites to succeed")
+    dispatch = (caller.get(True) or caller.get("on"))["workflow_dispatch"]["inputs"]
+    if dispatch.get("suites", {}).get("options") != ["all", "dotnet", "angular"] or caller["jobs"]["pipeline"]["with"].get("suites") != "${{ inputs.suites || 'all' }}":
+        found.append("the caller does not pass the suites of a dispatched run")
+    return found
+
+
+class SuiteSelectionTests(unittest.TestCase):
+    def texts(self):
+        return PIPELINE.read_text(encoding="utf-8").replace("\r\n", "\n"), CALLER.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    def test_a_run_can_carry_one_repository_of_the_two_repository_load_test(self):
+        self.assertEqual(suite_problems(*self.texts()), [])
+
+    def test_mutants_of_the_suite_selection_are_caught(self):
+        pipeline, caller = self.texts()
+        mutants = {
+            "build ignores the selection": (pipeline.replace("    if: inputs.suites != 'angular'\n", ""), caller),
+            "angular ignores the selection": (pipeline.replace("    if: inputs.suites != 'dotnet'\n", ""), caller),
+            "a skipped build passes the report": (pipeline.replace('[ "$SUITES" = angular ] || [ "$BUILD_RESULT" = success ]', '[ "$BUILD_RESULT" != failure ]'), caller),
+            "the caller drops the input": (pipeline, caller.replace("      suites: ${{ inputs.suites || 'all' }}\n", "")),
+        }
+        for name, (mutated_pipeline, mutated_caller) in mutants.items():
+            with self.subTest(name):
+                self.assertNotEqual((mutated_pipeline, mutated_caller), (pipeline, caller))
+                self.assertTrue(suite_problems(mutated_pipeline, mutated_caller))
+
+
 if __name__ == "__main__":
     unittest.main()

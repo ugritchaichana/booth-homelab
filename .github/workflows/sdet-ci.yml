@@ -12,6 +12,12 @@ on:
         required: false
         type: boolean
         default: false
+      suites:
+        description: 'Which suites this run carries: all, or one repository of a two-repository load test (dotnet: unit and integration; angular: Jest)'
+        required: false
+        type: choice
+        options: [all, dotnet, angular]
+        default: all
 
 permissions:
   contents: read
@@ -26,4 +32,5 @@ jobs:
     with:
       target_branch: ${{ github.head_ref || github.ref_name }}
       base_ref: ${{ github.base_ref && format('origin/{0}', github.base_ref) || (github.event_name == 'pull_request' && 'origin/master' || (github.event.before && github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'HEAD~1')) }}
+      suites: ${{ inputs.suites || 'all' }}
       force_ubuntu_runner: ${{ vars.CI_RUNNER != 'proxmox' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || (github.event_name == 'workflow_dispatch' && inputs.force_ubuntu_runner) }}

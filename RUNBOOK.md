@@ -564,6 +564,32 @@ The comment's `Runner:` line names the cause of attempt 1's failure: the runner-
 
 The callback runs the default branch's copy of the workflow. It never checks out the pull request's code, and it treats every file and log of the run as untrusted text.
 
+### 3.9 Load test and cache benchmark (Phase 5)
+
+Role: operator (Git Bash or WSL), with a token that can dispatch workflows and read the runners list. ADR 0065.
+
+1. Make one load ref per case, each one commit on top of the branch under test. The selector diffs a dispatched run against `HEAD~1`, so the top commit decides which suites run:
+   - a file outside every project: every suite runs, and every project reuses its outputs;
+   - one changed project: only that project and its dependents compile;
+   - a changed `apps/backend/Directory.Build.props`: a full rebuild;
+   - a unit test that fails only where `RUNNER_ENVIRONMENT` is `self-hosted`: retried on GitHub-hosted, where it passes;
+   - a unit test that always fails: retried, and red.
+
+   Push them as throwaway branches (`test/load-*`) and delete them after the run.
+2. Check that the three runners are online and idle, and that a `master` push after the last change to `apps/` has saved the build outputs. Without that, every outputs restore misses.
+3. Run the driver:
+
+   ```sh
+   GH_TOKEN="$(gh auth token)" python3 scripts/ci/load_test.py run --repository <owner>/<repository> \
+     --plan test/load-full-suite=6 --plan test/load-one-project=2 --plan test/load-full-rebuild=1 \
+     --plan test/load-flaky-on-proxmox=1 --plan test/load-always-fails=1 --out load.json > load.md
+   ```
+
+   Expected: 11 runs. Each run first queues three Proxmox jobs (telemetry, build, Angular), 33 in all, and the D96 target is 5 to 10 queued jobs per online instance at the peak. The flaky run passes on attempt 2 on GitHub-hosted, and the always-failing run is red after attempt 2. `load.md` lists each attempt's route, restored outputs, CoreCompile counts and failed jobs. `python3 scripts/ci/load_test.py render --data load.json` prints it again.
+4. The larger solution: `gh workflow run cache-benchmark.yml -f runner=proxmox`. The job summary has the median of three rounds per case.
+
+Stop a load test with `gh run cancel <id>` on its runs, and delete the load branches after use.
+
 ## 4. Verification and evidence
 
 ### 4.1 Offline suites (no host)
