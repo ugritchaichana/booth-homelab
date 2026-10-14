@@ -515,6 +515,138 @@ class CliTests(unittest.TestCase):
         self.assertIn("HTTP 0", out["reason"])
 
 
+UNIT, INTEGRATION, WORKSPACE = "dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto"
+
+
+def role_job(role, status="queued", name="CI / Test (Angular)", seconds=None, ended=0, conclusion="success"):
+    job = {"name": name, "status": status, "labels": ["self-hosted", "linux", "proxmox", role]}
+    if seconds is not None:
+        job.update(started_at=f"2026-10-14T07:{ended:02d}:00Z", completed_at=f"2026-10-14T07:{ended:02d}:{seconds:02d}Z", conclusion=conclusion)
+    return job
+
+
+class QueueTests(unittest.TestCase):
+    def test_the_queue_counts_waiting_jobs_of_the_role_only(self):
+        jobs = [role_job(WORKSPACE), role_job(WORKSPACE, "waiting"), role_job(WORKSPACE, "pending"), role_job(WORKSPACE, "in_progress"),
+                role_job(UNIT), {"name": "x", "status": "queued", "labels": None}]
+        self.assertEqual(runner_route.queue_depth(jobs, WORKSPACE), 3)
+
+    def test_an_unfinished_build_promises_one_unit_and_one_integration_job(self):
+        jobs = [role_job(UNIT, "queued", "CI / Build (.NET)"), role_job(UNIT, "in_progress", "CI / Build (.NET)"),
+                role_job(UNIT, "completed", "CI / Build (.NET)"), role_job("other", "queued", "CI / Build (.NET)")]
+        self.assertEqual([runner_route.queue_depth(jobs, role) for role in (UNIT, INTEGRATION, WORKSPACE)], [3, 2, 0])
+
+    def test_a_run_still_choosing_its_runner_counts_as_one_more_job_for_every_role(self):
+        jobs = [{"name": "CI / Select Runner", "status": "in_progress", "labels": ["ubuntu-latest"]},
+                {"name": "CI / Select Runner", "status": "queued", "labels": ["ubuntu-latest"]},
+                {"name": "CI / Select Runner", "status": "completed", "labels": ["ubuntu-latest"]}]
+        self.assertEqual([runner_route.queue_depth(jobs, role) for role in (UNIT, INTEGRATION, WORKSPACE)], [2, 2, 2])
+
+    def test_the_job_time_is_the_median_of_the_five_latest_jobs_plus_the_gap(self):
+        jobs = [role_job(UNIT, "completed", seconds=s, ended=e) for s, e in ((40, 1), (20, 2), (30, 3), (50, 4), (44, 5), (10, 6))]
+        jobs += [role_job(UNIT, "completed", seconds=59, ended=7, conclusion="skipped"), role_job(UNIT, "in_progress"),
+                 role_job(UNIT, "completed", seconds=5, ended=8) | {"started_at": None}, role_job(UNIT, "completed", seconds=5, ended=8) | {"completed_at": "later"},
+                 role_job(WORKSPACE, "completed", seconds=59, ended=9)]
+        self.assertEqual(runner_route.job_seconds(jobs, UNIT), 30 + runner_route.GAP_S)
+
+    def test_without_history_the_job_time_is_the_measured_cycle(self):
+        self.assertEqual(runner_route.job_seconds([], WORKSPACE), 50)
+
+    def test_the_ceiling_is_the_wait_over_the_job_time_within_one_and_the_cap(self):
+        self.assertEqual([runner_route.ceiling(750, s, 15) for s in (40, 50, 100, 250, 1000)], [15, 15, 7, 3, 1])
+
+    def test_queue_status_gives_each_role_its_queue_ceiling_and_job_time(self):
+        open_jobs = [role_job(WORKSPACE)] * 4
+        done = [role_job(WORKSPACE, "completed", seconds=s, ended=e) for s, e in ((50, 1), (50, 2), (50, 3))]
+        self.assertEqual(runner_route.queue_status(open_jobs, done, (WORKSPACE, UNIT), 750, 15),
+                         {WORKSPACE: (4, 12, 60), UNIT: (0, 15, 50)})
+
+    def test_a_positive_integer_setting_or_its_default(self):
+        self.assertEqual([runner_route.positive_int(v, 9) for v in ("750", "0", "-3", "", None, "x")], [750, 9, 9, 9, 9, 9])
+
+
+class QueueDecideTests(unittest.TestCase):
+    def decide(self, open_jobs=(), done=(), **overrides):
+        args = dict(forced_hosted=False, token_present=True, http_status=200, runners=runners(), queue_jobs=(list(open_jobs), list(done)))
+        args.update(overrides)
+        return runner_route.decide(**args)
+
+    def test_a_full_queue_sends_the_new_run_to_hosted_and_names_the_role(self):
+        hosted, reason = self.decide(open_jobs=[role_job(WORKSPACE)] * 15)
+        self.assertTrue(hosted)
+        self.assertTrue(reason.startswith("queue full for workspace-unit-auto ("), reason)
+        self.assertIn("workspace-unit-auto 15/15 @50s", reason)
+
+    def test_a_queue_below_its_ceiling_stays_on_proxmox_and_shows_the_load(self):
+        hosted, reason = self.decide(open_jobs=[role_job(WORKSPACE)] * 14)
+        self.assertFalse(hosted)
+        self.assertIn("; queue dotnet-unit-auto 0/15 @50s, dotnet-integration-auto 0/15 @50s, workspace-unit-auto 14/15 @50s", reason)
+
+    def test_slow_recent_jobs_lower_the_ceiling(self):
+        slow = [role_job(WORKSPACE, "completed", seconds=50, ended=e) | {"completed_at": f"2026-10-14T07:{e + 1:02d}:30Z"} for e in range(0, 10, 2)]
+        hosted, reason = self.decide(open_jobs=[role_job(WORKSPACE)] * 7, done=slow)
+        self.assertTrue(hosted)
+        self.assertIn("workspace-unit-auto 7/7 @100s", reason)
+
+    def test_a_role_the_run_does_not_need_never_fills(self):
+        hosted, _ = self.decide(open_jobs=[role_job(WORKSPACE)] * 20, suites="dotnet")
+        self.assertFalse(hosted)
+
+    def test_an_unread_queue_skips_the_ceiling_and_says_why(self):
+        hosted, reason = self.decide(queue_jobs=None, queue_error="runs list returned HTTP 403\nhosted=true")
+        self.assertFalse(hosted)
+        self.assertIn("; queue not read (runs list returned HTTP 403 hosted=true), so no ceiling", reason)
+        self.assertNotIn("\n", reason)
+
+    def test_a_rerun_after_hosted_respects_the_ceiling(self):
+        hosted, reason = self.decide(open_jobs=[role_job(UNIT)] * 15, previous_env="hosted")
+        self.assertTrue(hosted)
+        self.assertIn("the previous attempt ran on GitHub-hosted", reason)
+
+    def test_an_offline_role_wins_over_the_queue(self):
+        doc = runners()
+        doc["runners"][0]["status"] = "offline"
+        hosted, reason = self.decide(runners=doc, open_jobs=[role_job(WORKSPACE)] * 20)
+        self.assertTrue(hosted)
+        self.assertTrue(reason.startswith("no Proxmox runner online for workspace-unit-auto"), reason)
+
+
+class QueueCliTests(unittest.TestCase):
+    def run_cli(self, argv):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(runner_route.main(argv), 0)
+        return dict(line.split("=", 1) for line in out.getvalue().splitlines())
+
+    def test_decide_reads_the_open_and_the_done_jobs(self):
+        with tempfile.TemporaryDirectory() as d:
+            opened, done = Path(d) / "open", Path(d) / "done"
+            opened.mkdir()
+            done.mkdir()
+            (opened / "101.json").write_text(json.dumps({"jobs": [role_job(WORKSPACE)] * 8}), encoding="utf-8")
+            (opened / "102.json").write_text(json.dumps({"jobs": [role_job(WORKSPACE, "completed", seconds=50, ended=e) for e in range(5)]}), encoding="utf-8")
+            (opened / "103.json").write_text("[1]", encoding="utf-8")
+            (opened / "104.json").write_text(json.dumps({"jobs": ["not a job"]}), encoding="utf-8")
+            (done / "90.json").write_text("{not json", encoding="utf-8")
+            base = ["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "200", "--runners", str(FIXTURES / "runners-online.json"),
+                    "--queue-dir", d, "--suites", "angular"]
+            out = self.run_cli(base + ["--wait-s", "480", "--ceiling", "15"])
+            self.assertEqual(out["hosted"], "true")
+            self.assertIn("workspace-unit-auto 8/8 @60s", out["reason"])
+            out = self.run_cli(base + ["--wait-s", "x", "--ceiling", "0"])
+            self.assertEqual(out["hosted"], "false")
+            self.assertIn("workspace-unit-auto 8/12 @60s", out["reason"])
+            out = self.run_cli(base + ["--wait-s", "480", "--queue-error", "jobs of run 7 returned HTTP 500"])
+            self.assertEqual(out["hosted"], "false")
+            self.assertIn("queue not read (jobs of run 7 returned HTTP 500), so no ceiling", out["reason"])
+
+    def test_decide_reports_a_queue_error(self):
+        out = self.run_cli(["decide", "--forced-hosted", "false", "--token-present", "true", "--http-status", "200",
+                            "--runners", str(FIXTURES / "runners-online.json"), "--queue-error", "jobs of run 7 returned HTTP 500"])
+        self.assertEqual(out["hosted"], "false")
+        self.assertIn("queue not read (jobs of run 7 returned HTTP 500)", out["reason"])
+
+
 class InputTests(unittest.TestCase):
     def test_classifying_does_not_mutate_the_jobs(self):
         jobs, _ = scenario(RESTARTED)

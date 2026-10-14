@@ -2,6 +2,7 @@
 """Load-test the SDET pipeline: dispatch runs on several refs at once, sample the job queue until every run and its retry
 have finished, then summarise routes, retries, queue depth, cache reuse and timings."""
 import argparse
+import http.client
 import json
 import os
 import re
@@ -21,11 +22,13 @@ LOGGED_JOBS = ("Select Runner", "Build (.NET)", "Test (Angular)")
 SUITES = ("Test (.NET unit)", "Test (.NET integration)", "Test (Angular)")
 REPOSITORIES = ("all", "dotnet", "angular")
 ROLES = ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")
+QUEUE_FULL = "queue full for "
+READ_TRIES = 3
 
 
 class Api:
-    def __init__(self, repository, token, opener=urllib.request.urlopen):
-        self.base, self.token, self.opener = f"{API}/repos/{repository}", token, opener
+    def __init__(self, repository, token, opener=urllib.request.urlopen, pause=time.sleep):
+        self.base, self.token, self.opener, self.pause = f"{API}/repos/{repository}", token, opener, pause
 
     def request(self, path, body=None):
         data = None if body is None else json.dumps(body).encode()
@@ -36,7 +39,15 @@ class Api:
             return response.read().decode("utf-8", "replace")
 
     def get(self, path):
-        return json.loads(self.request(path))
+        tries = 0
+        while True:
+            try:
+                return json.loads(self.request(path))
+            except (OSError, http.client.HTTPException):
+                tries += 1
+                if tries == READ_TRIES:
+                    raise
+                self.pause(2 ** (tries - 1))
 
     def post(self, path, body):
         return self.request(path, body)
@@ -156,7 +167,14 @@ def summarise(plan, runs, attempts, logs, samples):
         by_ref.setdefault(group, []).append({"id": run["id"], "url": run.get("html_url"), "attempts": run["run_attempt"],
                                              "conclusion": run.get("conclusion"), "runs": rows})
     return {"plan": plan, "peak": peak(samples), "role_peaks": role_peaks(samples), "samples": len(samples), "concurrency": concurrency(by_ref),
-            "refs": by_ref}
+            "queue": queue_outcome(by_ref), "refs": by_ref}
+
+
+def queue_outcome(by_ref):
+    attempts = [attempt for runs in by_ref.values() for run in runs for attempt in run["runs"]]
+    reasons = [r["reason"] for attempt in attempts for j in attempt["jobs"] for r in j.get("routes", []) if r["attempt"] == attempt["attempt"]]
+    cancelled = [j for attempt in attempts for j in attempt["jobs"] if j["proxmox"] and j["conclusion"] == "cancelled"]
+    return {"spilled": sum(1 for r in reasons if r.startswith(QUEUE_FULL)), "cancelled_on_proxmox": len(cancelled)}
 
 
 def fmt(value, unit=""):
@@ -184,6 +202,10 @@ def render(report):
     if roles:
         lines.append("Peak queue per role: " + "; ".join(f"{role} {p['queued']} queued with {p['online']} online ({fmt(p['per_runner'])} per runner)"
                                                        for role, p in roles.items()) + ".")
+    queue = report.get("queue")
+    if queue:
+        lines.append(f"Queue ceiling: {queue['spilled']} attempt(s) went to GitHub-hosted because a queue was full; "
+                     f"{queue['cancelled_on_proxmox']} job(s) on Proxmox were cancelled.")
     lines += [f"Concurrent suites on Proxmox: up to {spread['most_at_once']} of {spread['suite_jobs']} suite jobs and {spread['most_kinds_at_once']} kinds ran at once; "
               f"two or more kinds overlapped at {spread['moments_mixed']} job starts, all three (.NET unit, .NET integration, Angular) at {spread['moments_all_three']}.", ""]
     for ref, runs in sorted(report["refs"].items()):

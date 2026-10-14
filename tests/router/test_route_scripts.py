@@ -42,6 +42,20 @@ def runners(status="online"):
     return json.dumps(doc)
 
 
+RUNS = "/actions/runs?per_page=100"
+SDET = ".github/workflows/sdet-ci.yml"
+DRILL = ".github/workflows/sdet-fallback-drill.yml"
+CALLBACK = ".github/workflows/sdet-callback.yml"
+
+
+def runs_list(*runs):
+    return json.dumps({"workflow_runs": [{"id": run_id, "status": status, "path": path} for run_id, status, path in runs]})
+
+
+def jobs_doc(count, role="workspace-unit-auto", status="queued"):
+    return json.dumps({"jobs": [{"name": "CI / Test (Angular)", "status": status, "labels": ["self-hosted", "linux", "proxmox", role]}] * count})
+
+
 def attempt_routes(scenario, attempt=1):
     doc = json.loads(text(FIXTURES / f"{scenario}.json"))
     routes = {f"/runs/9/attempts/{attempt}/jobs?per_page=100": [200, json.dumps(doc["jobs"])]}
@@ -112,15 +126,52 @@ class SelectRunnerTests(ScriptCase):
         return self.run_script(SELECT, routes, RUN_ATTEMPT=str(attempt), FORCED_HOSTED=forced, RUNNER_STATUS_TOKEN=token, **env)
 
     def test_online_runners_route_each_kind_to_its_own_runner_and_the_summary_says_why(self):
-        outputs, calls, _, summary = self.run_select({"/actions/runners?per_page=100": [200, runners()]})
+        outputs, calls, _, summary = self.run_select({"/actions/runners?per_page=100": [200, runners()], RUNS: [200, runs_list()]})
         self.assertEqual(outputs["hosted"], "false")
         self.assertEqual(outputs["unit_labels"], '["self-hosted", "linux", "proxmox", "dotnet-unit-auto"]')
         self.assertEqual(outputs["integration_labels"], '["self-hosted", "linux", "proxmox", "dotnet-integration-auto"]')
         self.assertEqual(outputs["angular_labels"], '["self-hosted", "linux", "proxmox", "workspace-unit-auto"]')
         self.assertEqual(outputs["route_reason"], "a Proxmox runner online for every role (HTTP 200: dotnet-unit-auto 1 of 1, "
-                                                  "dotnet-integration-auto 1 of 1, workspace-unit-auto 1 of 1)")
+                                                  "dotnet-integration-auto 1 of 1, workspace-unit-auto 1 of 1); queue dotnet-unit-auto 0/15 @50s, "
+                                                  "dotnet-integration-auto 0/15 @50s, workspace-unit-auto 0/15 @50s")
         self.assertIn("Runner route (attempt 1)", summary)
-        self.assertEqual(calls, [f"https://api.example.invalid/repos/owner/repo/actions/runners?per_page=100 Authorization: Bearer {RUNNER_TOKEN}"])
+        self.assertEqual(calls, [f"https://api.example.invalid/repos/owner/repo/actions/runners?per_page=100 Authorization: Bearer {RUNNER_TOKEN}",
+                                 f"https://api.example.invalid/repos/owner/repo{RUNS} Authorization: Bearer {RUN_TOKEN}"])
+
+    def test_a_full_queue_sends_the_new_run_to_hosted_and_reads_only_other_open_sdet_runs(self):
+        routes = {"/actions/runners?per_page=100": [200, runners()],
+                  RUNS: [200, runs_list((9, "in_progress", SDET), (101, "in_progress", SDET), (102, "queued", DRILL), (103, "in_progress", ".github/workflows/iac-ci.yml"),
+                                        (104, "in_progress", CALLBACK), (92, "completed", CALLBACK), (90, "completed", SDET),
+                                        (91, "completed", ".github/workflows/report-ci.yml"))],
+                  "/actions/runs/101/jobs?per_page=100": [200, jobs_doc(8)], "/actions/runs/102/jobs?per_page=100": [200, jobs_doc(7)],
+                  "/actions/runs/90/jobs?per_page=100": [200, jobs_doc(1, status="completed")]}
+        outputs, calls, _, _ = self.run_select(routes, SUITES="angular")
+        self.assertEqual(outputs["hosted"], "true")
+        self.assertEqual(outputs["route_reason"], "queue full for workspace-unit-auto (workspace-unit-auto 15/15 @50s)")
+        read = sorted(call.split("/actions/runs/")[1].split("/")[0] for call in calls if "/jobs?" in call)
+        self.assertEqual(read, ["101", "102", "90"])
+
+    def test_the_ceiling_settings_come_from_the_environment(self):
+        routes = {"/actions/runners?per_page=100": [200, runners()], RUNS: [200, runs_list((101, "in_progress", SDET))],
+                  "/actions/runs/101/jobs?per_page=100": [200, jobs_doc(3)]}
+        self.assertEqual(self.run_select(routes, SUITES="angular", QUEUE_CEILING="3")[0]["hosted"], "true")
+        self.assertEqual(self.run_select(routes, SUITES="angular", QUEUE_WAIT_S="200")[0]["hosted"], "false")
+        self.assertEqual(self.run_select(routes, SUITES="angular", QUEUE_WAIT_S="150")[0]["hosted"], "true")
+
+    def test_an_unread_queue_routes_by_health_and_says_why(self):
+        cases = {
+            "runs list returned HTTP 403": {RUNS: [403, '{"message": "Resource not accessible by integration"}']},
+            "runs list is not readable": {RUNS: [200, "not json"]},
+            "jobs of run 101 returned HTTP 500": {RUNS: [200, runs_list((101, "in_progress", SDET))], "/actions/runs/101/jobs?per_page=100": [500, "{}"]},
+            "jobs of run 90 returned HTTP 404": {RUNS: [200, runs_list((90, "completed", SDET))], "/actions/runs/90/jobs?per_page=100": [404, '{"message": "Not Found"}']},
+        }
+        for expected, routes in cases.items():
+            with self.subTest(expected):
+                routes["/actions/runners?per_page=100"] = [200, runners()]
+                outputs, _, stdout, _ = self.run_select(routes)
+                self.assertEqual(outputs["hosted"], "false")
+                self.assertIn(f"queue not read ({expected}", outputs["route_reason"])
+                self.assertIn(f"select-runner: queue not read: {expected}", stdout)
 
     def test_no_online_runner_routes_hosted(self):
         outputs, _, _, _ = self.run_select({"/actions/runners?per_page=100": [200, runners("offline")]})
@@ -181,7 +232,7 @@ class SelectRunnerTests(ScriptCase):
         outputs, calls, _, _ = self.run_select(routes, attempt=2)
         self.assertEqual(outputs["hosted"], "false")
         self.assertIn("the previous attempt ran on GitHub-hosted", outputs["route_reason"])
-        self.assertTrue(calls[-1].endswith(f"Bearer {RUNNER_TOKEN}"))
+        self.assertIn(f"https://api.example.invalid/repos/owner/repo/actions/runners?per_page=100 Authorization: Bearer {RUNNER_TOKEN}", calls)
 
     def test_a_forced_run_stays_hosted_on_every_attempt_and_reads_nothing(self):
         outputs, calls, _, _ = self.run_select(on_hosted("test-failure", 1, False), attempt=2, forced="true")

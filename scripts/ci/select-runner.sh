@@ -22,7 +22,14 @@ if [ "$FORCED_HOSTED" != true ] && [ "$previous_env" != proxmox ] && [ -n "${RUN
   [ "$http_status" = 200 ] || echo "select-runner: runner health check returned HTTP $http_status: $(why "$work/runners.json")"
 fi
 
-decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" --http-status "$http_status" --runners "$work/runners.json" --previous-env "$previous_env" --previous-cause "$(field cause "$classified")" --previous-error "$(field error "$classified")" --suites "${SUITES:-all}")"
+queue=()
+if [ "$http_status" = 200 ]; then
+  queue_error="$(read_queue "$work/queue" "$RUN_ID")"
+  [ -z "$queue_error" ] || echo "select-runner: queue not read: $queue_error"
+  queue=(--queue-dir "$work/queue" --queue-error "$queue_error")
+fi
+
+decision="$(python3 "$lib_dir/runner_route.py" decide --forced-hosted "$FORCED_HOSTED" --token-present "$token_present" --http-status "$http_status" --runners "$work/runners.json" --previous-env "$previous_env" --previous-cause "$(field cause "$classified")" --previous-error "$(field error "$classified")" --suites "${SUITES:-all}" --wait-s "${QUEUE_WAIT_S:-}" --ceiling "${QUEUE_CEILING:-}" "${queue[@]}")"
 hosted="$(sed -n 's/^hosted=//p' <<< "$decision")"
 reason="$(sed -n 's/^reason=//p' <<< "$decision")"
 

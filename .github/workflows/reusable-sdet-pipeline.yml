@@ -103,6 +103,8 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           SUITES: ${{ inputs.suites }}
+          QUEUE_WAIT_S: ${{ vars.RUNNER_QUEUE_WAIT_S }}
+          QUEUE_CEILING: ${{ vars.RUNNER_QUEUE_CEILING }}
         run: bash scripts/ci/select-runner.sh
 
   dotnet:

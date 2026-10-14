@@ -524,6 +524,11 @@ The shared container `ci-lxc-runner-v6` (VMID 9503, three instances labelled `do
    - **Health check.** Otherwise it lists the runners with the secret `RUNNER_STATUS_TOKEN`.
      - A run stays on Proxmox when every role its suites need has an online runner, busy or not. `all` needs all three roles, `dotnet` the two .NET roles, and `angular` needs `workspace-unit-auto`.
      - If any needed role has no runner online, the whole run goes to hosted.
+     - **Queue ceiling** (ADR 0067). If any needed role already has its ceiling of jobs waiting, the whole new run goes to hosted.
+       - Jobs already queued are never cancelled.
+       - The ceiling is the accepted wait divided by the median time of the role's last 5 jobs plus 10 s, at most the cap and at least 1. Slower jobs, for example when other containers load the host, lower it.
+       - The reason shows each role as `<role> <queued>/<ceiling> @<seconds>s`. If the queue cannot be read, the reason says `queue not read (...)`, and the ceiling is skipped for that run.
+       - Set the accepted wait and the cap with `gh variable set RUNNER_QUEUE_WAIT_S --body 750` and `gh variable set RUNNER_QUEUE_CEILING --body 15` (the defaults). A large ceiling switches the rule off.
      - Without the token, or on an API error, `CI_RUNNER` decides.
 
    ```sh

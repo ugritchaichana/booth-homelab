@@ -1,3 +1,4 @@
+import http.client
 import io
 import json
 import os
@@ -158,6 +159,19 @@ class SummaryTests(unittest.TestCase):
         self.assertIn("attempt 1 on Proxmox VE Self-Hosted (LXC): outputs 1/2, CoreCompile 1 compiled / 6 reused, build 4321 ms; failed: Test (.NET unit)", text)
         self.assertIn("attempt 2 on GitHub-hosted: outputs n/a, CoreCompile n/a compiled / n/a reused, build n/a; failed: none", text)
         self.assertIn("up to 1 of 1 suite jobs and 1 kinds ran at once; two or more kinds overlapped at 0 job starts, all three (.NET unit, .NET integration, Angular) at 0.", text)
+        self.assertIn("Queue ceiling: 0 attempt(s) went to GitHub-hosted because a queue was full; 0 job(s) on Proxmox were cancelled.", text)
+
+    def test_the_queue_outcome_counts_spilled_attempts_and_cancelled_proxmox_jobs(self):
+        full = "queue full for workspace-unit-auto (workspace-unit-auto 15/15 @50s)"
+        first = {"attempt": 1, "jobs": [{"name": "CI / Select Runner", "proxmox": False, "conclusion": "success",
+                                         "routes": [{"attempt": 1, "runner": "GitHub-Hosted (ubuntu-latest)", "reason": full},
+                                                    {"attempt": 2, "runner": "x", "reason": full}]},
+                                        {"name": "CI / Test (Angular)", "proxmox": True, "conclusion": "cancelled"},
+                                        {"name": "CI / Test (Angular)", "proxmox": False, "conclusion": "cancelled"}]}
+        second = {"attempt": 2, "jobs": [{"name": "CI / Select Runner", "proxmox": False, "conclusion": "success",
+                                          "routes": [{"attempt": 2, "runner": "x", "reason": "a Proxmox runner online for every role"}]}]}
+        by_ref = {"load/a (angular)": [{"runs": [first, second]}]}
+        self.assertEqual(load_test.queue_outcome(by_ref), {"spilled": 1, "cancelled_on_proxmox": 1})
 
 
 def span(name, start, end, labels=("self-hosted", "proxmox")):
@@ -301,6 +315,25 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(api.post("/x", {"a": 1}), '{"ok": 1}')
         self.assertEqual(seen[0], ("https://api.github.com/repos/owner/repo/actions/runners", "GET", None, "Bearer secret-token", None, 60))
         self.assertEqual(seen[1][1:3], ("POST", b'{"a": 1}'))
+
+    def test_a_read_survives_a_dropped_connection_and_gives_up_after_three_tries(self):
+        failures, waits = [http.client.RemoteDisconnected("closed"), ConnectionResetError("reset")], []
+
+        def flaky(request, timeout):
+            if failures:
+                raise failures.pop(0)
+            return Response(b'{"ok": 2}')
+
+        self.assertEqual(load_test.Api("owner/repo", "t", flaky, waits.append).get("/x"), {"ok": 2})
+        self.assertEqual(waits, [1, 2])
+
+        def down(request, timeout):
+            raise http.client.RemoteDisconnected("closed")
+
+        waits.clear()
+        with self.assertRaises(http.client.RemoteDisconnected):
+            load_test.Api("owner/repo", "t", down, waits.append).get("/x")
+        self.assertEqual(waits, [1, 2])
 
 
 class MainTests(unittest.TestCase):

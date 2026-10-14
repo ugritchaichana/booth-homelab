@@ -99,6 +99,11 @@ class RouterWorkflowTests(unittest.TestCase):
                 granted = yaml.safe_load(read(name)).get("permissions") or {}
                 self.assertEqual({k: granted.get(k) for k in ROUTER_PERMISSIONS}, ROUTER_PERMISSIONS)
 
+    def test_the_queue_reads_the_runs_of_every_pipeline_caller_and_nothing_else(self):
+        library = (REPO / "scripts" / "ci" / "attempt-lib.sh").read_text(encoding="utf-8")
+        listed = re.search(r"^pipeline_callers='(.*)'$", library, re.M).group(1)
+        self.assertEqual(yaml.safe_load(listed), [f".github/workflows/{name}" for name in callers()])
+
     def test_cache_endpoint_follows_the_route_not_the_input(self):
         self.assertEqual(routed_env_violations(read(PIPELINE)), [])
 
