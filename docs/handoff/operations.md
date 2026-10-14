@@ -31,7 +31,7 @@ A build refuses when the thin pool or `local` storage is above its threshold; th
 
 ## Cache
 
-Runbook 3.4 "Cache: health, purge, rotation" holds every command. The service is the container `build-cache-debian-13`, reached as `ssh -F ~/.config/homelab/ssh_config build-cache`.
+Runbook 3.4 "Cache: health, purge, rotation" holds every command. The service is the container `cache-auto`, reached as `ssh -F ~/.config/homelab/ssh_config build-cache`.
 
 | Task | Notes |
 |---|---|

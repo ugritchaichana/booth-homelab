@@ -28,7 +28,7 @@ graph TD
                 F["flavor guests<br>demo-lxc-runner, demo-vm-docker"]
             end
             subgraph C ["vnet cache 10.99.17.0/24"]
-                CACHE["build-cache-debian-13: bazel-remote 2.6.2, tcp 8080"]
+                CACHE["cache-auto: bazel-remote 2.6.2, tcp 8080"]
             end
         end
     end
@@ -46,7 +46,7 @@ graph TD
 | Guest network | SDN zone `hlab` with vnets `guests` and `cache`, source-NATed, static addresses, port isolation on `guests` | ADR 0030, 0045 |
 | Golden templates | `lxc-runner` and `vm-docker`, built on the host by a root orchestrator, two versions kept, one-command rollback, weekly rebuild | ADR 0038 to 0044 |
 | Flavor guests | `scripts/iac/new-guest.sh` creates a guest sized by a cloud flavor such as `aws/t3.medium`, named `<role>-<class>-v<N>` and tagged with its flavor and source template | ADR 0055 |
-| Build cache | `bazel-remote` in container `build-cache-debian-13` on the `cache` vnet; anonymous reads, one writer credential, content-addressed keys, outputs restored only on an exact match | ADR 0048 to 0050 |
+| Build cache | `bazel-remote` in container `cache-auto` on the `cache` vnet; anonymous reads, one writer credential, content-addressed keys, outputs restored only on an exact match | ADR 0048 to 0050 |
 | Evidence and knowledge | Sanitized transcripts per phase, a defect list and a test catalogue, published from the operator's machine | ADR 0052 |
 
 Measured results: [`docs/handoff/results.md`](docs/handoff/results.md). Test coverage: [`docs/knowledge/coverage.md`](docs/knowledge/coverage.md).

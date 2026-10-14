@@ -18,7 +18,7 @@ Two layers, kept apart so an adopter can drop the first (R18, handoff-ready; R10
 | `pve_templates` role | same | The root orchestrator `homelab-template`, the sandboxed guest-facing step, units, base images, snippets, the weekly rebuild timer | ADR 0038 to 0042 |
 | `cache_service` role | same | bazel-remote pinned by sha256, writer credential as a bcrypt hash, hardened unit, start-time sweep | ADR 0048, 0050 |
 | `proxmox-host` stack | `iac/tofu/stacks/proxmox-host/` | SDN zone `hlab`, vnets `guests` and `cache`, subnets, SNAT; selected by `var.host` | ADR 0030, 0045 |
-| `cache-service` stack | `iac/tofu/stacks/cache-service/` | Container `build-cache-debian-13` on the cache vnet, created stopped | ADR 0045 |
+| `cache-service` stack | `iac/tofu/stacks/cache-service/` | Container `cache-auto` on the cache vnet, created stopped | ADR 0045 |
 | `r15-probe` stack | `iac/tofu/stacks/r15-probe/` | Two throwaway clones, `r15-probe-lxc-runner-v<N>` and `r15-probe-vm-docker-v<N>`, that carry the runner-class firewall policy for the isolation proof | ADR 0031, 0044 |
 | `guest` stack | `iac/tofu/stacks/guest/` | Guests sized by a cloud flavor, read from `guests.yml`; created by `scripts/iac/new-guest.sh` | ADR 0055 |
 | Runner-class policy | `iac/policy/runner-class.yml` | Per-guest firewall options and the security group every runner guest gets | ADR 0027 |
@@ -34,7 +34,7 @@ Two layers, kept apart so an adopter can drop the first (R18, handoff-ready; R10
 | Switch port | The PVE VM | The workstation, its VPN-routed prefixes, peers, the home LAN | Hyper-V port ACLs plus a Windows firewall rule; row 42 (ACL read-back) |
 | PVE host | Root on pve01, the root orchestrator | Guests, tokens | Classic PVE firewall, SSH key-only access, sandboxed guest step |
 | Guest vnet `guests` | Runner-class guests (untrusted code from a public repository) | Management, host, peers, other guests | Port isolation, per-guest firewall with `policy_out DROP`, group `guest-egress`, guard |
-| Cache vnet `cache` | `build-cache-debian-13` | Everything except one tcp path from runners | Group `cache-ingress`, one first-line rule in `guest-egress` |
+| Cache vnet `cache` | `cache-auto` | Everything except one tcp path from runners | Group `cache-ingress`, one first-line rule in `guest-egress` |
 | Template pool | Templates only | The provisioner token may clone, not modify | Pool `templates`, role `HomelabTemplateClone` |
 
 ## Networks

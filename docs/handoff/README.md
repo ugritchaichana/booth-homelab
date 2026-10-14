@@ -34,7 +34,7 @@ Phases 2, 3 and 4 each passed an independent audit against their DONE WHEN claus
 | Isolation proof (R15) | Red-first probe from runner-class guests, repeated after container, PVE and laptop reboots | ADR 0031; row 66 (R15 with the cache path); counts in [results.md](results.md) |
 | Golden templates | `lxc-runner` and `vm-docker`, versioned, two kept, one-command rollback, weekly rebuild | ADR 0038 to 0044 |
 | Flavor guests | One command creates a guest sized by a cloud flavor, named `<role>-<class>-v<N>`; two demo guests run on `pve01` | ADR 0055; [examples.md](examples.md) |
-| Build cache | bazel-remote container `build-cache-debian-13`, content-keyed client, anonymous reads, one writer credential, LRU eviction | ADR 0048 to 0050 |
+| Build cache | bazel-remote container `cache-auto`, content-keyed client, anonymous reads, one writer credential, LRU eviction | ADR 0048 to 0050 |
 | Workflows | Reusable pipeline with the cache wiring; green on hosted runners with the cache off | ADR 0049, 0054; row 68 (hosted run with the cache disabled) |
 | Tests and coverage | Shell, OpenTofu, Python and Pester suites, one catalogue, published coverage | [test catalogue](../knowledge/test-catalogue.md), [coverage](../knowledge/coverage.md) |
 | Evidence and knowledge | Sanitized transcripts per phase with hash indexes, a defect list | ADR 0052; [knowledge](../knowledge/README.md) |

@@ -7,7 +7,7 @@ A `bazel-remote` service in its own container serves content-addressed dependenc
 | Item | Value | Decision |
 |---|---|---|
 | Service | `bazel-remote` 2.6.2, pinned by sha256, uncompressed storage, size limit 8 GiB with LRU eviction | ADR 0048 |
-| Placement | Container `build-cache-debian-13` (inventory alias `build-cache`, VMID 9050) at `10.99.17.10:8080` on vnet `cache`, routed through `pve01`; a hypervisor service would serve untrusted runners | ADR 0045 |
+| Placement | Container `cache-auto` (inventory alias `build-cache`, VMID 9050) at `10.99.17.10:8080` on vnet `cache`, routed through `pve01`; a hypervisor service would serve untrusted runners | ADR 0045 |
 | Network path | One group-level firewall rule: the first line of `guest-egress` accepts tcp to the cache address and port; the container carries the group `cache-ingress` and nothing else | ADR 0046 |
 | Reads and writes | Anonymous reads; writes need one writer credential held only in the GitHub environment `cache-writer` and used by save steps of default-branch push jobs | ADR 0050 |
 | Integrity | The server verifies a CAS body against its digest on upload; the client verifies the digest again before extraction; a start-time sweep quarantines any stored blob whose content does not match its name | ADR 0048 |

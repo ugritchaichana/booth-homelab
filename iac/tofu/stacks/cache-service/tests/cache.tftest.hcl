@@ -158,8 +158,8 @@ run "name_and_tags_say_the_role_and_the_base_image" {
   command = plan
 
   assert {
-    condition     = proxmox_virtual_environment_container.cache.initialization[0].hostname == "build-cache-debian-13"
-    error_message = "The hostname must be build-cache-<os image slug>, build-cache-debian-13 for the lxc-runner base image."
+    condition     = proxmox_virtual_environment_container.cache.initialization[0].hostname == "cache-auto"
+    error_message = "The hostname must be cache-auto, the role name the runners also use (ADR 0066)."
   }
 
   assert {

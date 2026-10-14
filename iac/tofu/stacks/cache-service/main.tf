@@ -77,8 +77,8 @@ resource "proxmox_virtual_environment_container" "cache" {
     }
 
     precondition {
-      condition     = local.hostname != null && can(regex(local.name_pattern, local.hostname))
-      error_message = "The cache hostname must be build-cache-<os image slug>, a valid hostname of at most 63 characters; the slug comes from the lxc-runner base image file name."
+      condition     = can(regex(local.name_pattern, local.hostname))
+      error_message = "The cache hostname must be a valid hostname of at most 63 characters."
     }
   }
 }

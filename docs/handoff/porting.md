@@ -41,7 +41,7 @@ The operator toolchain (WSL on the reference setup) is a Linux shell with pinned
 | Storage | ext4 on LVM-thin, left as installed (ADR 0035) | Revisit with real disks; ZFS was rejected only for ARC memory on a 20 GiB VM |
 | Flavors and sizes | Catalog entries sized for the laptop budget; the `guest` stack caps one guest at the whole reference VM (`guest_budget`) | Add flavors in `iac/tofu/flavors.json` and raise `guest_budget` for a bigger host; an example entry is in [examples.md](examples.md) (ADR 0017, 0055) |
 | Thresholds | Build space guard placeholders (70%, 70%, 8 GiB) | Measure on the target pool |
-| Names | `pve01`, `build-cache-debian-13` (inventory alias `build-cache`), VMID blocks 9050, 9100s, 9200s, 9300s, 9500s | Keep or change in the inventory and role defaults; the guard and the template resolver depend on the blocks (ADR 0044) |
+| Names | `pve01`, `cache-auto` (inventory alias `build-cache`), VMID blocks 9050, 9100s, 9200s, 9300s, 9500s | Keep or change in the inventory and role defaults; the guard and the template resolver depend on the blocks (ADR 0044) |
 | Repository slug and cache URL | The reusable pipeline compares `github.repository` with the reference repository in three places: the top-level `env` values `CACHE_URL` and `BUILD_CACHE_RUNNER_CLASS` (`.github/workflows/reusable-sdet-pipeline.yml:58-59`) and the `HOSTED` value of the `select-runner` job (`:76`). `CACHE_URL` also holds the cache address | Replace the slug in all three with `<owner>/<repository>` of the fork and the address with the fork's cache endpoint; until then a fork silently runs on hosted runners with the cache off |
 
 ## What must be re-measured
