@@ -102,8 +102,9 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0059 | [Open the reference lab to visitors](0059-open-the-reference-lab-to-visitors.md) | Accepted |
 | 0060 | [Run own CI on one persistent runner container behind a job-start guard](0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md) | Accepted; job layout amended by 0064, runner layout by 0066 |
 | 0061 | [Report each SDET run on its pull request from a workflow_run callback](0061-report-each-sdet-run-on-its-pull-request-from-a-workflow-run-callback.md) | Accepted |
-| 0062 | [Route CI by runner health and retry a failed run once on the other environment](0062-route-ci-by-runner-health-and-retry-a-failed-run-once-on-the-other-environment.md) | Accepted |
+| 0062 | [Route CI by runner health and retry a failed run once on the other environment](0062-route-ci-by-runner-health-and-retry-a-failed-run-once-on-the-other-environment.md) | Accepted; health check amended by 0066 and 0067 |
 | 0063 | [Cache build outputs per project and keep the commit id out of the version](0063-cache-build-outputs-per-project-and-keep-the-commit-id-out-of-the-version.md) | Accepted |
 | 0064 | [Build .NET once, test unit and integration as parallel jobs, and give every runner instance one path](0064-build-dotnet-once-test-unit-and-integration-as-parallel-jobs-and-give-every-runner-instance-one-path.md) | Accepted; job placement amended by 0066 |
 | 0065 | [Load-test the pipeline by dispatching runs and sampling the jobs API](0065-load-test-the-pipeline-by-dispatching-runs-and-sampling-the-jobs-api.md) | Accepted |
-| 0066 | [Run each test kind on its own runner container](0066-run-each-test-kind-on-its-own-runner-container.md) | Accepted |
+| 0066 | [Run each test kind on its own runner container](0066-run-each-test-kind-on-its-own-runner-container.md) | Accepted; routing amended by 0067 |
+| 0067 | [Cap each role runner's queue by the speed of its recent jobs](0067-cap-each-role-runner-queue-by-the-speed-of-its-recent-jobs.md) | Accepted |

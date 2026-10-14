@@ -158,6 +158,19 @@ class SummaryTests(unittest.TestCase):
         self.assertIn("attempt 1 on Proxmox VE Self-Hosted (LXC): outputs 1/2, CoreCompile 1 compiled / 6 reused, build 4321 ms; failed: Test (.NET unit)", text)
         self.assertIn("attempt 2 on GitHub-hosted: outputs n/a, CoreCompile n/a compiled / n/a reused, build n/a; failed: none", text)
         self.assertIn("up to 1 of 1 suite jobs and 1 kinds ran at once; two or more kinds overlapped at 0 job starts, all three (.NET unit, .NET integration, Angular) at 0.", text)
+        self.assertIn("Queue ceiling: 0 attempt(s) went to GitHub-hosted because a queue was full; 0 job(s) on Proxmox were cancelled.", text)
+
+    def test_the_queue_outcome_counts_spilled_attempts_and_cancelled_proxmox_jobs(self):
+        full = "queue full for workspace-unit-auto (workspace-unit-auto 15/15 @50s)"
+        first = {"attempt": 1, "jobs": [{"name": "CI / Select Runner", "proxmox": False, "conclusion": "success",
+                                         "routes": [{"attempt": 1, "runner": "GitHub-Hosted (ubuntu-latest)", "reason": full},
+                                                    {"attempt": 2, "runner": "x", "reason": full}]},
+                                        {"name": "CI / Test (Angular)", "proxmox": True, "conclusion": "cancelled"},
+                                        {"name": "CI / Test (Angular)", "proxmox": False, "conclusion": "cancelled"}]}
+        second = {"attempt": 2, "jobs": [{"name": "CI / Select Runner", "proxmox": False, "conclusion": "success",
+                                          "routes": [{"attempt": 2, "runner": "x", "reason": "a Proxmox runner online for every role"}]}]}
+        by_ref = {"load/a (angular)": [{"runs": [first, second]}]}
+        self.assertEqual(load_test.queue_outcome(by_ref), {"spilled": 1, "cancelled_on_proxmox": 1})
 
 
 def span(name, start, end, labels=("self-hosted", "proxmox")):

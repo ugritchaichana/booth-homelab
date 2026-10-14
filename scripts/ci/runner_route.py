@@ -2,7 +2,9 @@
 import argparse
 import json
 import re
+import statistics
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 MAX_TEXT = 300
@@ -18,6 +20,15 @@ RETRYABLE = ("failure", "timed_out")
 OPERATION_CANCELED = "The operation was canceled."
 DELIBERATE_CANCEL = ("was canceled by", "Canceling since a higher priority")
 SUITE_ROLES = {"dotnet": ("dotnet-unit-auto", "dotnet-integration-auto"), "angular": ("workspace-unit-auto",)}
+QUEUED = ("queued", "waiting", "pending")
+BUILD_JOB = "Build (.NET)"
+BUILD_ROLE = "dotnet-unit-auto"
+PROMISED_ROLES = ("dotnet-unit-auto", "dotnet-integration-auto")
+HISTORY = 5
+GAP_S = 10
+DEFAULT_JOB_S = 50
+WAIT_S = 750
+CEILING = 15
 
 
 def one_line(text, limit=MAX_TEXT):
@@ -84,6 +95,49 @@ def online_by_role(runners, roles):
     return counts
 
 
+def parse_time(value):
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def job_labels(job):
+    return {str(label).lower() for label in job.get("labels") or []}
+
+
+def queue_depth(open_jobs, role):
+    waiting = sum(1 for j in open_jobs if j.get("status") in QUEUED and role in job_labels(j))
+    builds = sum(1 for j in open_jobs if str(j.get("name", "")).endswith(BUILD_JOB) and j.get("status") != "completed" and BUILD_ROLE in job_labels(j))
+    return waiting + (builds if role in PROMISED_ROLES else 0)
+
+
+def job_seconds(done_jobs, role):
+    spans = []
+    for job in done_jobs:
+        start, end = parse_time(job.get("started_at")), parse_time(job.get("completed_at"))
+        if role in job_labels(job) and job.get("conclusion") not in (None, "skipped") and start is not None and end is not None:
+            spans.append((end, end - start))
+    recent = [span for _, span in sorted(spans, reverse=True)[:HISTORY]]
+    return round(statistics.median(recent)) + GAP_S if recent else DEFAULT_JOB_S
+
+
+def ceiling(wait_s, job_s, cap):
+    return max(1, min(cap, wait_s // job_s))
+
+
+def queue_status(open_jobs, done_jobs, roles, wait_s, cap):
+    status = {}
+    for role in roles:
+        seconds = job_seconds(done_jobs, role)
+        status[role] = (queue_depth(open_jobs, role), ceiling(wait_s, seconds, cap), seconds)
+    return status
+
+
+def positive_int(text, default):
+    return int(text) if str(text).isdigit() and int(text) > 0 else default
+
+
 def env_name(proxmox):
     return "the Proxmox runner" if proxmox else "GitHub-hosted"
 
@@ -102,7 +156,8 @@ def failure_cause(jobs, annotations_by_job):
     return ""
 
 
-def decide(forced_hosted, token_present, http_status, runners, previous_env="", previous_cause="", previous_error="", suites="all"):
+def decide(forced_hosted, token_present, http_status, runners, previous_env="", previous_cause="", previous_error="", suites="all",
+           queue_jobs=None, queue_error="", wait_s=WAIT_S, cap=CEILING):
     if forced_hosted:
         return True, "forced to GitHub-hosted by the caller (CI_RUNNER, a fork, or the dispatch input)"
     if previous_env == "proxmox":
@@ -116,14 +171,24 @@ def decide(forced_hosted, token_present, http_status, runners, previous_env="", 
     note = "".join(f"; {n}" for n in notes)
     if not token_present:
         return False, f"no RUNNER_STATUS_TOKEN, so CI_RUNNER decides{note}"
-    counts = online_by_role(runners, needed_roles(suites)) if http_status == 200 else None
+    roles = needed_roles(suites)
+    counts = online_by_role(runners, roles) if http_status == 200 else None
     if counts is None:
         return False, f"runner health check failed (HTTP {http_status}), so CI_RUNNER decides{note}"
     tally = ", ".join(f"{role} {online} of {total}" for role, (online, total) in counts.items())
     missing = [role for role, (online, _) in counts.items() if online == 0]
     if missing:
         return True, f"no Proxmox runner online for {', '.join(missing)} (HTTP 200: {tally}){note}"
-    return False, f"a Proxmox runner online for every role (HTTP 200: {tally}){note}"
+    online = f"a Proxmox runner online for every role (HTTP 200: {tally})"
+    if queue_jobs is None:
+        unread = f"; queue not read ({one_line(queue_error, CAUSE_TEXT)}), so no ceiling" if queue_error else ""
+        return False, f"{online}{unread}{note}"
+    queue = queue_status(*queue_jobs, roles, wait_s, cap)
+    load = ", ".join(f"{role} {depth}/{limit} @{seconds}s" for role, (depth, limit, seconds) in queue.items())
+    full = [role for role, (depth, limit, _) in queue.items() if depth >= limit]
+    if full:
+        return True, f"queue full for {', '.join(full)} ({load}){note}"
+    return False, f"{online}; queue {load}{note}"
 
 
 def verdict(attempt, conclusion, proxmox, cause, error, previous_env, previous_cause, infra=False):
@@ -160,6 +225,15 @@ def status_code(text):
     return int(text) if str(text).isdigit() else 0
 
 
+def jobs_in(directory):
+    found = []
+    for path in sorted(Path(directory).glob("*.json")):
+        doc = load(path, {})
+        jobs = doc.get("jobs") if isinstance(doc, dict) else None
+        found += [j for j in jobs if isinstance(j, dict)] if isinstance(jobs, list) else []
+    return found
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -172,6 +246,10 @@ def main(argv=None):
     d.add_argument("--previous-cause", default="")
     d.add_argument("--previous-error", default="")
     d.add_argument("--suites", default="all")
+    d.add_argument("--queue-dir")
+    d.add_argument("--queue-error", default="")
+    d.add_argument("--wait-s", default=str(WAIT_S))
+    d.add_argument("--ceiling", default=str(CEILING))
     v = sub.add_parser("verdict")
     v.add_argument("--attempt", required=True)
     v.add_argument("--conclusion", default="")
@@ -186,9 +264,13 @@ def main(argv=None):
     c.add_argument("--annotations-dir", required=True)
     args = parser.parse_args(argv)
     if args.command == "decide":
+        queue_jobs = None
+        if args.queue_dir and not args.queue_error:
+            opened = jobs_in(Path(args.queue_dir) / "open")
+            queue_jobs = (opened, opened + jobs_in(Path(args.queue_dir) / "done"))
         hosted, reason = decide(args.forced_hosted == "true", args.token_present == "true", status_code(args.http_status),
                                 load(args.runners, None) if args.runners else None, args.previous_env, args.previous_cause, args.previous_error,
-                                args.suites)
+                                args.suites, queue_jobs, args.queue_error, positive_int(args.wait_s, WAIT_S), positive_int(args.ceiling, CEILING))
         print(f"hosted={str(hosted).lower()}")
         print(f"reason={reason}")
     elif args.command == "verdict":

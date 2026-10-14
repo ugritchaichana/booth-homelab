@@ -21,6 +21,7 @@ LOGGED_JOBS = ("Select Runner", "Build (.NET)", "Test (Angular)")
 SUITES = ("Test (.NET unit)", "Test (.NET integration)", "Test (Angular)")
 REPOSITORIES = ("all", "dotnet", "angular")
 ROLES = ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")
+QUEUE_FULL = "queue full for "
 
 
 class Api:
@@ -156,7 +157,14 @@ def summarise(plan, runs, attempts, logs, samples):
         by_ref.setdefault(group, []).append({"id": run["id"], "url": run.get("html_url"), "attempts": run["run_attempt"],
                                              "conclusion": run.get("conclusion"), "runs": rows})
     return {"plan": plan, "peak": peak(samples), "role_peaks": role_peaks(samples), "samples": len(samples), "concurrency": concurrency(by_ref),
-            "refs": by_ref}
+            "queue": queue_outcome(by_ref), "refs": by_ref}
+
+
+def queue_outcome(by_ref):
+    attempts = [attempt for runs in by_ref.values() for run in runs for attempt in run["runs"]]
+    reasons = [r["reason"] for attempt in attempts for j in attempt["jobs"] for r in j.get("routes", []) if r["attempt"] == attempt["attempt"]]
+    cancelled = [j for attempt in attempts for j in attempt["jobs"] if j["proxmox"] and j["conclusion"] == "cancelled"]
+    return {"spilled": sum(1 for r in reasons if r.startswith(QUEUE_FULL)), "cancelled_on_proxmox": len(cancelled)}
 
 
 def fmt(value, unit=""):
@@ -184,6 +192,10 @@ def render(report):
     if roles:
         lines.append("Peak queue per role: " + "; ".join(f"{role} {p['queued']} queued with {p['online']} online ({fmt(p['per_runner'])} per runner)"
                                                        for role, p in roles.items()) + ".")
+    queue = report.get("queue")
+    if queue:
+        lines.append(f"Queue ceiling: {queue['spilled']} attempt(s) went to GitHub-hosted because a queue was full; "
+                     f"{queue['cancelled_on_proxmox']} job(s) on Proxmox were cancelled.")
     lines += [f"Concurrent suites on Proxmox: up to {spread['most_at_once']} of {spread['suite_jobs']} suite jobs and {spread['most_kinds_at_once']} kinds ran at once; "
               f"two or more kinds overlapped at {spread['moments_mixed']} job starts, all three (.NET unit, .NET integration, Angular) at {spread['moments_all_three']}.", ""]
     for ref, runs in sorted(report["refs"].items()):
