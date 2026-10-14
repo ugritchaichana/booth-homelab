@@ -576,16 +576,26 @@ Role: operator (Git Bash or WSL), with a token that can dispatch workflows and r
    - a unit test that always fails: retried, and red.
 
    Push them as throwaway branches (`test/load-*`) and delete them after the run.
-2. Check that the three runners are online and idle, and that a `master` push after the last change to `apps/` has saved the build outputs. Without that, every outputs restore misses.
+2. Check that the runners are online and idle, and that a `master` push after the last change to `apps/` has saved the build outputs. Without that, every outputs restore misses.
 3. Run the driver:
 
    ```sh
    GH_TOKEN="$(gh auth token)" python3 scripts/ci/load_test.py run --repository <owner>/<repository> \
-     --plan test/load-full-suite=6 --plan test/load-one-project=2 --plan test/load-full-rebuild=1 \
-     --plan test/load-flaky-on-proxmox=1 --plan test/load-always-fails=1 --out load.json > load.md
+     --plan test/load-full-suite=2:dotnet --plan test/load-one-project=1:dotnet --plan test/load-full-rebuild=1:dotnet \
+     --plan test/load-flaky-on-proxmox=1:dotnet --plan test/load-always-fails=1:dotnet \
+     --plan test/load-full-suite=8:angular --out load.json > load.md
    ```
 
-   Expected: 11 runs. Each run first queues three Proxmox jobs (telemetry, build, Angular), 33 in all, and the D96 target is 5 to 10 queued jobs per online instance at the peak. The flaky run passes on attempt 2 on GitHub-hosted, and the always-failing run is red after attempt 2. `load.md` lists each attempt's route, restored outputs, CoreCompile counts and failed jobs. `python3 scripts/ci/load_test.py render --data load.json` prints it again.
+   The plan stands for two repositories that share the runners: six runs of a .NET repository (`:dotnet`: build, unit and integration tests) and eight of an Angular repository (`:angular`: Jest). `@SECONDS` after an entry delays its first dispatch, and `--spacing` spreads one entry's dispatches.
+
+   Expected: 14 runs.
+   - The report's per-role line shows the deepest queue of each runner, and the D96 target is 5 to 10 queued jobs.
+     - `dotnet-unit-auto` takes every build and unit test.
+     - `workspace-unit-auto` takes every Angular run.
+     - `dotnet-integration-auto` is fed one job per finished build, so its queue stays near one (ADR 0066).
+   - The concurrency line counts the job starts where all three kinds ran at once.
+   - The flaky run passes on attempt 2 on GitHub-hosted, and the always-failing run is red after attempt 2.
+   - `load.md` lists each attempt's route, restored outputs, CoreCompile counts and failed jobs. `python3 scripts/ci/load_test.py render --data load.json` prints it again.
 4. The larger solution: `gh workflow run cache-benchmark.yml -f runner=proxmox`. The job summary has the median of three rounds per case.
 
 Stop a load test with `gh run cancel <id>` on its runs, and delete the load branches after use.
