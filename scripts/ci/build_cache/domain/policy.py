@@ -39,13 +39,13 @@ class ExtractionRules:
 
 
 def member_allowed(name: str, rules: ExtractionRules) -> bool:
-    parts = tuple(part for part in PurePosixPath(name).parts if part != ".")
+    parts = PurePosixPath(name).parts
     if not parts:
         return False
     rest = parts
     if rules.prefixes:
         for prefix in rules.prefixes:
-            wanted = tuple(part for part in PurePosixPath(prefix).parts if part != ".")
+            wanted = PurePosixPath(prefix).parts
             if parts[: len(wanted)] == wanted:
                 rest = parts[len(wanted):]
                 break

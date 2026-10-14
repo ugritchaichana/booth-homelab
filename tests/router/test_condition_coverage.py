@@ -30,6 +30,22 @@ if __name__ == "__main__":
 """
 
 
+# String annotations make dataclasses consult sys.modules while the class body runs.
+DATACLASS_SAMPLE = """
+from __future__ import annotations
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Point:
+    x: int
+
+
+def origin():
+    return Point(0)
+"""
+
+
 def module(source):
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "sample.py"
@@ -70,6 +86,15 @@ class ConditionCoverageTests(unittest.TestCase):
         sample.fallback(0, 1)
         self.assertEqual(condition_coverage.missing(sites, seen), [])
 
+    def test_a_module_defining_a_dataclass_can_be_instrumented(self):
+        sample, _, _ = module(DATACLASS_SAMPLE)
+        self.assertEqual(sample.origin(), sample.Point(0))
+
+    def test_a_module_that_fails_to_import_is_not_left_registered(self):
+        with self.assertRaises(RuntimeError):
+            module("raise RuntimeError('boom')\n")
+        self.assertNotIn("sample", sys.modules)
+
     def test_main_enforces_the_floor_and_the_test_result(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
@@ -92,6 +117,77 @@ class ConditionCoverageTests(unittest.TestCase):
         self.assertEqual((outcomes["half"], outcomes["full"], outcomes["red"]), (1, 0, 1))
         self.assertIn("line 2: b seen only [True]", outcomes["half_report"])
         self.assertIn("conditions 2 of 2", outcomes["full_report"])
+
+
+PACKAGE_TARGET = "from ..helper import ONE\n\n\ndef f(a, b):\n    return ONE if a and b else 0\n"
+PACKAGE_TEST = "import unittest\nfrom pkg.sub.target import f\n\n\nclass T(unittest.TestCase):\n    def test_{name}(self):\n        {body}\n"
+
+
+class PackageModeTests(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(self.forget_imports, set(sys.modules), list(sys.path))
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root / "pkg" / "sub").mkdir(parents=True)
+        (self.root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+        (self.root / "pkg" / "helper.py").write_text("ONE = 1\n", encoding="utf-8")
+        self.target = self.root / "pkg" / "sub" / "target.py"
+        self.target.write_text(PACKAGE_TARGET, encoding="utf-8")
+        self.tests = self.root / "tests"
+        self.tests.mkdir()
+
+    @staticmethod
+    def forget_imports(modules_before, path_before):
+        for name in set(sys.modules) - modules_before:
+            del sys.modules[name]
+        sys.path[:] = path_before
+
+    def run_main(self, body, *extra):
+        (self.tests / "test_target.py").write_text(PACKAGE_TEST.format(name="case", body=body), encoding="utf-8")
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = condition_coverage.main([str(self.target), str(self.tests), "--package-root", str(self.root), *extra])
+        return code, out.getvalue()
+
+    def test_a_module_inside_a_package_is_instrumented_and_the_tests_import_that_copy(self):
+        code, report = self.run_main("f(True, True)")
+        self.assertEqual(code, 1)
+        self.assertIn("line 5: b seen only [True]", report)
+
+    def test_every_condition_seen_both_ways_passes_in_package_mode(self):
+        code, report = self.run_main("f(True, True); f(True, False); f(False, True)")
+        self.assertEqual(code, 0)
+        self.assertIn("conditions 2 of 2", report)
+
+    def test_the_instrumented_module_is_registered_under_its_dotted_name_and_parent(self):
+        self.run_main("f(True, True)")
+        module = sys.modules["pkg.sub.target"]
+        self.assertEqual(module.__package__, "pkg.sub")
+        self.assertIs(sys.modules["pkg.sub"].target, module)
+        self.assertIn("_condition", vars(module))
+
+    def test_a_package_init_module_is_named_after_its_package(self):
+        self.assertEqual(condition_coverage.dotted_name(self.root / "pkg" / "__init__.py", self.root), ("pkg", "pkg"))
+        self.assertEqual(condition_coverage.dotted_name(self.target, self.root), ("pkg.sub.target", "pkg.sub"))
+
+    def test_a_package_init_module_with_relative_imports_is_instrumented(self):
+        init = self.root / "pkg" / "__init__.py"
+        init.write_text(PACKAGE_TARGET.replace("..helper", ".helper"), encoding="utf-8")
+        (self.tests / "test_target.py").write_text(PACKAGE_TEST.format(name="case", body="f(True, True)").replace("pkg.sub.target", "pkg"), encoding="utf-8")
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = condition_coverage.main([str(init), str(self.tests), "--package-root", str(self.root)])
+        self.assertEqual(code, 1)
+        self.assertIn("line 5: b seen only [True]", out.getvalue())
+
+    def test_the_module_directory_is_not_put_on_the_import_path_in_package_mode(self):
+        self.run_main("f(True, True)")
+        self.assertNotIn(str(self.target.parent.resolve()), sys.path)
+
+    def test_a_module_outside_the_package_root_is_refused(self):
+        with self.assertRaises(ValueError):
+            condition_coverage.dotted_name(self.target, self.tests)
 
 
 if __name__ == "__main__":

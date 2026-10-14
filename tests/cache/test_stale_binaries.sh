@@ -24,7 +24,10 @@ echo "dotnet $(dotnet --version)"
 build() { (cd "$WS" && dotnet build "$SOLUTION" --configuration Release /p:Deterministic=true -nodeReuse:false "$@"); }
 checkout() { rm -rf "$WS"; git clone -q "$WORK/origin" "$WS" && git -C "$WS" checkout -q "$1"; }
 has_probe() { grep -qa "$PROBE" "$WS/$DOMAIN_DLL"; }
-client() { python3 -m build_cache "$1" "${CACHE_ARGS[@]}" --root "$WS" "${@:2}" 2>/dev/null | tail -1; }
+client() { python3 -m build_cache "$1" "${CACHE_ARGS[@]}" --root "$WS" "${@:2}" 2>/dev/null; }
+statuses() { grep -c "\"status\": \"$1\"" <<< "$2"; }
+compiled() { grep -c 'Building target "CoreCompile" completely' "$1"; }
+skipped() { grep -c 'Skipping target "CoreCompile"' "$1"; }
 
 old_restore() {
     local ROOT_DIR="$1"
@@ -106,7 +109,7 @@ fi
 if old_variant pdb default; then
     echo "OLD+pdb: STALE"
 elif grep -aq 'AssemblyInfo.cs" is newer than output file .*\.dll' "$WORK/old-build-pdb.log"; then
-    echo "OLD+pdb: not stale (the commit id in the generated AssemblyInfo.cs forces CoreCompile)"
+    echo "OLD+pdb: not stale (a regenerated AssemblyInfo.cs forces CoreCompile)"
 else
     echo "OLD+pdb: not stale (see log)"
 fi
@@ -121,28 +124,63 @@ fi
 checkout "$COMMIT_C"
 sleep 1
 MISS="$(client restore)"
-echo "NEW restore on the changed tree: $MISS"
+echo "NEW restore on the changed tree: $(statuses hit "$MISS") hits"
 build -v:q >"$WORK/new-build.log" 2>&1 || { tail -20 "$WORK/new-build.log"; echo "NEW build failed"; exit 2; }
-if has_probe && [[ "$MISS" == *'"status": "miss"'* ]]; then NEW=fresh; echo "NEW: FRESH"; else NEW=stale; echo "NEW: STALE"; fi
-client save "${SAVE_ARGS[@]}" >/dev/null
+if has_probe && [ "$(statuses hit "$MISS")" -eq 0 ]; then NEW=fresh; echo "NEW: FRESH"; else NEW=stale; echo "NEW: STALE"; fi
+SAVED="$(client save "${SAVE_ARGS[@]}")"
+echo "NEW save: $(statuses saved "$SAVED") saved"
+grep -v '"status": "saved"' <<< "$SAVED" | head -3
 
 checkout "$COMMIT_C"
 sleep 1
 HIT="$(client restore)"
-echo "NEW restore on the saved tree: $HIT"
+echo "NEW restore on the saved tree: $(statuses hit "$HIT") hits"
 build -v:d >"$WORK/hit-build.log" 2>&1 || { tail -20 "$WORK/hit-build.log"; echo "HIT build failed"; exit 2; }
 PROJECTS="$(git -C "$WS" ls-files 'apps/backend/*.csproj' | wc -l)"
-SKIPPED="$(grep -c 'Skipping target "CoreCompile"' "$WORK/hit-build.log")"
-COMPILED="$(grep -c 'Building target "CoreCompile" completely' "$WORK/hit-build.log")"
-if [[ "$HIT" == *'"status": "hit"'* ]] && has_probe && [ "$SKIPPED" -eq "$PROJECTS" ] && [ "$COMPILED" -eq 0 ]; then
+SKIPPED="$(skipped "$WORK/hit-build.log")"
+COMPILED="$(compiled "$WORK/hit-build.log")"
+if [ "$(statuses hit "$HIT")" -eq "$PROJECTS" ] && has_probe && [ "$SKIPPED" -eq "$PROJECTS" ] && [ "$COMPILED" -eq 0 ]; then
     HITOK=yes; echo "NEW: HIT up-to-date (CoreCompile skipped $SKIPPED/$PROJECTS)"
 else
     HITOK=no; echo "NEW: HIT not up-to-date (CoreCompile skipped $SKIPPED/$PROJECTS, rebuilt $COMPILED)"
     grep -a 'is newer than output\|Building target "CoreCompile" completely' "$WORK/hit-build.log" | head -10
 fi
 
+git -C "$WORK/origin" "${GIT_ID[@]}" commit -q --allow-empty -m "probe: a new commit with the same tree"
+COMMIT_D="$(git -C "$WORK/origin" rev-parse HEAD)"
+checkout "$COMMIT_D"
+sleep 1
+SAME="$(client restore)"
+build -v:d >"$WORK/same-tree-build.log" 2>&1 || { tail -20 "$WORK/same-tree-build.log"; echo "same-tree build failed"; exit 2; }
+SKIPPED="$(skipped "$WORK/same-tree-build.log")"; COMPILED="$(compiled "$WORK/same-tree-build.log")"
+if [ "$(statuses hit "$SAME")" -eq "$PROJECTS" ] && [ "$SKIPPED" -eq "$PROJECTS" ] && [ "$COMPILED" -eq 0 ]; then
+    SAMEOK=yes; echo "NEW: a new commit with the same tree reuses every project (CoreCompile skipped $SKIPPED/$PROJECTS)"
+else
+    SAMEOK=no; echo "NEW: a new commit with the same tree rebuilt $COMPILED of $PROJECTS projects ($(statuses hit "$SAME") hits)"
+    grep -a 'is newer than output' "$WORK/same-tree-build.log" | head -5
+fi
+
+SPLIT_PROBE=SplitProbeE
+printf '\npublic static class %s {}\n' "$SPLIT_PROBE" >> "$WORK/origin/apps/backend/src/Billing.Api/InvoiceGenerator.cs"
+git -C "$WORK/origin" "${GIT_ID[@]}" commit -q -am "probe: change Billing.Api only"
+COMMIT_E="$(git -C "$WORK/origin" rev-parse HEAD)"
+checkout "$COMMIT_E"
+AFFECTED="$(cd "$WS" && bash scripts/apps/dotnet-affected-test.sh "$COMMIT_D" "$COMMIT_E" "$WS/apps/backend" true | sed -n 's/.*Total Transitive Projects Affected: *//p')"
+sleep 1
+SPLIT="$(client restore)"
+build -v:d >"$WORK/split-build.log" 2>&1 || { tail -20 "$WORK/split-build.log"; echo "split build failed"; exit 2; }
+SKIPPED="$(skipped "$WORK/split-build.log")"; COMPILED="$(compiled "$WORK/split-build.log")"
+REUSED=$((PROJECTS - AFFECTED))
+if [ "$(statuses hit "$SPLIT")" -eq "$REUSED" ] && [ "$SKIPPED" -eq "$REUSED" ] && [ "$COMPILED" -eq "$AFFECTED" ] && grep -qa "$SPLIT_PROBE" "$WS/apps/backend/src/Billing.Api/bin/Release/net8.0/Billing.Api.dll"; then
+    SPLITOK=yes; echo "NEW: a one-project change compiled $COMPILED affected projects and reused $SKIPPED of $PROJECTS"
+else
+    SPLITOK=no; echo "NEW: a one-project change compiled $COMPILED and skipped $SKIPPED of $PROJECTS (expected $AFFECTED and $REUSED, $(statuses hit "$SPLIT") hits)"
+fi
+
 [ "$OLDALL" = stale ] || echo "FAIL: the detector cannot fail: the old algorithm with every output touched shipped a fresh binary"
 [ "$NEW" = fresh ] || echo "FAIL: the new client shipped a stale binary or hit on a changed tree"
 [ "$HITOK" = yes ] || echo "FAIL: a hit did not leave every project up to date"
-if [ "$OLDALL" = stale ] && [ "$NEW" = fresh ] && [ "$HITOK" = yes ]; then echo "PASS"; exit 0; fi
+[ "$SAMEOK" = yes ] || echo "FAIL: a new commit with an unchanged tree recompiled"
+[ "$SPLITOK" = yes ] || echo "FAIL: a one-project change did not reuse the other projects, or shipped a stale binary"
+if [ "$OLDALL" = stale ] && [ "$NEW" = fresh ] && [ "$HITOK" = yes ] && [ "$SAMEOK" = yes ] && [ "$SPLITOK" = yes ]; then echo "PASS"; exit 0; fi
 exit 1

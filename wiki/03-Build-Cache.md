@@ -18,9 +18,9 @@ A `bazel-remote` service in its own container serves content-addressed dependenc
 | Cache | Key | Restore rule | Decision |
 |---|---|---|---|
 | Dependencies (`nuget`, `node_modules`) | sha256 over runner class, OS, architecture, toolchain version and every lockfile's sha256 | On a key hit | ADR 0049 |
-| Build outputs (`dotnet-outputs`) | The same plus the git tree ids of the inputs, the configuration and the workspace root | Only on an exact match; never a "latest" archive | ADR 0049 |
+| Build outputs (`dotnet-outputs`) | One entry per project: the same plus the project path, the object ids of its project-reference closure, the paths its project file names outside its directory and the shared build files above each member, the configuration and the workspace root | Only on an exact match; never a "latest" archive | ADR 0049, ADR 0063 |
 
-A stale-binary test builds the solution at three commits and checks that outputs restore on the saved tree and miss on a changed tree (`tests/cache/test_stale_binaries.sh`, run by `cache-ci.yml`).
+A stale-binary test builds the solution at five commits. It checks that outputs restore on the saved tree and miss on a changed tree, that a new commit with the same tree compiles nothing, and that a change to one project compiles only that project and its dependents (`tests/cache/test_stale_binaries.sh`, run by `cache-ci.yml`). The assembly version leaves the commit id out, so a new commit alone does not force a recompile (ADR 0063).
 
 ## Client
 

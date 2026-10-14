@@ -1,6 +1,6 @@
 # 0049. Key caches by content and restore outputs only on an exact match
 
-- Status: Accepted
+- Status: Accepted; the output key is amended by [0063](0063-cache-build-outputs-per-project-and-keep-the-commit-id-out-of-the-version.md) (one entry per project)
 - Date: 2026-10-07
 - Deciders: operator
 - Decision log: D77 in docs/platform/requirements.md
