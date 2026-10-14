@@ -94,8 +94,27 @@ class SampleTests(unittest.TestCase):
                 job("D", status="queued", labels=("ubuntu-latest",)), job("E", status="in_progress", labels=("ubuntu-latest",)),
                 job("F", status="completed"), job("G", status="pending")]
         runners = [runner(busy=True), runner(), runner(status="offline"), runner(labels=("self-hosted", "other"))]
+        idle = {role: {"queued": 0, "online": 0} for role in ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")}
         self.assertEqual(load_test.sample(5.0, jobs, runners),
-                         {"t": 5.0, "queued_proxmox": 3, "running_proxmox": 1, "queued_hosted": 1, "running_hosted": 1, "online": 2, "busy": 1})
+                         {"t": 5.0, "queued_proxmox": 3, "running_proxmox": 1, "queued_hosted": 1, "running_hosted": 1, "online": 2, "busy": 1, "roles": idle})
+
+    def test_counts_the_queue_and_the_online_runners_of_each_role(self):
+        jobs = [job("U", status="queued", labels=("proxmox", "dotnet-unit-auto")), job("V", status="waiting", labels=("proxmox", "dotnet-unit-auto")),
+                job("I", status="in_progress", labels=("proxmox", "dotnet-integration-auto")), job("A", status="queued", labels=("proxmox", "workspace-unit-auto"))]
+        runners = [runner(labels=("proxmox", "dotnet-unit-auto")), runner(status="offline", labels=("proxmox", "workspace-unit-auto")),
+                   runner(labels=("self-hosted", "dotnet-integration-auto"))]
+        self.assertEqual(load_test.sample(1.0, jobs, runners)["roles"],
+                         {"dotnet-unit-auto": {"queued": 2, "online": 1}, "dotnet-integration-auto": {"queued": 0, "online": 0},
+                          "workspace-unit-auto": {"queued": 1, "online": 0}})
+
+    def test_the_peak_of_each_role_is_its_deepest_queue_per_online_runner(self):
+        samples = [{"t": 1, "roles": {"dotnet-unit-auto": {"queued": 3, "online": 1}}},
+                   {"t": 2, "roles": {"dotnet-unit-auto": {"queued": 8, "online": 1}, "workspace-unit-auto": {"queued": 2, "online": 0}}},
+                   {"t": 3, "roles": {"dotnet-unit-auto": {"queued": 8, "online": 1}}}, {"t": 4}]
+        self.assertEqual(load_test.role_peaks(samples),
+                         {"dotnet-unit-auto": {"queued": 8, "online": 1, "per_runner": 8.0, "at": 2},
+                          "workspace-unit-auto": {"queued": 2, "online": 0, "per_runner": None, "at": 2}})
+        self.assertEqual(load_test.role_peaks([]), {})
 
     def test_peak_is_the_deepest_queue_and_its_share_per_instance(self):
         samples = [{"t": 1, "queued_proxmox": 4, "online": 3}, {"t": 2, "queued_proxmox": 27, "online": 3}, {"t": 3, "queued_proxmox": 27, "online": 2}]
@@ -116,7 +135,7 @@ class SummaryTests(unittest.TestCase):
     def report(self):
         runs = [{"id": 7, "html_url": "https://example.invalid/7", "run_attempt": 2, "conclusion": "success", "head_branch": "load/flaky"}]
         logs = {"11": SELECT_LOG, "12": BUILD_LOG, "21": SELECT_LOG.replace("attempt 1): Proxmox VE Self-Hosted (LXC)", "attempt 2): GitHub-hosted")}
-        samples = [{"t": 1, "queued_proxmox": 9, "online": 3}]
+        samples = [{"t": 1, "queued_proxmox": 9, "online": 3, "roles": {"dotnet-unit-auto": {"queued": 7, "online": 1}}}]
         return load_test.summarise([{"ref": "load/flaky", "count": 1, "suites": "all"}], runs, attempts_for_run(), logs, samples)
 
     def test_each_attempt_keeps_its_jobs_route_cache_and_build_numbers(self):
@@ -135,6 +154,7 @@ class SummaryTests(unittest.TestCase):
         self.assertIn("Plan: 2 x `load/a` (angular, from 75 s).", load_test.render(late))
         self.assertIn("## load/flaky (dotnet)", text)
         self.assertIn("9 Proxmox jobs queued with 3 runner instances online (3 per instance)", text)
+        self.assertIn("Peak queue per role: dotnet-unit-auto 7 queued with 1 online (7 per runner).", text)
         self.assertIn("attempt 1 on Proxmox VE Self-Hosted (LXC): outputs 1/2, CoreCompile 1 compiled / 6 reused, build 4321 ms; failed: Test (.NET unit)", text)
         self.assertIn("attempt 2 on GitHub-hosted: outputs n/a, CoreCompile n/a compiled / n/a reused, build n/a; failed: none", text)
         self.assertIn("up to 1 of 1 suite jobs and 1 kinds ran at once; two or more kinds overlapped at 0 job starts, all three (.NET unit, .NET integration, Angular) at 0.", text)

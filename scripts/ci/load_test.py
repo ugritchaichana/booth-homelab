@@ -20,6 +20,7 @@ TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ", re.M)
 LOGGED_JOBS = ("Select Runner", "Build (.NET)", "Test (Angular)")
 SUITES = ("Test (.NET unit)", "Test (.NET integration)", "Test (Angular)")
 REPOSITORIES = ("all", "dotnet", "angular")
+ROLES = ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")
 
 
 class Api:
@@ -54,14 +55,23 @@ def on_proxmox(job):
     return PROXMOX in job.get("labels", [])
 
 
+def label_names(runner):
+    return [label.get("name") for label in runner.get("labels", [])]
+
+
 def sample(now, jobs, runners):
     counts = {f"{state}_{where}": 0 for state in ("queued", "running") for where in ("proxmox", "hosted")}
+    queued = []
     for job in jobs:
         state = {"queued": "queued", "waiting": "queued", "pending": "queued", "in_progress": "running"}.get(job.get("status"))
         if state:
             counts[f"{state}_{'proxmox' if on_proxmox(job) else 'hosted'}"] += 1
-    online = [r for r in runners if r.get("status") == "online" and PROXMOX in [label.get("name") for label in r.get("labels", [])]]
-    return {"t": now, **counts, "online": len(online), "busy": sum(1 for r in online if r.get("busy"))}
+        if state == "queued":
+            queued.append(job)
+    online = [r for r in runners if r.get("status") == "online" and PROXMOX in label_names(r)]
+    roles = {role: {"queued": sum(1 for j in queued if role in j.get("labels", [])), "online": sum(1 for r in online if role in label_names(r))}
+             for role in ROLES}
+    return {"t": now, **counts, "online": len(online), "busy": sum(1 for r in online if r.get("busy")), "roles": roles}
 
 
 def peak(samples):
@@ -70,6 +80,17 @@ def peak(samples):
     top = max(samples, key=lambda s: (s["queued_proxmox"], -s["t"]))
     return {"queued_proxmox": top["queued_proxmox"], "online": top["online"],
             "per_instance": round(top["queued_proxmox"] / top["online"], 2) if top["online"] else None, "at": top["t"]}
+
+
+def role_peaks(samples):
+    found = {}
+    for role in ROLES:
+        seen = [(s["roles"][role], s["t"]) for s in samples if role in s.get("roles", {})]
+        if seen:
+            top, at = max(seen, key=lambda pair: (pair[0]["queued"], -pair[1]))
+            per_runner = round(top["queued"] / top["online"], 2) if top["online"] else None
+            found[role] = {"queued": top["queued"], "online": top["online"], "per_runner": per_runner, "at": at}
+    return found
 
 
 def routes(log_text):
@@ -134,7 +155,8 @@ def summarise(plan, runs, attempts, logs, samples):
         group = f"{run['head_branch']} ({repository_of(rows[0]['jobs'])})"
         by_ref.setdefault(group, []).append({"id": run["id"], "url": run.get("html_url"), "attempts": run["run_attempt"],
                                              "conclusion": run.get("conclusion"), "runs": rows})
-    return {"plan": plan, "peak": peak(samples), "samples": len(samples), "concurrency": concurrency(by_ref), "refs": by_ref}
+    return {"plan": plan, "peak": peak(samples), "role_peaks": role_peaks(samples), "samples": len(samples), "concurrency": concurrency(by_ref),
+            "refs": by_ref}
 
 
 def fmt(value, unit=""):
@@ -157,9 +179,13 @@ def render(report):
     plan = ", ".join("{} x `{}` ({}{})".format(p["count"], p["ref"], p["suites"], f", from {p['offset']} s" if p.get("offset") else "") for p in report["plan"])
     lines = ["# Load test", "", f"Plan: {plan}.",
              f"Peak queue: {top['queued_proxmox']} Proxmox jobs queued with {top['online']} runner instances online "
-             f"({fmt(top['per_instance'])} per instance), from {report['samples']} samples.",
-             f"Concurrent suites on Proxmox: up to {spread['most_at_once']} of {spread['suite_jobs']} suite jobs and {spread['most_kinds_at_once']} kinds ran at once; "
-             f"two or more kinds overlapped at {spread['moments_mixed']} job starts, all three (.NET unit, .NET integration, Angular) at {spread['moments_all_three']}.", ""]
+             f"({fmt(top['per_instance'])} per instance), from {report['samples']} samples."]
+    roles = report.get("role_peaks")
+    if roles:
+        lines.append("Peak queue per role: " + "; ".join(f"{role} {p['queued']} queued with {p['online']} online ({fmt(p['per_runner'])} per runner)"
+                                                       for role, p in roles.items()) + ".")
+    lines += [f"Concurrent suites on Proxmox: up to {spread['most_at_once']} of {spread['suite_jobs']} suite jobs and {spread['most_kinds_at_once']} kinds ran at once; "
+              f"two or more kinds overlapped at {spread['moments_mixed']} job starts, all three (.NET unit, .NET integration, Angular) at {spread['moments_all_three']}.", ""]
     for ref, runs in sorted(report["refs"].items()):
         lines += [f"## {ref}", ""]
         for run in runs:
