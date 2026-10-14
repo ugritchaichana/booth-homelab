@@ -3,7 +3,7 @@
 | Path | Purpose |
 |---|---|
 | `stacks/proxmox-host/` | The host root module; `var.host` selects an inventory entry, so another host is data, not code. Declares the guest network: the `guests` vnet and, when the host entry has `cache_network`, the `cache` vnet. Run it through the wrapper `scripts/iac/tofu.sh` (see its README). |
-| `stacks/cache-service/` | The unprivileged container `build-cache-debian-13` (tags `build-cache`, `src-debian-13`) on the `cache` vnet that hosts the build cache; `build-cache` is its inventory and SSH alias; created stopped and started by Ansible after a firewall read-back (ADR 0045, 0048). |
+| `stacks/cache-service/` | The unprivileged container `cache-auto` (tags `build-cache`, `src-debian-13`) on the `cache` vnet that hosts the build cache; `build-cache` is its inventory and SSH alias; created stopped and started by Ansible after a firewall read-back (ADR 0045, 0048). |
 | `stacks/r15-probe/` | Throwaway container and VM, linked clones of the golden templates, that carry the guest firewall policy for the R15 isolation proof; applied only during the proof and destroyed after it (ADR 0031, 0044). Its firewall policy comes from `iac/policy/runner-class.yml`. |
 | `stacks/guest/` | Guests sized by a flavor name, linked clones of the golden templates, listed in `stacks/guest/guests.yml` and created by `scripts/iac/new-guest.sh` (ADR 0055). |
 | `modules/proxmox/sdn/` | A simple SDN zone, vnets with `isolate_ports`, and subnets with SNAT, static addressing and no DHCP (ADR 0030, 0045). |

@@ -34,7 +34,7 @@ Covered (Phases 1 to 4 of `docs/platform/requirements.md`, all with their DONE W
 - a Proxmox VE 9 VM inside Hyper-V on the Windows workstation, installed unattended, behind an internal switch, NAT and host-side port ACLs (ADR 0003, 0004, 0006, 0007);
 - the host baseline: key-only SSH, repositories, upgrade, firewall, API identity, OpenTofu state, guest network (ADR 0012, 0023, 0025 to 0030);
 - golden templates `lxc-runner` and `vm-docker` (ADR 0038 to 0044);
-- the build cache service `build-cache-debian-13` (SSH alias `build-cache`) and its client wiring (ADR 0045 to 0051);
+- the build cache service `cache-auto` (SSH alias `build-cache`) and its client wiring (ADR 0045 to 0051);
 - guests sized by a cloud flavor, created by one command (ADR 0055).
 
 Not covered: Phase 5 is in progress under D96 (load test, cache reuse, retry under load) and Phases 6 to 8 are not built (reusable workflows and cutover, observability and resilience, runbook timed rebuild and portability). CI runs on one persistent runner container, routed by runner health with GitHub-hosted runners as the fallback (section 3.7). What is open, what the next phase needs first and the entry gates are in `docs/handoff/README.md`.
@@ -228,7 +228,7 @@ R15 is the isolation proof: runner-class guests must not reach management, other
 
 Read raw probe records only from the output file, never echo them to a terminal (`docs/knowledge/real-host-defects.md`, last row of phase 4). While a probe clone of template version N exists, retention refuses to delete version N: destroy the probe first.
 
-### 2.9 Cache service (`build-cache-debian-13`, VMID 9050, vnet `cache`)
+### 2.9 Cache service (`cache-auto`, VMID 9050, vnet `cache`)
 
 A bazel-remote container on its own routed vnet serves content-addressed caches to the runners through one firewall path, tcp 10.99.17.10:8080. Reads are anonymous; writes need the one writer credential, which only default-branch push jobs in the environment `cache-writer` receive (ADR 0045 to 0051). The inventory and SSH alias is `build-cache`; the host-key pin file keeps its name `iac/secrets/hosts/cache01-ssh.sops.yaml`. Role for every step: operator (WSL) unless named.
 
