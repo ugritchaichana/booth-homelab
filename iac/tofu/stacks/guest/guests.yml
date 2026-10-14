@@ -4,13 +4,31 @@ guests:
     demo-lxc-runner:
       flavor: aws/t3.medium
       template_class: lxc-runner
+      template_version: 6
       slot: 1
     demo-vm-docker:
       flavor: aws/t3.medium
       template_class: vm-docker
-      slot: 2
       vendor_snippet: lab-accounts-vendor.yaml
+      template_version: 7
+      slot: 2
     ci-lxc-runner:
       flavor: aws/c5.2xlarge
       template_class: lxc-runner
+      template_version: 6
       slot: 3
+    dotnet-unit-auto-lxc-runner:
+      flavor: aws/c5.xlarge
+      template_class: lxc-runner
+      template_version: 7
+      slot: 4
+    dotnet-integration-auto-lxc-runner:
+      flavor: aws/c5.large
+      template_class: lxc-runner
+      template_version: 7
+      slot: 5
+    workspace-unit-auto-lxc-runner:
+      flavor: aws/c5.large
+      template_class: lxc-runner
+      template_version: 7
+      slot: 6
