@@ -22,6 +22,7 @@ DELIBERATE_CANCEL = ("was canceled by", "Canceling since a higher priority")
 SUITE_ROLES = {"dotnet": ("dotnet-unit-auto", "dotnet-integration-auto"), "angular": ("workspace-unit-auto",)}
 QUEUED = ("queued", "waiting", "pending")
 BUILD_JOB = "Build (.NET)"
+ROUTE_JOB = "Select Runner"
 BUILD_ROLE = "dotnet-unit-auto"
 PROMISED_ROLES = ("dotnet-unit-auto", "dotnet-integration-auto")
 HISTORY = 5
@@ -109,7 +110,8 @@ def job_labels(job):
 def queue_depth(open_jobs, role):
     waiting = sum(1 for j in open_jobs if j.get("status") in QUEUED and role in job_labels(j))
     builds = sum(1 for j in open_jobs if str(j.get("name", "")).endswith(BUILD_JOB) and j.get("status") != "completed" and BUILD_ROLE in job_labels(j))
-    return waiting + (builds if role in PROMISED_ROLES else 0)
+    routing = sum(1 for j in open_jobs if str(j.get("name", "")).endswith(ROUTE_JOB) and j.get("status") != "completed")
+    return waiting + routing + (builds if role in PROMISED_ROLES else 0)
 
 
 def job_seconds(done_jobs, role):

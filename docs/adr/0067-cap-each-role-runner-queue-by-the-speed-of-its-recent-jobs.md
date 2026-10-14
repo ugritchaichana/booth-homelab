@@ -37,7 +37,8 @@ Option 5.
   - **Ceiling:** the accepted wait divided by the job time, rounded down, at most the cap, at least 1.
   - **Queue:**
     - the role's jobs that are `queued`, `waiting` or `pending` in other open SDET runs;
-    - plus the jobs an unfinished `Build (.NET)` on `dotnet-unit-auto` will create, which is one unit job and one integration job.
+    - plus the jobs an unfinished `Build (.NET)` on `dotnet-unit-auto` will create, which is one unit job and one integration job;
+    - plus one for every other run whose `Select Runner` has not finished. Such a run has no queued job yet, and it may take one. Load round 7 showed why this matters: three runs dispatched 4 s apart each read `12/13` and all three joined, so the real queue reached 15 under a ceiling of 13.
 - **Routing.**
   - When the health check would choose Proxmox and any needed role has a queue at or above its ceiling, the whole new run goes to GitHub-hosted. The reason names that role, as in `queue full for workspace-unit-auto (... workspace-unit-auto 15/15 @50s ...)`.
   - Jobs already queued are never cancelled or moved.
@@ -55,7 +56,7 @@ Option 5.
 ## Consequences
 
 - The ceiling reacts after the fact: jobs must first run slower before it drops.
-- The ceiling is soft. Runs dispatched in the same moment read the same queue, so the queue can pass the ceiling for a short time.
+- Counting runs that are still choosing a runner errs on the safe side. A run that is still choosing counts for every role, even one it does not need, so a new run can be sent to GitHub-hosted slightly early. Two runs that read the queue within the same second can still both join.
 - Jobs that do not belong to an SDET run (a benchmark dispatched on Proxmox) are not counted.
 - A run of 25 dispatches costs about 400 API calls in its hour. A failed call costs only the ceiling, never the run.
 - Rollback: set `RUNNER_QUEUE_CEILING` to a large value, or revert the pull request.

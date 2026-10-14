@@ -78,7 +78,7 @@ Each needs a host converge proof or is Phase 5 work.
 - `scripts/proxmox/ephemeral/` sits beside the install scripts but belongs to the Phase 5 runner design; decide its home there ([next-phases.md](next-phases.md), Phase 5 starting points).
 - `.github/workflows/sdet-ci.yml` passes `secrets: inherit` to the reusable pipeline instead of naming the secrets it needs.
 - The guest stack creates a container at its template's 8 GiB root disk. The flavor's size (50 or 30 GiB for the role runners) needs a second apply that grows the disk in place ([real-host-defects.md](../knowledge/real-host-defects.md)).
-- The queue ceiling (ADR 0067) is soft. Runs that read the queue in the same moment all see the same count, so a burst can pass the ceiling. It also lags: jobs must run slower before it drops. Jobs outside SDET runs, such as a benchmark on Proxmox, are not counted.
+- The queue ceiling (ADR 0067) counts runs still choosing a runner, but two runs that read the queue within the same second can both join. It also lags: jobs must run slower before it drops. Jobs outside SDET runs, such as a benchmark on Proxmox, are not counted.
 - A guest entry without `template_version` follows the newest template, so a template rebuild plans to replace it. Every entry is pinned today, but no test refuses an unpinned entry.
 - `scripts/iac/cache-writer-secret.sh`, `new-guest.sh`, `render-ssh-config.sh` and `tofu.sh` each define their own helper functions such as `die`; there is no shared `scripts/iac/lib.sh`.
 

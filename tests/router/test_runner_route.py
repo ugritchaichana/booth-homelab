@@ -536,6 +536,12 @@ class QueueTests(unittest.TestCase):
                 role_job(UNIT, "completed", "CI / Build (.NET)"), role_job("other", "queued", "CI / Build (.NET)")]
         self.assertEqual([runner_route.queue_depth(jobs, role) for role in (UNIT, INTEGRATION, WORKSPACE)], [3, 2, 0])
 
+    def test_a_run_still_choosing_its_runner_counts_as_one_more_job_for_every_role(self):
+        jobs = [{"name": "CI / Select Runner", "status": "in_progress", "labels": ["ubuntu-latest"]},
+                {"name": "CI / Select Runner", "status": "queued", "labels": ["ubuntu-latest"]},
+                {"name": "CI / Select Runner", "status": "completed", "labels": ["ubuntu-latest"]}]
+        self.assertEqual([runner_route.queue_depth(jobs, role) for role in (UNIT, INTEGRATION, WORKSPACE)], [2, 2, 2])
+
     def test_the_job_time_is_the_median_of_the_five_latest_jobs_plus_the_gap(self):
         jobs = [role_job(UNIT, "completed", seconds=s, ended=e) for s, e in ((40, 1), (20, 2), (30, 3), (50, 4), (44, 5), (10, 6))]
         jobs += [role_job(UNIT, "completed", seconds=59, ended=7, conclusion="skipped"), role_job(UNIT, "in_progress"),
