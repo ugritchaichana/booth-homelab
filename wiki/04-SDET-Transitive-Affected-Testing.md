@@ -41,13 +41,13 @@ Per-test detail: [docs/knowledge/test-catalogue.md](https://github.com/ugritchai
 
 ```mermaid
 graph LR
-    S["Select Runner"] --> T["Telemetry"] & D["Build and Test (.NET)"] & A["Test (Angular)"]
-    D --> CS["Cache save (.NET)"]
+    S["Select Runner"] --> D["Build (.NET)"] & A["Test (Angular)"]
+    D --> U["Test (.NET unit)"] & I["Test (.NET integration)"] & CS["Cache save (.NET)"]
     A --> AS["Cache save (Angular)"]
-    T & D & CS & A & AS --> R["Report"]
+    U & I & CS & A & AS --> R["Report"]
 ```
 
-The `select-runner` job picks the runner labels once; every other job needs it. `Report` runs on `ubuntu-latest` on both paths: it only prints, and a job on the self-hosted runner costs about 10 s more than on a hosted one ([ADR 0060](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md)).
+The `select-runner` job picks the runner labels once; every other job needs it. On Proxmox each test kind has its own runner: the build, the unit tests and the .NET cache save run on `dotnet-unit-auto`, the integration tests on `dotnet-integration-auto`, and Angular on `workspace-unit-auto` ([ADR 0066](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0066-run-each-test-kind-on-its-own-runner-container.md)). `Report` runs on `ubuntu-latest` on both paths: it only prints, and a job on the self-hosted runner costs about 10 s more than on a hosted one ([ADR 0060](https://github.com/ugritchaichana/booth-homelab/blob/master/docs/adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md)).
 
 | Job | Restores | Saves |
 |---|---|---|

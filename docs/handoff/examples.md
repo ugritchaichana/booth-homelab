@@ -115,7 +115,7 @@ Why a laptop fails: the cache group admits only the guest subnet, and the probes
 - `docs/evidence/phase4/fw-after-sdn.txt:7` `IN ACCEPT -source 10.99.16.0/24 -p tcp -dport 8080`
 - `docs/evidence/phase4/r15-baseline-lxc.txt:23` `PROBE cache_port_reachable tcp 10.99.17.10:8080 open open PASS`
 
-What to check: valid JSON with `NumFiles` above 0 after a default-branch build has saved. The pipeline makes the same call in its telemetry step (`.github/workflows/reusable-sdet-pipeline.yml:119`). No published file holds the full `/status` body; only the two lines above were kept.
+What to check: valid JSON with `NumFiles` above 0 after a default-branch build has saved. No published file holds the full `/status` body; only the two lines above were kept.
 
 ## 5. Use the cache client in a build
 
