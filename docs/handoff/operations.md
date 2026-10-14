@@ -56,7 +56,7 @@ Commands: runbook 3.5. Every secret file has one writer ([secrets README](../../
 | R15 probe key | Exercised in the Phase 4 re-creations of the probe guests ([real-host-defects.md](../knowledge/real-host-defects.md)) |
 | Root password and SSH keys | No run recorded |
 | Age identity | Rule documented; no drill |
-| GitHub fine-grained tokens | Created in Phase 5; do not exist yet |
+| GitHub fine-grained tokens | `RUNNER_STATUS_TOKEN` (Administration read, the router) set by the owner on 2026-10-08; no rotation run yet. The controller token does not exist (JIT pool deferred by D96) |
 
 A rotation never run on the host is a hypothesis, not a procedure: schedule a drill of each in Phase 7.
 

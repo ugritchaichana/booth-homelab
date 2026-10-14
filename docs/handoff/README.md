@@ -15,7 +15,7 @@ This table is the only copy of the phase status; every other page links here.
 | 2 IaC foundation and isolation | Done | [phase 2 index](../evidence/phase2/INDEX.md); row 49 (OpenTofu state), row 52 (isolation per guest) |
 | 3 Golden templates and regeneration | Done | [phase 3 index](../evidence/phase3/INDEX.md); row 56 (retention and rollback) |
 | 4 Build cache | Done | [phase 4 index](../evidence/phase4/INDEX.md); row 63 (hit ratio over 20 runs) |
-| 5 Runner pool controller | Not started; entry gates written | [next-phases.md](next-phases.md) |
+| 5 Load test, cache reuse and retry under load (D96) | In progress; the JIT pool is deferred | [next-phases.md](next-phases.md) |
 | 6 Workflow cutover | Not started | [next-phases.md](next-phases.md) |
 | 7 Observability, backups, object storage, drills | Not started | [next-phases.md](next-phases.md) |
 | 8 Rebuild-from-zero runbook and portability | Not started | [next-phases.md](next-phases.md) |
@@ -42,7 +42,7 @@ Phases 2, 3 and 4 each passed an independent audit against their DONE WHEN claus
 
 ## What is not built
 
-- The runner pool controller, JIT ephemeral runners, scaling, queueing and overflow (Phase 5). No runner of the new platform exists, so no job has run on it.
+- The runner pool controller, JIT ephemeral runners, scaling and queueing, deferred by D96. One persistent runner container carries CI today ([ADR 0060](../adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md)).
 - The cutover of the workflows to the new pools and the deregistration of the old runners (Phase 6).
 - Metrics, alerts, backups to another device, general object storage, timed restore and drills (Phase 7).
 - A rebuild from zero timed against the runbook, and a run on a non-Proxmox host (Phase 8).

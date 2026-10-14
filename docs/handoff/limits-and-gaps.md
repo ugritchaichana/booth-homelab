@@ -18,7 +18,7 @@ Every named gap, who owns it, and the evidence that closes it. "Owner" means the
 | Notification target absent | Phase 7 | A notification target tested | D60 (notifications) |
 | Host-layer trust: any process running as the owner can change the VM's port ACLs; the claim that this reaches host-administrator rights is a HYPOTHESIS, untested | Host layer only; drops on bare metal | Not applicable on bare metal | D43 (Hyper-V Administrators re-confirmed) |
 
-## Entry gates for the controller phase (Phase 5)
+## Entry gates for the runner pool (deferred by D96)
 
 All gates must be shown, not asserted, before the first runner registers. The full list is in [next-phases.md](next-phases.md). The owner registered one persistent runner container before these gates ([ADR 0060](../adr/0060-run-own-ci-on-one-persistent-runner-container-behind-a-job-start-guard.md)): it has no sudo for `runner` and carries the guests firewall flag, and it meets none of the gates on JIT runners, the R15 re-run, thin-pool headroom or draining. The gates still apply to the pool.
 
@@ -38,7 +38,7 @@ All gates must be shown, not asserted, before the first runner registers. The fu
 
 | Gap | What closes it | Source |
 |---|---|---|
-| Suite time, queue-to-start and scale-from-zero targets unmeasured | Phase 5 load test and Phase 6 five consecutive runs with a baseline-versus-after table | requirements.md section 8 |
+| Suite time, queue-to-start and scale-from-zero targets unmeasured | The JIT pool deferred by D96, and Phase 6 five consecutive runs with a baseline-versus-after table; the D96 load test measures queue depth and cache reuse on the persistent runner | requirements.md section 8 |
 | R15 rows never measured: a VPN peer's web service, a host inside the harvested prefixes | A Windows-side positive control, or a re-measurement on the target network | row 38 (host-side layer), row 42 (after reboot), row 52 (per-guest runs) |
 | Thresholds for the build space guard (data 70%, metadata 70%, 8 GiB free) are placeholders | A measurement under realistic load | role defaults of `pve_templates` |
 | The weekly timer fired once; never observed over weeks | A month of timer runs with an alert | row 56 (retention and rollback) |
