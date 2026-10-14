@@ -2,6 +2,7 @@
 """Load-test the SDET pipeline: dispatch runs on several refs at once, sample the job queue until every run and its retry
 have finished, then summarise routes, retries, queue depth, cache reuse and timings."""
 import argparse
+import http.client
 import json
 import os
 import re
@@ -22,11 +23,12 @@ SUITES = ("Test (.NET unit)", "Test (.NET integration)", "Test (Angular)")
 REPOSITORIES = ("all", "dotnet", "angular")
 ROLES = ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")
 QUEUE_FULL = "queue full for "
+READ_TRIES = 3
 
 
 class Api:
-    def __init__(self, repository, token, opener=urllib.request.urlopen):
-        self.base, self.token, self.opener = f"{API}/repos/{repository}", token, opener
+    def __init__(self, repository, token, opener=urllib.request.urlopen, pause=time.sleep):
+        self.base, self.token, self.opener, self.pause = f"{API}/repos/{repository}", token, opener, pause
 
     def request(self, path, body=None):
         data = None if body is None else json.dumps(body).encode()
@@ -37,7 +39,15 @@ class Api:
             return response.read().decode("utf-8", "replace")
 
     def get(self, path):
-        return json.loads(self.request(path))
+        tries = 0
+        while True:
+            try:
+                return json.loads(self.request(path))
+            except (OSError, http.client.HTTPException):
+                tries += 1
+                if tries == READ_TRIES:
+                    raise
+                self.pause(2 ** (tries - 1))
 
     def post(self, path, body):
         return self.request(path, body)

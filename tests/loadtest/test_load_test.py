@@ -1,3 +1,4 @@
+import http.client
 import io
 import json
 import os
@@ -314,6 +315,25 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(api.post("/x", {"a": 1}), '{"ok": 1}')
         self.assertEqual(seen[0], ("https://api.github.com/repos/owner/repo/actions/runners", "GET", None, "Bearer secret-token", None, 60))
         self.assertEqual(seen[1][1:3], ("POST", b'{"a": 1}'))
+
+    def test_a_read_survives_a_dropped_connection_and_gives_up_after_three_tries(self):
+        failures, waits = [http.client.RemoteDisconnected("closed"), ConnectionResetError("reset")], []
+
+        def flaky(request, timeout):
+            if failures:
+                raise failures.pop(0)
+            return Response(b'{"ok": 2}')
+
+        self.assertEqual(load_test.Api("owner/repo", "t", flaky, waits.append).get("/x"), {"ok": 2})
+        self.assertEqual(waits, [1, 2])
+
+        def down(request, timeout):
+            raise http.client.RemoteDisconnected("closed")
+
+        waits.clear()
+        with self.assertRaises(http.client.RemoteDisconnected):
+            load_test.Api("owner/repo", "t", down, waits.append).get("/x")
+        self.assertEqual(waits, [1, 2])
 
 
 class MainTests(unittest.TestCase):
