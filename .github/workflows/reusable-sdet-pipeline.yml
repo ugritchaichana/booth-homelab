@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      suites:
+        description: 'all, dotnet (build, unit and integration) or angular (Jest)'
+        required: false
+        type: string
+        default: 'all'
     outputs:
       cache_hit:
         description: 'true when every project restored its build outputs from the cache'
@@ -52,6 +57,11 @@ on:
         required: false
         type: boolean
         default: true
+      suites:
+        description: 'all, dotnet (build, unit and integration) or angular (Jest)'
+        required: false
+        type: string
+        default: 'all'
 
 permissions:
   contents: read
@@ -129,6 +139,7 @@ jobs:
   dotnet:
     name: Build (.NET)
     needs: [select-runner]
+    if: inputs.suites != 'angular'
     timeout-minutes: 30
     runs-on: ${{ fromJSON(needs.select-runner.outputs.dotnet_labels) }}
     env:
@@ -465,6 +476,7 @@ jobs:
   angular-jest:
     name: Test (Angular)
     needs: [select-runner]
+    if: inputs.suites != 'dotnet'
     timeout-minutes: 20
     runs-on: ${{ fromJSON(needs.select-runner.outputs.angular_labels) }}
     env:
@@ -541,6 +553,7 @@ jobs:
       INTEGRATION_MS: ${{ needs.dotnet-integration.outputs.test_duration_ms }}
       ANGULAR_MS: ${{ needs.angular-jest.outputs.angular_duration_ms }}
       TARGET_BRANCH: ${{ inputs.target_branch }}
+      SUITES: ${{ inputs.suites }}
       BASE_REF: ${{ inputs.base_ref }}
     steps:
       - name: Generate Pipeline Summary Report
@@ -561,6 +574,7 @@ jobs:
           echo "Runner Mode:              ${RUNNER_LABEL}"
           echo "Branch / Ref:             ${TARGET_BRANCH}"
           echo "Base Ref:                 ${BASE_REF}"
+          echo "Suites:                   ${SUITES}"
           echo "Cache nuget:              ${HIT_NUGET:-false}"
           echo "Cache dotnet-outputs:     ${RESTORED_OUTPUTS:-0/0} projects restored"
           echo "Cache node_modules:       ${HIT_NODE:-false}"
@@ -588,7 +602,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
-          for result in "$BUILD_RESULT" "$ANGULAR_RESULT"; do [ "$result" = success ] || failed=1; done
+          [ "$SUITES" = angular ] || [ "$BUILD_RESULT" = success ] || failed=1
+          [ "$SUITES" = dotnet ] || [ "$ANGULAR_RESULT" = success ] || failed=1
           for result in "$UNIT_RESULT" "$INTEGRATION_RESULT"; do case "$result" in success|skipped) ;; *) failed=1 ;; esac; done
           if [ "$failed" -ne 0 ]; then
             echo "::error::One or more pipeline stages failed!"

@@ -105,3 +105,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0062 | [Route CI by runner health and retry a failed run once on the other environment](0062-route-ci-by-runner-health-and-retry-a-failed-run-once-on-the-other-environment.md) | Accepted |
 | 0063 | [Cache build outputs per project and keep the commit id out of the version](0063-cache-build-outputs-per-project-and-keep-the-commit-id-out-of-the-version.md) | Accepted |
 | 0064 | [Build .NET once, test unit and integration as parallel jobs, and give every runner instance one path](0064-build-dotnet-once-test-unit-and-integration-as-parallel-jobs-and-give-every-runner-instance-one-path.md) | Accepted |
+| 0065 | [Load-test the pipeline by dispatching runs and sampling the jobs API](0065-load-test-the-pipeline-by-dispatching-runs-and-sampling-the-jobs-api.md) | Accepted |
