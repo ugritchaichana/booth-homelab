@@ -22,7 +22,7 @@ Option 3, decided by the owner.
 
 | Runner (container) | Flavor | Jobs |
 |---|---|---|
-| `dotnet-unit-auto` (`dotnet-unit-auto-lxc-runner-v7`, VMID 9504) | `aws/c5.xlarge`, 50 GiB | Build (.NET), Test (.NET unit), the .NET cache save. The build runs here only. |
+| `dotnet-unit-auto` (`dotnet-unit-auto-lxc-runner-v7`, VMID 9504) | `aws/c5.xlarge`, 50 GiB | Build (.NET), Test (.NET unit), the .NET cache save, and `cache-benchmark.yml` when dispatched for Proxmox. The build runs here only. |
 | `dotnet-integration-auto` (`dotnet-integration-auto-lxc-runner-v7`, VMID 9505) | `aws/c5.large`, 30 GiB | Test (.NET integration) |
 | `workspace-unit-auto` (`workspace-unit-auto-lxc-runner-v7`, VMID 9506) | `aws/c5.large`, 30 GiB | Test (Angular), the Angular cache save |
 

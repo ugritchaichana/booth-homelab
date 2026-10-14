@@ -112,6 +112,16 @@ class PlacementTests(unittest.TestCase):
                 self.assertNotEqual(mutated, pipeline)
                 self.assertTrue(placement_problems(mutated))
 
+    def test_every_job_that_asks_for_proxmox_names_a_role(self):
+        roles = ("dotnet-unit-auto", "dotnet-integration-auto", "workspace-unit-auto")
+        found = []
+        for path in sorted(PIPELINE.parent.glob("*.yml")):
+            for name, job in (yaml.safe_load(path.read_text(encoding="utf-8")).get("jobs") or {}).items():
+                runs_on = str(job.get("runs-on"))
+                if "proxmox" in runs_on and not any(role in runs_on for role in roles):
+                    found.append(f"{path.name} job {name}")
+        self.assertEqual(found, [])
+
 
 CALLER = REPO / ".github" / "workflows" / "sdet-ci.yml"
 
