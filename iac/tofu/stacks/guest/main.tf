@@ -190,4 +190,8 @@ resource "proxmox_virtual_environment_firewall_ipset" "vm_ipfilter" {
   cidr {
     name = each.value.address
   }
+
+  lifecycle {
+    replace_triggered_by = [proxmox_virtual_environment_vm.guest[each.key].id]
+  }
 }

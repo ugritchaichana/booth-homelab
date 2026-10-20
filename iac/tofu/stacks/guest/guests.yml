@@ -33,11 +33,13 @@ guests:
       template_version: 7
       slot: 6
     ti-asis-integration-vm-docker:
+      vendor_snippet: ti-trial-vendor.yaml
       flavor: lab/trial-4c-10g
       template_class: vm-docker
       slot: 7
       on_boot: false
     ti-asis-unit-vm-docker:
+      vendor_snippet: ti-trial-vendor.yaml
       flavor: lab/trial-4c-5g
       template_class: vm-docker
       slot: 8
