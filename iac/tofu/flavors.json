@@ -64,6 +64,7 @@
       "name": "Lab trial sizes",
       "instances": {
         "trial-4c-5g": { "cores": 4, "memory_mb": 5120, "disk_gb": 40, "description": "Fixed-memory trial VM, no ballooning" },
+        "trial-8c-15g": { "cores": 8, "memory_mb": 15360, "disk_gb": 60, "description": "Fixed-memory trial VM, no ballooning" },
         "trial-4c-10g": { "cores": 4, "memory_mb": 10240, "disk_gb": 40, "description": "Fixed-memory trial VM, no ballooning" }
       }
     }

@@ -44,3 +44,21 @@ guests:
       template_class: vm-docker
       slot: 8
       on_boot: false
+    ti-imp-integration-vm-docker:
+      vendor_snippet: ti-trial-vendor.yaml
+      flavor: lab/trial-4c-10g
+      template_class: vm-docker
+      slot: 9
+      on_boot: false
+    ti-imp-unit-vm-docker:
+      vendor_snippet: ti-trial-vendor.yaml
+      flavor: lab/trial-4c-5g
+      template_class: vm-docker
+      slot: 10
+      on_boot: false
+    ti-kube-vm-docker:
+      vendor_snippet: ti-trial-vendor.yaml
+      flavor: lab/trial-8c-15g
+      template_class: vm-docker
+      slot: 11
+      on_boot: false

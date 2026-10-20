@@ -23,10 +23,10 @@ Two defaults of the guest stack (ADR 0055) do not fit:
 
 ## Decision
 
-Option 2. `lab/trial-4c-5g` and `lab/trial-4c-10g` have no `balloon_mb`, so the flavor module returns 0 and ballooning is off. A guest entry may set `on_boot: false`; the value reaches `on_boot` of a VM and `start_on_boot` of a container. The two trial guests use slots 7 and 8 with `on_boot: false`.
+Option 2. `lab/trial-4c-5g`, `lab/trial-4c-10g` and `lab/trial-8c-15g` have no `balloon_mb`, so the flavor module returns 0 and ballooning is off. A guest entry may set `on_boot: false`; the value reaches `on_boot` of a VM and `start_on_boot` of a container. Each design under trial gets its own pair of guests, all with `on_boot: false`: as-is in slots 7 and 8, improved in slots 9 and 10 (same sizes as as-is), and a single-node Kubernetes pool in slot 11 (`lab/trial-8c-15g`, the same 8 vCPU and 15 GiB in total). The pool has one node because guests on a lab vnet cannot reach each other (ADR 0027, ADR 0037), and a k3s agent cannot join a server on another guest without a firewall policy change.
 
 ## Consequences
 
-- Trial guests start only when an operator starts them; the other guests that start on boot (demo, probes, role runners) are stopped for a trial window and started again after it.
+- Trial guests start only when an operator starts them, one design at a time (15 GiB); the other guests that start on boot (demo, probes, role runners) are stopped for a trial window and started again after it.
 - The trial guests' memory is 0.625 of the modelled machines'; CPU is unchanged.
 - Proof: `iac/tofu/stacks/guest/tests/guest.tftest.hcl`, run `a_guest_can_opt_out_of_start_on_boot_and_a_lab_flavor_has_no_balloon`; with `on_boot` hardcoded to true it fails, with the change every run passes.

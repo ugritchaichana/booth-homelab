@@ -103,3 +103,8 @@ guests:
       template_class: vm-docker
       slot: 5
       on_boot: false
+    kube-vm-docker:
+      flavor: lab/trial-8c-15g
+      template_class: vm-docker
+      slot: 6
+      on_boot: false
