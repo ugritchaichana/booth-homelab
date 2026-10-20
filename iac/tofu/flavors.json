@@ -59,6 +59,13 @@
         "c-2": { "cores": 2, "memory_mb": 4096, "disk_gb": 50, "balloon_mb": 2048, "description": "Dedicated CPU 2 Core" },
         "c-4": { "cores": 4, "memory_mb": 8192, "disk_gb": 100, "balloon_mb": 4096, "description": "Dedicated CPU 4 Core" }
       }
+    },
+    "lab": {
+      "name": "Lab trial sizes",
+      "instances": {
+        "trial-4c-5g": { "cores": 4, "memory_mb": 5120, "disk_gb": 40, "description": "Fixed-memory trial VM, no ballooning" },
+        "trial-4c-10g": { "cores": 4, "memory_mb": 10240, "disk_gb": 40, "description": "Fixed-memory trial VM, no ballooning" }
+      }
     }
   }
 }
