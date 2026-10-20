@@ -28,7 +28,7 @@ resource "proxmox_virtual_environment_container" "guest" {
   pool_id       = var.pool_id
   description   = "Flavor guest ${each.value.flavor}"
   unprivileged  = true
-  start_on_boot = true
+  start_on_boot = each.value.on_boot
   started       = false
 
   cpu {
@@ -101,7 +101,7 @@ resource "proxmox_virtual_environment_vm" "guest" {
   vm_id           = each.value.vm_id
   pool_id         = var.pool_id
   description     = "Flavor guest ${each.value.flavor}"
-  on_boot         = true
+  on_boot         = each.value.on_boot
   started         = false
   stop_on_destroy = true
 

@@ -9,3 +9,13 @@ guests:
       flavor: aws/t3.medium
       template_class: vm-docker
       slot: 2
+    ti-asis-integration-vm-docker:
+      flavor: lab/trial-4c-16g
+      template_class: vm-docker
+      slot: 3
+      on_boot: false
+    ti-asis-unit-vm-docker:
+      flavor: lab/trial-4c-8g
+      template_class: vm-docker
+      slot: 4
+      on_boot: false

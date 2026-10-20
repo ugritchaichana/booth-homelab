@@ -28,6 +28,7 @@ locals {
       slot           = try(tonumber(guest.slot), null)
       address        = try(cidrhost(local.guest_network.cidr, local.address_base + tonumber(guest.slot)), null)
       vm_id          = try(local.vm_id_base + tonumber(guest.slot), null)
+      on_boot        = try(tobool(guest.on_boot), true)
     }
   }
 

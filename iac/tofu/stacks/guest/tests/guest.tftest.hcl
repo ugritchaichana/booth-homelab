@@ -413,3 +413,21 @@ run "guest_key_that_does_not_end_in_its_template_class_is_rejected" {
 
   expect_failures = [output.guests]
 }
+
+run "a_guest_can_opt_out_of_start_on_boot_and_a_lab_flavor_has_no_balloon" {
+  command = plan
+
+  variables {
+    host = "case-no-boot"
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.guest["trial-vm-docker"].on_boot == false && proxmox_virtual_environment_vm.guest["trial-vm-docker"].started == false
+    error_message = "on_boot: false must reach the VM, and the guest is still created stopped."
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.guest["trial-vm-docker"].memory[0].dedicated == 16384 && proxmox_virtual_environment_vm.guest["trial-vm-docker"].memory[0].floating == 0 && proxmox_virtual_environment_vm.guest["trial-vm-docker"].cpu[0].cores == 4
+    error_message = "lab/trial-4c-16g must give 4 cores and 16384 MB with ballooning off."
+  }
+}
