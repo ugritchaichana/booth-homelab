@@ -427,7 +427,7 @@ run "a_guest_can_opt_out_of_start_on_boot_and_a_lab_flavor_has_no_balloon" {
   }
 
   assert {
-    condition     = proxmox_virtual_environment_vm.guest["trial-vm-docker"].memory[0].dedicated == 16384 && proxmox_virtual_environment_vm.guest["trial-vm-docker"].memory[0].floating == 0 && proxmox_virtual_environment_vm.guest["trial-vm-docker"].cpu[0].cores == 4
-    error_message = "lab/trial-4c-16g must give 4 cores and 16384 MB with ballooning off."
+    condition     = proxmox_virtual_environment_vm.guest["trial-vm-docker"].memory[0].dedicated == 10240 && proxmox_virtual_environment_vm.guest["trial-vm-docker"].memory[0].floating == 0 && proxmox_virtual_environment_vm.guest["trial-vm-docker"].cpu[0].cores == 4
+    error_message = "lab/trial-4c-10g must give 4 cores and 10240 MB with ballooning off."
   }
 }

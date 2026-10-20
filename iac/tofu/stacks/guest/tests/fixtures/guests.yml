@@ -86,7 +86,7 @@ guests:
       slot: 1
   case-no-boot:
     trial-vm-docker:
-      flavor: lab/trial-4c-16g
+      flavor: lab/trial-4c-10g
       template_class: vm-docker
       slot: 5
       on_boot: false

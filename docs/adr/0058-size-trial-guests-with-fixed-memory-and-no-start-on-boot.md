@@ -8,12 +8,12 @@
 
 ## Context
 
-A runner-design comparison needs two guests sized like the machines it models: 4 vCPU with 16 GiB and 4 vCPU with 8 GiB, 24 GiB in total. The Proxmox VM has 20 GiB at rest (ADR 0003) and is raised to 28 GiB only while trials run, then restored.
+A runner-design comparison needs two guests shaped like the machines it models: 4 vCPU each, with the larger role holding twice the memory of the smaller. The workstation cannot give the Proxmox VM more than its 20 GiB (ADR 0003) while it is in use (27.9 GiB free of 43.8 GiB with the VM off, 2026-10-20), so the owner chose to keep 20 GiB and scale the trial guests' memory while keeping the modelled CPU.
 
 Two defaults of the guest stack (ADR 0055) do not fit:
 
-- Every catalog flavor sets `balloon_mb` to half its memory (`iac/tofu/flavors.json`), and the stack passes it as `floating` (`iac/tofu/stacks/guest/main.tf:119`). With 24 GiB of guests on a 28 GiB host the host passes the 80% usage point at which Proxmox reclaims balloon memory, so a guest's memory could shrink mid-trial and the measurement would no longer match the modelled machine.
-- Every guest starts on boot (`main.tf:104`). After a trial the host is back at 20 GiB, so the next boot would try to start 24 GiB of trial guests next to the demo guests.
+- Every catalog flavor sets `balloon_mb` to half its memory (`iac/tofu/flavors.json`), and the stack passes it as `floating` (`iac/tofu/stacks/guest/main.tf:119`). With 15 GiB of trial guests on a 20 GiB host, host usage passes the 80% point at which Proxmox reclaims balloon memory, so a guest could shrink mid-trial and the measurement would change underneath it.
+- Every guest starts on boot (`main.tf:104`). Trial guests started on every boot would take 15 GiB next to the cache, the probes and the demo guests.
 
 ## Options considered
 
@@ -23,10 +23,10 @@ Two defaults of the guest stack (ADR 0055) do not fit:
 
 ## Decision
 
-Option 2. `lab/trial-4c-8g` and `lab/trial-4c-16g` have no `balloon_mb`, so the flavor module returns 0 and ballooning is off. A guest entry may set `on_boot: false`; the value reaches `on_boot` of a VM and `start_on_boot` of a container. The two trial guests use slots 3 and 4 with `on_boot: false`.
+Option 2. `lab/trial-4c-5g` and `lab/trial-4c-10g` have no `balloon_mb`, so the flavor module returns 0 and ballooning is off. A guest entry may set `on_boot: false`; the value reaches `on_boot` of a VM and `start_on_boot` of a container. The two trial guests use slots 3 and 4 with `on_boot: false`.
 
 ## Consequences
 
-- Trial guests start only when an operator starts them, on a host sized for them.
-- The demo guests still start on boot; during a trial window they are stopped first so the trial guests have the memory.
-- Proof: `iac/tofu/stacks/guest/tests/guest.tftest.hcl`, run `a_guest_can_opt_out_of_start_on_boot_and_a_lab_flavor_has_no_balloon`; with `on_boot` hardcoded to true it fails (`Failure! 25 passed, 1 failed.`), with the change all 26 runs pass.
+- Trial guests start only when an operator starts them; the demo guests and the probes are stopped for a trial window and started again after it.
+- The trial guests' memory is 0.625 of the modelled machines'; CPU is unchanged.
+- Proof: `iac/tofu/stacks/guest/tests/guest.tftest.hcl`, run `a_guest_can_opt_out_of_start_on_boot_and_a_lab_flavor_has_no_balloon`; with `on_boot` hardcoded to true it fails, with the change every run passes.
