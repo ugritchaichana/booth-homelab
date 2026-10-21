@@ -1,0 +1,33 @@
+---
+- name: Start the sim cache container only after its firewall reads back correctly
+  hosts: pve_hosts
+  gather_facts: false
+  become: true
+  vars:
+    cache_vmid: "{{ hostvars[groups['sim_cache'][0]].sim_cache_vmid }}"
+    cache_node: "{{ pve_node_name }}"
+    cache_vnet: "{{ cache_network.vnet }}"
+  tasks:
+    - name: Gate the first start on the firewall read-back
+      ansible.builtin.include_tasks: tasks/cache-start-gate.yml
+
+    - name: Wait for ssh on the sim cache address
+      ansible.builtin.wait_for:
+        host: "{{ sim_cache_endpoint.address }}"
+        port: 22
+        timeout: 120
+
+- name: Prepare the sim cache container for Ansible
+  hosts: sim_cache
+  gather_facts: false
+  tasks:
+    - name: Install python3 when the template lacks it
+      ansible.builtin.raw: test -x /usr/bin/python3 || (apt-get update -qq && apt-get install -y -qq --no-install-recommends python3)
+      changed_when: false
+
+- name: Configure the simulation cache service
+  hosts: sim_cache
+  tasks:
+    - name: Apply the sim_cache_service role
+      ansible.builtin.include_role:
+        name: sim_cache_service

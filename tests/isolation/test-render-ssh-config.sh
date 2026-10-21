@@ -8,8 +8,8 @@ fails=0
 
 mkdir -p "$work/bin" "$work/repo/scripts/iac" "$work/repo/iac/inventory" "$work/repo/iac/secrets/hosts"
 cp "$repo/scripts/iac/render-ssh-config.sh" "$work/repo/scripts/iac/"
-cp "$repo/iac/inventory/hosts.yml" "$repo/iac/inventory/cache.yml" "$work/repo/iac/inventory/"
-touch "$work/repo/iac/secrets/hosts/pve01-ssh.sops.yaml" "$work/repo/iac/secrets/hosts/cache01-ssh.sops.yaml"
+cp "$repo/iac/inventory/hosts.yml" "$repo/iac/inventory/cache.yml" "$repo/iac/inventory/sim-cache.yml" "$work/repo/iac/inventory/"
+touch "$work/repo/iac/secrets/hosts/pve01-ssh.sops.yaml" "$work/repo/iac/secrets/hosts/cache01-ssh.sops.yaml" "$work/repo/iac/secrets/hosts/simcache-ssh.sops.yaml"
 printf '#!/bin/sh\necho "ssh-ed25519 AAAAFAKEKEYDATA stub"\n' > "$work/bin/sops"
 cat > "$work/bin/cmd.exe" << 'STUB'
 #!/bin/sh
@@ -45,6 +45,12 @@ hka_name="$(awk '/^Host build-cache /{f=1} f && /HostKeyAlias/{print $2; exit}' 
 kh_name="$(awk '$1 == "build-cache" {print $1}' "$work/out/known_hosts")"
 if [ "$alias_line" != 1 ] || [ "$hka_name" != "$kh_name" ]; then echo "FAIL: HostKeyAlias '$hka_name' does not match the known_hosts name '$kh_name'" >&2; fails=$((fails + 1)); fi
 verdict "alias, HostKeyAlias and the known_hosts name agree"
+
+before=$fails
+check ssh_config "^Host sim-cache 10.99.17.11$"
+if [ "$(awk '/^Host sim-cache /{f=1;next} /^Host /{f=0} f && /ProxyJump/{print $2}' "$work/out/ssh_config")" != pve01 ]; then echo "FAIL: sim-cache is not behind the pve01 jump" >&2; fails=$((fails + 1)); fi
+check known_hosts "^sim-cache ssh-ed25519 AAAAFAKEKEYDATA$"
+verdict "the sim cache host is rendered behind the same jump with its own pinned key"
 
 before=$fails
 sed -i 's/build-cache:/renamed-cache:/' "$work/repo/iac/inventory/cache.yml"
