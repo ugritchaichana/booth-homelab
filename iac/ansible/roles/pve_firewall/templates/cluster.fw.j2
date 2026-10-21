@@ -24,9 +24,19 @@ local_network {{ pve_firewall_management_sources | first }}
 !{{ prefix }}
 {% endfor %}
 
+{% if pve_firewall_sim_cache_endpoint.address is defined %}
+[IPSET {{ pve_firewall_sim_cache_ipset }}]
+{% for source in pve_firewall_sim_cache_sources | unique | sort %}
+{{ source }}
+{% endfor %}
+
+{% endif %}
 [group {{ pve_firewall_group }}]
 {% if pve_firewall_cache_endpoint.address is defined %}
 OUT ACCEPT -dest {{ pve_firewall_cache_endpoint.address }} -p tcp -dport {{ pve_firewall_cache_endpoint.port }}
+{% if pve_firewall_sim_cache_endpoint.address is defined %}
+OUT ACCEPT -source +dc/{{ pve_firewall_sim_cache_ipset }} -dest {{ pve_firewall_sim_cache_endpoint.address }} -p tcp -dport {{ pve_firewall_cache_endpoint.port }}
+{% endif %}
 {% endif %}
 OUT DROP -dest +dc/{{ pve_firewall_ipset_host_routed }} -log info
 OUT ACCEPT -dest +dc/{{ pve_firewall_ipset_public }}

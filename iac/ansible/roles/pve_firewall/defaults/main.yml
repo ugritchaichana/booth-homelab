@@ -93,6 +93,9 @@ pve_firewall_guest_cidr: "{{ (guest_network | default({})).cidr | default('') }}
 pve_firewall_cache_group: cache-ingress
 pve_firewall_cache_network: "{{ cache_network | default({}) }}"
 pve_firewall_cache_endpoint: "{{ cache_endpoint | default({}) }}"
+pve_firewall_sim_cache_ipset: sim-runners
+pve_firewall_sim_cache_endpoint: "{{ sim_cache_endpoint | default({}) }}"
+pve_firewall_sim_cache_sources: "{{ sim_cache_sources | default([]) }}"
 pve_firewall_guard_policy_file: /etc/homelab/guest-firewall-guard-policy.json
 pve_firewall_guard_vnets: >-
   {{ {pve_firewall_guest_vnet: {'groups': [pve_firewall_group], 'allow_gateway_ssh': pve_firewall_guest_gateway}}

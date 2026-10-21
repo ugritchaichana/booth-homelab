@@ -110,3 +110,4 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0067 | [Cap each role runner's queue by the speed of its recent jobs](0067-cap-each-role-runner-queue-by-the-speed-of-its-recent-jobs.md) | Accepted |
 | 0068 | [Turn off Source Link so cached outputs survive a new commit](0068-turn-off-source-link-so-cached-outputs-survive-a-new-commit.md) | Accepted |
 | 0069 | [Size trial guests with fixed memory and no start on boot](0069-size-trial-guests-with-fixed-memory-and-no-start-on-boot.md) | Accepted |
+| 0070 | [Serve the simulation cache from a MinIO container behind one source-limited rule](0070-serve-the-simulation-cache-from-a-minio-container-behind-one-source-limited-rule.md) | Accepted; store superseded by 0072 |

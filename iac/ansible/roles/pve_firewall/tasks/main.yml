@@ -15,11 +15,21 @@
       - pve_firewall_cache_endpoint.address is not defined or (pve_firewall_cache_endpoint.port | int) in range(1, 65536)
       - pve_firewall_cache_endpoint.address is not defined or pve_firewall_cache_network.gateway is match(pve_firewall_address_pattern)
       - pve_firewall_cache_endpoint.address is not defined or pve_firewall_guest_cidr is match(pve_firewall_address_pattern)
+      - pve_firewall_sim_cache_endpoint.address is not defined or pve_firewall_cache_endpoint.address is defined
+      - >-
+        pve_firewall_sim_cache_endpoint.address is not defined
+        or (pve_firewall_sim_cache_endpoint.address is match(pve_firewall_address_pattern) and '/' not in pve_firewall_sim_cache_endpoint.address)
+      - pve_firewall_sim_cache_endpoint.port is not defined
+      - >-
+        pve_firewall_sim_cache_endpoint.address is not defined
+        or (pve_firewall_sim_cache_sources | length > 0
+        and pve_firewall_sim_cache_sources | reject('match', '^[0-9]{1,3}([.][0-9]{1,3}){3}$') | list | length == 0)
     fail_msg: >-
       Set pve_firewall_management_sources to IPv4 addresses without a zero prefix,
       pve_firewall_host_routed_prefixes to a list of IPv4 prefixes without a zero prefix and
       the guest_network gateway to one IPv4 address, and cache_endpoint (address, port) with cache_network (gateway)
-      and guest_network (cidr) to valid values
+      and guest_network (cidr) to valid values; sim_cache_endpoint is one address that rides the cache port and
+      needs sim_cache_sources, a list of single host addresses
   no_log: true
 
 - name: Read the dead-man timer state
