@@ -1,0 +1,363 @@
+---
+- name: Assert the inputs before changing anything
+  ansible.builtin.assert:
+    that:
+      - sim_cache_service_seaweed_sha256 | length == 64
+      - sim_cache_service_tailscale_sha256 | length == 64
+      - sim_cache_service_listen_port | int in range(1, 65536)
+      - >-
+        sim_cache_service_listen_port | int not in
+        [sim_cache_service_s3_port, sim_cache_service_filer_port, sim_cache_service_master_port, sim_cache_service_volume_port]
+      - sim_cache_service_bucket is regex('^[a-z0-9][a-z0-9-]{2,62}$')
+      - sim_cache_service_control_bucket is regex('^[a-z0-9][a-z0-9-]{2,62}$')
+    fail_msg: The sim_cache_service inputs are incomplete or malformed
+
+- name: Assert the secrets reached the role
+  ansible.builtin.assert:
+    that:
+      - sim_cache_secrets.reader_secret is regex('^[A-Za-z0-9]{40,}$')
+      - sim_cache_secrets.writer_secret is regex('^[A-Za-z0-9]{40,}$')
+      - sim_cache_secrets.reader_secret != sim_cache_secrets.writer_secret
+      - sim_cache_secrets.reader_key_id is regex('^[A-Za-z0-9]{20,}$')
+      - sim_cache_secrets.writer_key_id is regex('^[A-Za-z0-9]{20,}$')
+      - sim_cache_secrets.reader_key_id != sim_cache_secrets.writer_key_id
+      - sim_cache_secrets.reader_key_id not in [sim_cache_service_reader_user, sim_cache_service_writer_user]
+      - sim_cache_secrets.writer_key_id not in [sim_cache_service_reader_user, sim_cache_service_writer_user]
+    fail_msg: A secret in iac/secrets/hosts/pve01-simcache.sops.yaml is missing, too short or not alphanumeric; see the apply runbook
+  no_log: true
+
+- name: Look for the tripwire marker
+  ansible.builtin.stat:
+    path: "{{ sim_cache_service_tripwire_marker }}"
+  register: sim_cache_service_marker
+
+- name: Refuse to run while the tripwire is tripped
+  ansible.builtin.assert:
+    that:
+      - not sim_cache_service_marker.stat.exists
+    fail_msg: >-
+      {{ sim_cache_service_tripwire_marker }} exists: read it, find the request in
+      {{ sim_cache_service_log_dir }}/audit.jsonl, then clear the marker (apply runbook, rearm)
+
+- name: Install the packages the role needs
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - iproute2
+      - python3
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the service groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    system: true
+    state: present
+  loop:
+    - "{{ sim_cache_service_group }}"
+    - "{{ sim_cache_service_proxy_group }}"
+
+- name: Create the service users without a shell or a home
+  ansible.builtin.user:
+    name: "{{ item.user }}"
+    group: "{{ item.group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+    password_lock: true
+    state: present
+  loop:
+    - user: "{{ sim_cache_service_user }}"
+      group: "{{ sim_cache_service_group }}"
+    - user: "{{ sim_cache_service_proxy_user }}"
+      group: "{{ sim_cache_service_proxy_group }}"
+  loop_control:
+    label: "{{ item.user }}"
+
+- name: Require the data directory to be the mount point
+  ansible.builtin.command:
+    argv: [mountpoint, -q, "{{ sim_cache_service_data_mount }}"]
+  register: sim_cache_service_mount
+  changed_when: false
+  failed_when: sim_cache_service_mount.rc != 0
+
+- name: Create the data, state, log, configuration and install directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ sim_cache_service_data_dir }}"
+      owner: "{{ sim_cache_service_user }}"
+      group: "{{ sim_cache_service_group }}"
+      mode: "0750"
+    - path: "{{ sim_cache_service_state_dir }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ sim_cache_service_tripwire_dir }}"
+      owner: "{{ sim_cache_service_proxy_user }}"
+      group: "{{ sim_cache_service_proxy_group }}"
+      mode: "0700"
+    - path: "{{ sim_cache_service_log_dir }}"
+      owner: "{{ sim_cache_service_proxy_user }}"
+      group: "{{ sim_cache_service_proxy_group }}"
+      mode: "0750"
+    - path: "{{ sim_cache_service_config_dir }}"
+      owner: root
+      group: "{{ sim_cache_service_group }}"
+      mode: "0750"
+    - path: "{{ sim_cache_service_install_dir }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ sim_cache_service_install_dir }}/{{ sim_cache_service_seaweed_version }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ sim_cache_service_tailscale_dir }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ sim_cache_service_tailscale_state_dir }}"
+      owner: root
+      group: root
+      mode: "0700"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Download the pinned SeaweedFS archive and verify its digest
+  ansible.builtin.get_url:
+    url: "{{ sim_cache_service_seaweed_url }}"
+    dest: "{{ sim_cache_service_install_dir }}/{{ sim_cache_service_seaweed_version }}.tar.gz"
+    checksum: "sha256:{{ sim_cache_service_seaweed_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unpack the weed binary
+  ansible.builtin.unarchive:
+    src: "{{ sim_cache_service_install_dir }}/{{ sim_cache_service_seaweed_version }}.tar.gz"
+    dest: "{{ sim_cache_service_install_dir }}/{{ sim_cache_service_seaweed_version }}"
+    remote_src: true
+    creates: "{{ sim_cache_service_install_dir }}/{{ sim_cache_service_seaweed_version }}/weed"
+
+- name: Download the pinned tailscale archive and verify its digest
+  ansible.builtin.get_url:
+    url: "{{ sim_cache_service_tailscale_url }}"
+    dest: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}.tgz"
+    checksum: "sha256:{{ sim_cache_service_tailscale_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unpack the tailscale binaries
+  ansible.builtin.unarchive:
+    src: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}.tgz"
+    dest: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}"
+    remote_src: true
+    extra_opts: [--strip-components=1]
+    creates: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}/tailscaled"
+
+- name: Point the stable paths at the pinned versions
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+  loop:
+    - src: "{{ sim_cache_service_install_dir }}/{{ sim_cache_service_seaweed_version }}/weed"
+      dest: "{{ sim_cache_service_install_dir }}/weed"
+    - src: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}/tailscaled"
+      dest: "{{ sim_cache_service_tailscale_dir }}/tailscaled"
+    - src: "{{ sim_cache_service_tailscale_dir }}/{{ sim_cache_service_tailscale_version }}/tailscale"
+      dest: "{{ sim_cache_service_tailscale_dir }}/tailscale"
+    - src: "{{ sim_cache_service_tailscale_dir }}/tailscale"
+      dest: /usr/local/bin/tailscale
+  loop_control:
+    label: "{{ item.dest }}"
+  notify: Restart sim cache store
+
+- name: Install the front proxy and tripwire
+  ansible.builtin.copy:
+    src: tripwire.py
+    dest: "{{ sim_cache_service_install_dir }}/tripwire.py"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart sim cache tripwire
+
+- name: Write the S3 identity file with the two keys
+  ansible.builtin.template:
+    src: s3.json.j2
+    dest: "{{ sim_cache_service_s3_config }}"
+    owner: root
+    group: "{{ sim_cache_service_group }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart sim cache store
+
+- name: Write the list of key ids the proxy lets through
+  ansible.builtin.template:
+    src: allowed-keys.j2
+    dest: "{{ sim_cache_service_allowed_keys_file }}"
+    owner: root
+    group: "{{ sim_cache_service_proxy_group }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart sim cache tripwire
+
+- name: Install the systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - src: store.service.j2
+      dest: "{{ sim_cache_service_store_unit }}.service"
+    - src: tripwire.service.j2
+      dest: "{{ sim_cache_service_tripwire_unit }}.service"
+    - src: trip.service.j2
+      dest: "{{ sim_cache_service_trip_unit }}.service"
+    - src: trip-failure.service.j2
+      dest: "{{ sim_cache_service_trip_failure_unit }}.service"
+    - src: trip.path.j2
+      dest: "{{ sim_cache_service_trip_unit }}.path"
+    - src: tailscaled.service.j2
+      dest: tailscaled.service
+  loop_control:
+    label: "{{ item.dest }}"
+  notify:
+    - Restart sim cache store
+    - Restart sim cache tripwire
+
+- name: Apply pending restarts before the readiness checks
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the object store
+  ansible.builtin.systemd_service:
+    name: "{{ sim_cache_service_store_unit }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Enable and start the front proxy and tripwire
+  ansible.builtin.systemd_service:
+    name: "{{ sim_cache_service_tripwire_unit }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Enable and start the watcher that stops the connector on a marker
+  ansible.builtin.systemd_service:
+    name: "{{ sim_cache_service_trip_unit }}.path"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for the store gateway, the filer and the master on loopback
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ item }}"
+    timeout: 120
+  loop:
+    - "{{ sim_cache_service_s3_port }}"
+    - "{{ sim_cache_service_filer_port }}"
+    - "{{ sim_cache_service_master_port }}"
+
+- name: Wait for the proxy on the cache port
+  ansible.builtin.wait_for:
+    host: "{{ sim_cache_endpoint.address }}"
+    port: "{{ sim_cache_service_listen_port | int }}"
+    timeout: 60
+
+- name: List the buckets
+  ansible.builtin.command:
+    argv:
+      - "{{ sim_cache_service_install_dir }}/weed"
+      - shell
+      - "-master=127.0.0.1:{{ sim_cache_service_master_port }}"
+      - "-filer=127.0.0.1:{{ sim_cache_service_filer_port }}"
+    stdin: "s3.bucket.list\n"
+  register: sim_cache_service_buckets
+  changed_when: false
+
+- name: Create the data bucket and the control bucket when missing
+  ansible.builtin.command:
+    argv:
+      - "{{ sim_cache_service_install_dir }}/weed"
+      - shell
+      - "-master=127.0.0.1:{{ sim_cache_service_master_port }}"
+      - "-filer=127.0.0.1:{{ sim_cache_service_filer_port }}"
+    stdin: "s3.bucket.create -name {{ item }}\n"
+  loop:
+    - "{{ sim_cache_service_bucket }}"
+    - "{{ sim_cache_service_control_bucket }}"
+  when: sim_cache_service_buckets.stdout is not regex('(^|\\s)' ~ item ~ '(\\s|$)')
+  changed_when: true
+
+- name: Enable and start the tailnet connector
+  ansible.builtin.systemd_service:
+    name: tailscaled
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Read the connector state
+  ansible.builtin.command:
+    argv:
+      - "{{ sim_cache_service_tailscale_dir }}/tailscale"
+      - --socket=/run/tailscale/tailscaled.sock
+      - status
+      - --json
+  register: sim_cache_service_ts
+  changed_when: false
+  failed_when: false
+
+- name: Join the tailnet with the key injected for this run
+  when: (sim_cache_service_ts.stdout | default('{}', true) | from_json).BackendState | default('') != 'Running'
+  block:
+    - name: Require the injected auth key
+      ansible.builtin.assert:
+        that:
+          - sim_cache_secrets.tailscale_auth_key | default('') | length > 0
+        fail_msg: The connector is not logged in and no tailscale_auth_key was injected for this run
+      no_log: true
+
+    - name: Put the auth key on tmpfs for the join only
+      ansible.builtin.copy:
+        content: "{{ sim_cache_secrets.tailscale_auth_key }}"
+        dest: "{{ sim_cache_service_tailscale_authkey_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Join the tailnet as the tagged cache node, reading the key from the file
+      ansible.builtin.command:
+        argv:
+          - "{{ sim_cache_service_tailscale_dir }}/tailscale"
+          - --socket=/run/tailscale/tailscaled.sock
+          - up
+          - "--auth-key=file:{{ sim_cache_service_tailscale_authkey_file }}"
+          - "--hostname={{ sim_cache_service_tailscale_hostname }}"
+          - "--advertise-tags={{ sim_cache_service_tailscale_tag }}"
+          - --accept-dns=false
+          - --accept-routes=false
+          - --ssh=false
+      changed_when: true
+  always:
+    - name: Remove the auth key file
+      ansible.builtin.file:
+        path: "{{ sim_cache_service_tailscale_authkey_file }}"
+        state: absent

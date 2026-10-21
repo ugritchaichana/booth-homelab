@@ -1,0 +1,52 @@
+---
+sim_cache_service_seaweed_version: "4.48"
+sim_cache_service_seaweed_url: "https://github.com/seaweedfs/seaweedfs/releases/download/{{ sim_cache_service_seaweed_version }}/linux_amd64.tar.gz"
+sim_cache_service_seaweed_sha256: 4a7d108384d044d95212d1342cdda9533fa55842c1c9b41f606ca3c8a9561124
+sim_cache_service_tailscale_version: 1.104.2
+sim_cache_service_tailscale_url: "https://pkgs.tailscale.com/stable/tailscale_{{ sim_cache_service_tailscale_version }}_amd64.tgz"
+sim_cache_service_tailscale_sha256: 512f613ed7d04fc7282f7dc5bd76aa105aae28168fbb9357eb749ebcbc29f0ae
+
+sim_cache_service_user: sim-store
+sim_cache_service_group: sim-store
+sim_cache_service_proxy_user: sim-proxy
+sim_cache_service_proxy_group: sim-proxy
+sim_cache_service_install_dir: /usr/local/lib/sim-cache
+sim_cache_service_data_mount: /var/lib/sim-cache
+sim_cache_service_data_dir: "{{ sim_cache_service_data_mount }}/data"
+sim_cache_service_state_dir: "{{ sim_cache_service_data_mount }}/state"
+sim_cache_service_config_dir: /etc/sim-cache
+sim_cache_service_s3_config: "{{ sim_cache_service_config_dir }}/s3.json"
+sim_cache_service_allowed_keys_file: "{{ sim_cache_service_config_dir }}/allowed-keys"
+sim_cache_service_log_dir: /var/log/sim-cache
+sim_cache_service_memory_max: 768M
+
+sim_cache_service_listen_port: "{{ cache_endpoint.port }}"
+sim_cache_service_s3_port: 8333
+sim_cache_service_filer_port: 8888
+sim_cache_service_master_port: 9333
+sim_cache_service_volume_port: 8082
+sim_cache_service_volume_size_limit_mb: 256
+sim_cache_service_volume_max: 30
+
+sim_cache_service_bucket: sim-cache
+sim_cache_service_control_bucket: sim-control
+sim_cache_service_marker_object: tripwire
+sim_cache_service_reader_user: sim-read
+sim_cache_service_writer_user: sim-write
+sim_cache_service_secret_min_length: 40
+sim_cache_service_reader_actions: ["Read:sim-cache", "List:sim-cache", "Read:sim-control", "List:sim-control"]
+sim_cache_service_writer_actions: ["Write:sim-cache", "Read:sim-cache", "List:sim-cache", "Read:sim-control", "List:sim-control"]
+
+sim_cache_service_store_unit: sim-cache-store
+sim_cache_service_tripwire_unit: sim-cache-tripwire
+sim_cache_service_trip_unit: sim-cache-trip
+sim_cache_service_trip_failure_unit: sim-cache-trip-failure
+sim_cache_service_tripwire_dir: "{{ sim_cache_service_state_dir }}/tripwire"
+sim_cache_service_tripwire_marker: "{{ sim_cache_service_tripwire_dir }}/tripped"
+sim_cache_service_tripwire_log_max_bytes: 67108864
+
+sim_cache_service_tailscale_dir: /usr/local/lib/tailscale
+sim_cache_service_tailscale_state_dir: /var/lib/tailscale
+sim_cache_service_tailscale_tag: tag:lab-cache
+sim_cache_service_tailscale_hostname: sim-cache
+sim_cache_service_tailscale_authkey_file: /run/sim-cache-authkey

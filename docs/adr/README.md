@@ -111,3 +111,5 @@ An architecture decision record (ADR) states one decision, the options that were
 | 0068 | [Turn off Source Link so cached outputs survive a new commit](0068-turn-off-source-link-so-cached-outputs-survive-a-new-commit.md) | Accepted |
 | 0069 | [Size trial guests with fixed memory and no start on boot](0069-size-trial-guests-with-fixed-memory-and-no-start-on-boot.md) | Accepted |
 | 0070 | [Serve the simulation cache from a MinIO container behind one source-limited rule](0070-serve-the-simulation-cache-from-a-minio-container-behind-one-source-limited-rule.md) | Accepted; store superseded by 0072 |
+| 0071 | [Reach the simulation cache over a tailnet connector inside the guest, with a tripwire](0071-reach-the-simulation-cache-over-a-tailnet-connector-inside-the-guest-with-a-tripwire.md) | Accepted; tripwire superseded by 0072 |
+| 0072 | [Replace MinIO with SeaweedFS for the simulation cache and front it with a tripwire proxy](0072-replace-minio-with-seaweedfs-for-the-simulation-cache-and-front-it-with-a-tripwire-proxy.md) | Accepted |

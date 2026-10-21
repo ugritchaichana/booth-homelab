@@ -175,4 +175,90 @@ mutate "the whole guests subnet in the runner set" templates/cluster.fw.j2 "/\[I
 mutate "a wider ingress path" templates/cluster.fw.j2 "/^IN ACCEPT -source {{ pve_firewall_cache_network.gateway }} -p tcp -dport 22/a IN ACCEPT -source {{ pve_firewall_guest_cidr }} -p tcp -dport 9000"
 mutate "the sim rule after the drop" templates/cluster.fw.j2 "/${sim_rule}/d${nl}/^OUT DROP -dest/a {% if pve_firewall_sim_cache_endpoint.address is defined %}${nl}/^OUT DROP -dest/a OUT ACCEPT -source +dc/{{ pve_firewall_sim_cache_ipset }} -dest {{ pve_firewall_sim_cache_endpoint.address }} -p tcp -dport {{ pve_firewall_cache_endpoint.port }}${nl}/^OUT DROP -dest/a {% endif %}"
 mutate "the cache gateway in the runner set" templates/cluster.fw.j2 "/\[IPSET {{ pve_firewall_sim_cache_ipset }}\]/a {{ pve_firewall_cache_network.gateway }}"
+policy="${SIM_CACHE_POLICY_FILE:-$repo/iac/tailnet/sim-cache-policy.json}"
+role_defaults="${SIM_CACHE_DEFAULTS_FILE:-$repo/iac/ansible/roles/sim_cache_service/defaults/main.yml}"
+cat > "$work/policy.py" <<'PY'
+import json
+import sys
+
+import yaml
+
+repo, path, defaults_path = sys.argv[1:4]
+port = str(yaml.safe_load(open(f"{repo}/iac/inventory/hosts.yml", encoding="utf-8"))["all"]["children"]["pve_hosts"]["hosts"]["pve01"]["cache_endpoint"]["port"])
+defaults = yaml.safe_load(open(defaults_path, encoding="utf-8"))
+store_ports = sorted({defaults[k] for k in ("sim_cache_service_s3_port", "sim_cache_service_filer_port", "sim_cache_service_master_port", "sim_cache_service_volume_port")})
+# every port the store opens, each with its gRPC twin (http port + 10000), plus the ports a shell, a web server or a proxy might add
+denied_ports = sorted(set(store_ports) | {p + 10000 for p in store_ports} | {22, 80, 443})
+errors = []
+try:
+    text = open(path, encoding="utf-8").read()
+    doc = json.loads(text)
+except (OSError, ValueError) as err:
+    print("the tailnet policy snippet is unreadable: %s" % err)
+    sys.exit(1)
+
+if set(doc) != {"tagOwners", "grants", "tests"}:
+    errors.append("the snippet holds %r, expected exactly tagOwners, grants and tests (no acls)" % sorted(doc))
+if "*" in text:
+    errors.append("the snippet must not contain a wildcard")
+if set(doc.get("tagOwners", {})) != {"tag:ci-sim", "tag:lab-cache"}:
+    errors.append("tagOwners must name exactly tag:ci-sim and tag:lab-cache")
+grants = doc.get("grants", [])
+if len(grants) != 1 or grants[0] != {"src": ["tag:ci-sim"], "dst": ["tag:lab-cache"], "ip": ["tcp:" + port]}:
+    errors.append("grants must be exactly one: tag:ci-sim to tag:lab-cache on tcp:%s, found %r" % (port, grants))
+tests = doc.get("tests", [])
+
+
+def entry(src):
+    found = [t for t in tests if t.get("src") == src]
+    return found[0] if found else {}
+
+
+forward, member, reverse = entry("tag:ci-sim"), entry("autogroup:member"), entry("tag:lab-cache")
+if "tag:lab-cache:" + port not in forward.get("accept", []):
+    errors.append("a tests entry must assert tag:ci-sim reaches tag:lab-cache:%s" % port)
+for number in denied_ports:
+    if f"tag:lab-cache:{number}" not in forward.get("deny", []):
+        errors.append("the tag:ci-sim test must deny tag:lab-cache:%d" % number)
+    if f"tag:lab-cache:{number}" not in member.get("deny", []):
+        errors.append("the autogroup:member test must deny tag:lab-cache:%d" % number)
+if "tag:lab-cache:" + port not in member.get("deny", []) or "accept" in member:
+    errors.append("a tests entry must assert a member identity is denied the cache port tag:lab-cache:%s" % port)
+if not reverse.get("deny") or "accept" in reverse:
+    errors.append("a tests entry must assert tag:lab-cache may not open any connection")
+if errors:
+    print("\n".join(errors))
+    sys.exit(1)
+PY
+
+policy_verify() { python3 -I "$work/policy.py" "$repo" "$1" "${2:-$role_defaults}"; }
+policy_verify "$policy" || { echo "FAIL: the tailnet policy snippet does not meet the contract" >&2; exit 1; }
+echo "ok: the tailnet snippet grants one tag to one tag on the cache port and asserts the denials"
+
+policy_mutate() {
+  local label="$1" expr="$2"
+  sed -e "$expr" "$policy" > "$work/policy-mut.json"
+  if cmp -s "$policy" "$work/policy-mut.json"; then echo "FAIL: policy mutation '$label' changed nothing" >&2; exit 1; fi
+  if policy_verify "$work/policy-mut.json" > "$work/mut.log" 2>&1; then echo "FAIL: policy mutation '$label' was not caught" >&2; exit 1; fi
+  echo "ok: policy mutation '$label' is rejected: $(head -n1 "$work/mut.log")"
+}
+policy_mutate "any source" 's/"src": \["tag:ci-sim"\]/"src": ["*"]/'
+policy_mutate "any destination" 's/"dst": \["tag:lab-cache"\]/"dst": ["*"]/'
+policy_mutate "a second port" 's/"ip": \["tcp:8080"\]/"ip": ["tcp:8080", "tcp:22"]/'
+policy_mutate "every port" 's/"ip": \["tcp:8080"\]/"ip": ["*"]/'
+policy_mutate "another port" 's/"ip": \["tcp:8080"\]/"ip": ["tcp:9000"]/'
+policy_mutate "a rule with the cache tag as source" 's/^{\r\?$/{\n  "acls": [{"action": "accept", "src": ["tag:lab-cache"], "dst": ["tag:ci-sim:8080"]}],/'
+policy_mutate "a member identity granted every port" 's/^  "grants": \[\r\?$/  "grants": [{"src": ["autogroup:member"], "dst": ["tag:lab-cache"], "ip": ["*"]},/'
+policy_mutate "a member identity granted every tcp port" 's/^  "grants": \[\r\?$/  "grants": [{"src": ["autogroup:member"], "dst": ["tag:lab-cache"], "ip": ["tcp:*"]},/'
+policy_mutate "a member identity granted the cache port" 's/^  "grants": \[\r\?$/  "grants": [{"src": ["autogroup:member"], "dst": ["tag:lab-cache"], "ip": ["tcp:8080"]},/'
+policy_mutate "the assertions removed" 's/"tests": \[/"tests-removed": [/'
+policy_mutate "the reverse assertion dropped" 's/"src": "tag:lab-cache"/"src": "tag:other"/'
+policy_mutate "the member assertion dropped" 's/"src": "autogroup:member"/"src": "tag:other"/'
+policy_mutate "a store grpc port left out" 's/, "tag:lab-cache:18333"//g'
+policy_mutate "the filer port left out" 's/, "tag:lab-cache:8888"//g'
+policy_mutate "a stale port of the previous store" 's/"tag:lab-cache:9333"/"tag:lab-cache:9001"/g'
+sed -e 's/^sim_cache_service_filer_port: 8888/sim_cache_service_filer_port: 8889/' "$role_defaults" > "$work/defaults-mut.yml"
+cmp -s "$role_defaults" "$work/defaults-mut.yml" && { echo "FAIL: the defaults mutation changed nothing" >&2; exit 1; }
+if policy_verify "$policy" "$work/defaults-mut.yml" > "$work/mut.log" 2>&1; then echo "FAIL: a store port the policy does not list was not caught" >&2; exit 1; fi
+echo "ok: a store port the policy does not list is rejected: $(head -n1 "$work/mut.log")"
 echo "OK: the sim cache firewall path"

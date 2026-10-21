@@ -1,0 +1,36 @@
+# Managed by the sim_cache_service role
+[Unit]
+Description=SeaweedFS simulation cache {{ sim_cache_service_seaweed_version }} (master, volume, filer and S3 gateway, loopback only)
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor={{ sim_cache_service_data_mount }}
+
+[Service]
+Type=simple
+User={{ sim_cache_service_user }}
+Group={{ sim_cache_service_group }}
+WorkingDirectory={{ sim_cache_service_data_mount }}
+Environment=GOMEMLIMIT=600MiB
+ExecStart={{ sim_cache_service_install_dir }}/weed server -ip=127.0.0.1 -ip.bind=127.0.0.1 -dir={{ sim_cache_service_data_dir }} -master.port={{ sim_cache_service_master_port }} -master.volumeSizeLimitMB={{ sim_cache_service_volume_size_limit_mb }} -master.telemetry=false -volume.port={{ sim_cache_service_volume_port }} -volume.max={{ sim_cache_service_volume_max }} -filer -filer.port={{ sim_cache_service_filer_port }} -filer.tusBasePath= -s3 -s3.port={{ sim_cache_service_s3_port }} -s3.config={{ sim_cache_service_s3_config }} -s3.iam=false -s3.autoCreateBucket=false -s3.port.iceberg=0 -s3.port.lance=0
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={{ sim_cache_service_data_mount }}
+PrivateTmp=true
+ProtectHome=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax={{ sim_cache_service_memory_max }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+PrivateDevices=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

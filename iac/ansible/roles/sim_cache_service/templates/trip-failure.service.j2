@@ -1,0 +1,12 @@
+# Managed by the sim_cache_service role
+[Unit]
+Description=Count a failure of the sim cache proxy as a trip: leave the marker, the watcher stops the connector
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/touch {{ sim_cache_service_tripwire_marker }}
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={{ sim_cache_service_tripwire_dir }}
+PrivateTmp=true
+ProtectHome=true

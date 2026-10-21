@@ -1,0 +1,10 @@
+# Managed by the sim_cache_service role
+[Unit]
+Description=Watch the tripwire directory for a new marker
+
+[Path]
+PathChanged={{ sim_cache_service_tripwire_dir }}
+Unit={{ sim_cache_service_trip_unit }}.service
+
+[Install]
+WantedBy=multi-user.target
