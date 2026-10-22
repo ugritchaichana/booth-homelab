@@ -199,8 +199,10 @@ except (OSError, ValueError) as err:
 
 if set(doc) != {"tagOwners", "grants", "tests"}:
     errors.append("the snippet holds %r, expected exactly tagOwners, grants and tests (no acls)" % sorted(doc))
-if "*" in text:
-    errors.append("the snippet must not contain a wildcard")
+# a wildcard may only appear in a test that denies; every grant, tag owner and accept list stays literal
+literal = {k: v for k, v in doc.items() if k != "tests"}
+if "*" in json.dumps(literal) or any("*" in str(t.get("accept", [])) for t in doc.get("tests", [])):
+    errors.append("the snippet must not contain a wildcard outside a deny test")
 if set(doc.get("tagOwners", {})) != {"tag:ci-sim", "tag:lab-cache"}:
     errors.append("tagOwners must name exactly tag:ci-sim and tag:lab-cache")
 grants = doc.get("grants", [])
@@ -222,6 +224,11 @@ for number in denied_ports:
         errors.append("the tag:ci-sim test must deny tag:lab-cache:%d" % number)
     if f"tag:lab-cache:{number}" not in member.get("deny", []):
         errors.append("the autogroup:member test must deny tag:lab-cache:%d" % number)
+# the hosted runners join with --accept-routes and the full policy may still hold an allow-all: tag:ci-sim must be denied every member
+# device (the PVE UI forward on 8006, ssh) and every cache-node port but the cache port, as a range on each side of it
+for needle in ("autogroup:member:*", "autogroup:member:22", "autogroup:member:8006", f"tag:lab-cache:1-{int(port) - 1}", f"tag:lab-cache:{int(port) + 1}-65535"):
+    if needle not in forward.get("deny", []):
+        errors.append("the tag:ci-sim test must deny %s" % needle)
 if "tag:lab-cache:" + port not in member.get("deny", []) or "accept" in member:
     errors.append("a tests entry must assert a member identity is denied the cache port tag:lab-cache:%s" % port)
 if not reverse.get("deny") or "accept" in reverse:
@@ -253,6 +260,12 @@ policy_mutate "a member identity granted every tcp port" 's/^  "grants": \[\r\?$
 policy_mutate "a member identity granted the cache port" 's/^  "grants": \[\r\?$/  "grants": [{"src": ["autogroup:member"], "dst": ["tag:lab-cache"], "ip": ["tcp:8080"]},/'
 policy_mutate "the assertions removed" 's/"tests": \[/"tests-removed": [/'
 policy_mutate "the reverse assertion dropped" 's/"src": "tag:lab-cache"/"src": "tag:other"/'
+policy_mutate "every member device no longer denied to the hosted runners" 's/"autogroup:member:\*", //'
+policy_mutate "the pve ui forward no longer denied to the hosted runners" 's/"autogroup:member:8006", //'
+policy_mutate "ssh to a member device no longer denied to the hosted runners" 's/"autogroup:member:22", //'
+policy_mutate "the ports below the cache port no longer denied" 's/, "tag:lab-cache:1-8079"//'
+policy_mutate "the ports above the cache port no longer denied" 's/, "tag:lab-cache:8081-65535"//'
+policy_mutate "a wildcard in an accept list" 's/"accept": \["tag:lab-cache:8080"\]/"accept": ["tag:lab-cache:*"]/'
 policy_mutate "the member assertion dropped" 's/"src": "autogroup:member"/"src": "tag:other"/'
 policy_mutate "a store grpc port left out" 's/, "tag:lab-cache:18333"//g'
 policy_mutate "the filer port left out" 's/, "tag:lab-cache:8888"//g'

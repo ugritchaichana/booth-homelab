@@ -14,7 +14,7 @@
     {
       "src": "tag:ci-sim",
       "accept": ["tag:lab-cache:8080"],
-      "deny": ["tag:lab-cache:22", "tag:lab-cache:80", "tag:lab-cache:443", "tag:lab-cache:8082", "tag:lab-cache:8333", "tag:lab-cache:8888", "tag:lab-cache:9333", "tag:lab-cache:18082", "tag:lab-cache:18333", "tag:lab-cache:18888", "tag:lab-cache:19333"]
+      "deny": ["autogroup:member:*", "autogroup:member:22", "autogroup:member:8006", "tag:lab-cache:22", "tag:lab-cache:80", "tag:lab-cache:443", "tag:lab-cache:8082", "tag:lab-cache:8333", "tag:lab-cache:8888", "tag:lab-cache:9333", "tag:lab-cache:18082", "tag:lab-cache:18333", "tag:lab-cache:18888", "tag:lab-cache:19333", "tag:lab-cache:1-8079", "tag:lab-cache:8081-65535"]
     },
     {
       "src": "autogroup:member",
