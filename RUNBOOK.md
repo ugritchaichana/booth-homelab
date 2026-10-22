@@ -336,6 +336,140 @@ A guest sized by a cloud flavor from `iac/tofu/flavors.json` (ADR 0055). Role: o
 
 To remove a guest, delete its entry from `guests.yml` and run `bash scripts/iac/tofu.sh guest pve01 apply`. Updating a role and class keeps its slot; omitting `--version` returns the guest to the current template.
 
+### 2.11 Simulation cache (`sim-cache`, VMID 9051, vnet `cache`)
+
+A SeaweedFS container beside the build cache serves the CI simulation: lab trial guests reach it through one source-limited firewall rule, hosted runners through a tailnet connector inside the container (ADR 0070, 0071, 0072). A front proxy on the cache port audits every request and trips on an unauthenticated or unknown-key one; the store itself listens on loopback. Nothing in this section runs in CI; every step needs the real host. Role for every step: operator (WSL) unless named. Never run anything of this section on the Windows workstation: no tailnet client is used there for this cache.
+
+Owner actions before step 3, in this order (A is a decision, B, C and D are in the tailnet admin console):
+
+| # | Owner action | Evidence it is done |
+|---|---|---|
+| A | Accept or replace the binary pin. SeaweedFS 4.48 ships `linux_amd64.tar.gz` with an md5 sidecar only (no sha256, no signature, no attestation); the pinned sha256 is that of the file read on 2026-10-21 and its md5 matched the sidecar. To raise the root of trust, build the tag yourself and replace `sim_cache_service_seaweed_*` in `iac/ansible/roles/sim_cache_service/defaults/main.yml` and the digest in `tests/isolation/test-sim-cache-role.sh` | the owner's answer; if replaced, `bash tests/isolation/test-sim-cache-role.sh` passes against the new pin |
+| B | Before saving, remove or narrow every allow-all rule (an accept rule whose source or destination is `*`, including the default one): `tag:lab-cache` must never be a source. The hosted runners (`tag:ci-sim`) join through the pinned tailnet action, which puts `--accept-routes` first on its `tailscale up` line; the testinfra workflow appends `--accept-routes=false` after it. That the last flag wins is a HYPOTHESIS until row p of step 10 reads it back, so until then treat the runners as accepting routes: anything wider than the one grant reaches your devices, the PVE UI forward on 8006 and ssh. Then paste `iac/tailnet/sim-cache-policy.json`: merge `tagOwners`, `grants` and `tests`. Save: the `tests` block must pass, including the denials of `tag:ci-sim` to `autogroup:member:*` and to every `tag:lab-cache` port but 8080 | the console accepts the save; the version history lists the edit; a save with an allow-all left in place is refused by the `tests` block |
+| C | Mint one auth key for the container itself: pre-authorized, not reusable, not ephemeral, expiry one day, tag `tag:lab-cache`. Keep it in the console until step 7 | the key shows `tag:lab-cache` and one use left |
+| D | Let the hosted runners join as `tag:ci-sim` without a stored key, through workload-identity federation on the GitHub OIDC token. Subject: exactly these two strings, no wildcard, no match on `job_workflow_ref`: `repo:<testinfra>:environment:sim-cache-read` and `repo:<testinfra>:environment:sim-cache-write`, where `<testinfra>` is the testinfra repository's `owner/name` character for character as `github.repository` prints it. Its reusable workflow is public, so any repository can call it; the caller's repository is what lands in the subject, so a wider subject admits other repositories. Audience: the value stored in the testinfra secret `SIM_TAILNET_AUDIENCE`, which the workflow passes as `audience`. Give the identity ownership of `tag:ci-sim` only. Store `SIM_TAILNET_CLIENT_ID` and `SIM_TAILNET_AUDIENCE` as environment secrets in both `sim-cache-read` and `sim-cache-write` of the testinfra repository, not in `sim-cache-lab` (lab runs do not join the tailnet) and not as repository secrets: the sim gate's called workflows pass no `secrets:`, so only environment secrets reach the join step. If the console takes one subject per identity, create one identity per subject and store each identity's values in its own environment. Never an auth key or an OAuth client secret for `tag:ci-sim` | the console shows those two subjects and nothing else, the stored audience, and ownership of `tag:ci-sim` only; no long-lived auth key or OAuth client secret exists for `tag:ci-sim`; rows n and o of step 10 pass |
+
+1. Offline gate. The last command runs the pinned binary on loopback in a temporary directory and drives the identity file and the proxy with real signed requests; it needs the extracted `weed` binary and touches no host.
+
+   ```sh
+   bash tests/isolation/test-sim-cache-firewall.sh
+   bash tests/isolation/test-sim-cache-role.sh
+   bash tests/isolation/test-cluster-fw-render.sh
+   bash tests/isolation/test-guest-fw-guard.sh
+   bash tests/isolation/test-render-ssh-config.sh
+   ansible-lint --profile production iac/ansible
+   SIM_CACHE_WEED_BIN=/path/to/extracted/weed bash tests/isolation/test-sim-cache-role.sh
+   ```
+
+   Rollback: none, nothing has changed.
+
+2. Create the secrets file, once. The four values are random alphanumerics of 48 characters: two secret keys and two access key ids. The repository is public, so the ids are held like the secrets (the testinfra side keeps each id and secret pair in GitHub secrets); only the identity names `sim-read` and `sim-write` are public. Each value goes through stdin, never argv, and nothing is printed. Commit the encrypted file.
+
+   ```sh
+   f=iac/secrets/hosts/pve01-simcache.sops.yaml
+   printf 'reader_secret: placeholder\n' | sops encrypt --filename-override "$f" --input-type yaml --output-type yaml --output "$f" /dev/stdin
+   for k in reader_secret writer_secret reader_key_id writer_key_id; do
+     head -c 96 /dev/urandom | base64 -w0 | tr -d '/+=' | cut -c1-48 | sed 's/.*/"&"/' | sops set --value-stdin "$f" "[\"$k\"]"
+   done
+   ```
+
+   Rollback: `rm iac/secrets/hosts/pve01-simcache.sops.yaml` before the commit; after it, `git revert` the commit.
+
+3. Converge the host so that `guest-egress` carries the one added line and the `sim-runners` set. The firewall change runs behind the dead-man of ADR 0027; until the container exists the rule points at an unused address.
+
+   ```sh
+   bash scripts/iac/ansible.sh site.yml
+   $pve sudo grep -A5 'IPSET sim-runners' /etc/pve/firewall/cluster.fw
+   $pve sudo grep -c 'sim-runners' /etc/pve/firewall/cluster.fw
+   ```
+
+   Expected: five addresses in the set, exactly one `OUT ACCEPT -source +dc/sim-runners -dest 10.99.17.11 -p tcp -dport 8080` line (the count is 2: the set header and that line), the last guard line `ok, N guest(s) checked`, `changed=0` on a second run. Rollback: remove `sim_cache_endpoint` and `sim_cache_sources` from `iac/inventory/hosts.yml`, then run `bash scripts/iac/ansible.sh site.yml` again; if SSH to the host is lost, the dead-man restores the previous files within 10 minutes.
+
+4. Create the container, stopped.
+
+   ```sh
+   export TF_VAR_ssh_public_keys='["<automation public key>"]'
+   bash scripts/iac/tofu.sh sim-cache pve01 init
+   bash scripts/iac/tofu.sh sim-cache pve01 plan
+   bash scripts/iac/tofu.sh sim-cache pve01 apply
+   ```
+
+   Expected: the plan adds one container, its firewall options and its two group rules, and nothing else. Rollback: `bash scripts/iac/tofu.sh sim-cache pve01 destroy`.
+
+5. Start gate: reads the firewall back and starts the container only if both groups, the policy and the `cache` bridge hold.
+
+   ```sh
+   bash scripts/iac/ansible.sh iac/ansible/playbooks/sim-cache.yml -i iac/inventory/hosts.yml -i iac/inventory/sim-cache.yml -l pve01
+   ```
+
+   Rollback: `$pve sudo pct stop 9051`.
+
+6. Pin the container's host key, render the SSH config and test the login.
+
+   ```sh
+   $pve sudo pct exec 9051 -- cat /etc/ssh/ssh_host_ed25519_key.pub \
+     | awk '{print "ssh_host_ed25519_public: " $1 " " $2}' \
+     | sops encrypt --filename-override iac/secrets/hosts/simcache-ssh.sops.yaml --input-type yaml --output-type yaml --output iac/secrets/hosts/simcache-ssh.sops.yaml /dev/stdin
+   bash scripts/iac/render-ssh-config.sh
+   ssh -F ~/.config/homelab/ssh_config sim-cache true
+   ```
+
+   Expected: `rendered 3 host(s)` (the host, the build cache and the sim cache) and the login exits 0. Rollback: `rm iac/secrets/hosts/simcache-ssh.sops.yaml && bash scripts/iac/render-ssh-config.sh`.
+
+7. Store the join key for this run only. `read -rs` keeps it off the screen and off argv.
+
+   ```sh
+   read -rs TS_KEY; printf '"%s"' "$TS_KEY" | sops set --value-stdin iac/secrets/hosts/pve01-simcache.sops.yaml '["tailscale_auth_key"]'; unset TS_KEY
+   ```
+
+   Rollback: `sops unset iac/secrets/hosts/pve01-simcache.sops.yaml '["tailscale_auth_key"]'`.
+
+8. Converge the service. It installs the pinned binaries, writes the identity file and the units, starts the store, the proxy and the marker watcher, creates the two buckets, starts the connector and joins the tailnet. The second run must end `changed=0`.
+
+   ```sh
+   bash scripts/iac/ansible.sh iac/ansible/playbooks/sim-cache.yml -i iac/inventory/hosts.yml -i iac/inventory/sim-cache.yml
+   bash scripts/iac/ansible.sh iac/ansible/playbooks/sim-cache.yml -i iac/inventory/hosts.yml -i iac/inventory/sim-cache.yml
+   ```
+
+   Rollback, in this order: `$pve sudo pct exec 9051 -- systemctl disable --now tailscaled sim-cache-trip.path sim-cache-tripwire sim-cache-store`, then the owner removes the node `sim-cache` in the console.
+
+9. Remove the join key everywhere. Owner: revoke the key in the console if it still shows a use. Operator: `sops unset iac/secrets/hosts/pve01-simcache.sops.yaml '["tailscale_auth_key"]'` and commit.
+
+10. Verify. Read the measured outcomes against the expected column; any difference stops the rollout.
+
+    | # | Check | Command or action | Expected |
+    |---|---|---|---|
+    | a | A trial guest reaches the S3 port | on a trial guest: `nc -zv -w3 10.99.17.11 8080` | open |
+    | b | The same guest cannot reach the store's own ports, ssh or a second port | `nc -zv -w3 10.99.17.11 8333`, `... 8888`, `... 9333`, `... 22`, `... 8081` | each refused or timed out |
+    | c | A guest that is not a trial runner is refused | on `ci-lxc-runner` (slot 3): `nc -zv -w3 10.99.17.11 8080` | timed out; the build cache at `10.99.17.10:8080` still answers |
+    | d | Identities hold | with the reader key put an object; with the writer key put to `sim-cache/probe` and to `sim-control/x` | reader: AccessDenied; writer: the first succeeds, the second is denied |
+    | e | No anonymous access | unsigned `GET /sim-cache/` from a trial guest | 403, and within a second the proxy has written `/var/lib/sim-cache/state/tripwire/tripped`, the watcher has stopped `tailscaled` and the object `sim-control/tripwire` exists |
+    | f | No false trip while idle | leave the store 10 minutes | no marker |
+    | g | The tailnet leg | after the rearm below: from a `tag:ci-sim` node list the bucket with the reader key; from an untagged node connect | listing succeeds; refused |
+    | h | No path out of the guest into the tailnet and nothing exposed but the proxy | `$pve sudo pct exec 9051 -- ss -ltn` | no `socks` listener, every store port on `127.0.0.1`, only the proxy on `0.0.0.0:8080` (the one listener that is not loopback) |
+    | i | A proxy failure counts as a trip | `$pve sudo pct exec 9051 -- pkill -9 -f tripwire.py`, then `systemctl is-active tailscaled`, `ls /var/lib/sim-cache/state/tripwire/` and, once the watcher ran, the object `sim-control/tripwire` | `inactive`, a `tripped` file, the object exists; the proxy stays down until the rearm |
+    | j | The store's own ports are not on the tailnet grant | from a `tag:ci-sim` node: `nc -zv -w5 <sim-cache tailnet name> 9333` (and 8333, 8888, 8082) | times out; only 8080 answers |
+    | k | The control bucket is not reachable as a path through the proxy | with the writer key: `GET /buckets/sim-control/tripwire` on port 8080 | 404 `NoSuchBucket` (the S3 gateway reads `buckets` as a bucket name; the filer path is not exposed) |
+    | l | The old public key names no longer work | a signed request with `Credential=sim-read/...` on port 8080 | 403, no request reaches the store, a marker appears (rearm before the next row) |
+    | m | Two Authorization headers | `curl -H 'Authorization: x' -H 'Authorization: x' http://10.99.17.11:8080/` from a trial guest | 403 and a marker (rearm after) |
+    | n | The federated identity trusts only the two environments | owner: open the identity of action D in the tailnet admin console and read its subject, audience and tags | the subjects are exactly `repo:<testinfra>:environment:sim-cache-read` and `repo:<testinfra>:environment:sim-cache-write`, no `*`; the audience equals the stored `SIM_TAILNET_AUDIENCE`; the only tag is `tag:ci-sim` |
+    | o | A job outside both environments cannot join (red check) | in the testinfra repository, copy the `sim-cache-read` values into temporary repository secrets `SIM_TAILNET_CLIENT_ID` and `SIM_TAILNET_AUDIENCE`, then push a throwaway branch with a standalone workflow (not a called one) triggered by `push` to it: one job with `permissions: id-token: write` and no `environment:` (its subject ends `:ref:refs/heads/<branch>`), running the pinned tailnet step with the same `oauth-client-id`, `audience` and `tags` as the sim gate; then add `environment: sim-cache-read` to the job and push again (from a branch the environment allows, if it limits branches). Afterwards delete the branch, the two temporary repository secrets and any node it created | without the environment the join step fails on the token exchange, not on a missing input; with it, the join succeeds. A join without the environment means a subject is too wide: remove the node, narrow the identity, run again |
+    | p | Hosted runners do not accept routes | in the job of row o with the environment, after the join: `sudo tailscale debug prefs \| grep RouteAll` | `"RouteAll": false`; `true` means the action's leading `--accept-routes` wins over the workflow's trailing `--accept-routes=false`, and action B's narrowed policy is then the only containment |
+
+    These statements are HYPOTHESIS until these checks run: the host firewall honours `-source` on an `OUT` rule inside a group (row c; a rejected line fails `pve-firewall compile`, which the role's verify step reads); the userspace connector forwards inbound tailnet connections to `127.0.0.1` (row g); `tailscale up` accepts `--auth-key=file:` (step 8; the play fails on its own if not); the path unit fires on the proxy's rename of the marker (row e); `OnFailure=` runs for a proxy killed with signal 9 or by the memory limit, which is why the unit sets `Restart=no` (row i); `tailscale up` keeps the last of the two `--accept-routes` flags on a hosted runner (row p); the proxy keeps up with objects of several hundred megabytes (measured only at 5 MiB).
+
+11. Rearm after a trip, an owner decision after reading `/var/lib/sim-cache/state/tripwire/tripped` and the matching line in `/var/log/sim-cache/audit.jsonl`.
+
+    ```sh
+    $pve sudo pct exec 9051 -- curl -fsS -X DELETE http://127.0.0.1:8888/buckets/sim-control/tripwire
+    $pve sudo pct exec 9051 -- rm /var/lib/sim-cache/state/tripwire/tripped
+    $pve sudo pct exec 9051 -- systemctl start tailscaled
+    ```
+
+    Delete the object first: until it is gone the next gate run still reads a trip. Removing the marker does not stop the connector again (the trip service skips when the marker is absent). After a proxy failure the marker is an empty file and the proxy is down: read `journalctl -u sim-cache-tripwire -b` for the cause, then also run `$pve sudo pct exec 9051 -- systemctl start sim-cache-tripwire` before starting the connector (the connector is bound to the proxy and does not start without it).
+
+Full rollback, one command per layer, in this order: stop the four units (step 8), remove the node in the console, `bash scripts/iac/tofu.sh sim-cache pve01 destroy`, remove the two inventory keys and run `bash scripts/iac/ansible.sh site.yml`, restore the previous policy file from the console's version history.
+
 ## 3. Day-2 operations
 
 ### 3.1 The VM: start, stop, status, checkpoint

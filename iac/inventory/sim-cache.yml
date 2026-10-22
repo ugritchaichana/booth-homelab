@@ -1,0 +1,14 @@
+---
+all:
+  children:
+    sim_cache:
+      hosts:
+        sim-cache:
+          ansible_host: "{{ hostvars['pve01'].sim_cache_endpoint.address }}"
+          ansible_user: root
+          ssh_key_name: homelab_pve01_ed25519
+      vars:
+        cache_endpoint: "{{ hostvars['pve01'].cache_endpoint }}"
+        sim_cache_endpoint: "{{ hostvars['pve01'].sim_cache_endpoint }}"
+        sim_cache_secrets: "{{ lookup('community.sops.sops', inventory_dir ~ '/../secrets/hosts/pve01-simcache.sops.yaml') | from_yaml }}"
+        sim_cache_vmid: 9051
