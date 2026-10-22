@@ -1,0 +1,13 @@
+# Managed by the sim_cache_service role
+[Unit]
+Description=Stop the tailnet connector and publish the tripwire marker
+ConditionPathExists={{ sim_cache_service_tripwire_marker }}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl stop tailscaled.service
+ExecStart=-/usr/bin/curl -fsS --max-time 20 -X PUT --data-binary @{{ sim_cache_service_tripwire_marker }} http://127.0.0.1:{{ sim_cache_service_filer_port }}/buckets/{{ sim_cache_service_control_bucket }}/{{ sim_cache_service_marker_object }}
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+ProtectHome=true

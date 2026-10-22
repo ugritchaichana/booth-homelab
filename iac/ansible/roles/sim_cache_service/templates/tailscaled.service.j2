@@ -1,0 +1,28 @@
+# Managed by the sim_cache_service role
+[Unit]
+Description=Tailnet connector of the simulation cache (userspace networking, {{ sim_cache_service_tailscale_tag }})
+After=network-online.target {{ sim_cache_service_tripwire_unit }}.service
+Wants=network-online.target
+BindsTo={{ sim_cache_service_tripwire_unit }}.service
+ConditionPathExists=!{{ sim_cache_service_tripwire_marker }}
+
+[Service]
+Type=simple
+ExecStart={{ sim_cache_service_tailscale_dir }}/tailscaled --state={{ sim_cache_service_tailscale_state_dir }}/tailscaled.state --socket=/run/tailscale/tailscaled.sock --tun=userspace-networking
+RuntimeDirectory=tailscale
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={{ sim_cache_service_tailscale_state_dir }}
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+PrivateDevices=yes
+LockPersonality=yes
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+---
+- name: Restart sim cache store
+  ansible.builtin.systemd_service:
+    name: "{{ sim_cache_service_store_unit }}"
+    state: restarted
+    daemon_reload: true
+
+- name: Restart sim cache tripwire
+  ansible.builtin.systemd_service:
+    name: "{{ sim_cache_service_tripwire_unit }}"
+    state: restarted
+    daemon_reload: true

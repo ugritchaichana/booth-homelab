@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "{{ sim_cache_service_reader_user }}",
+      "credentials": [{"accessKey": "{{ sim_cache_secrets.reader_key_id }}", "secretKey": "{{ sim_cache_secrets.reader_secret }}"}],
+      "actions": {{ sim_cache_service_reader_actions | to_json }}
+    },
+    {
+      "name": "{{ sim_cache_service_writer_user }}",
+      "credentials": [{"accessKey": "{{ sim_cache_secrets.writer_key_id }}", "secretKey": "{{ sim_cache_secrets.writer_secret }}"}],
+      "actions": {{ sim_cache_service_writer_actions | to_json }}
+    }
+  ]
+}
